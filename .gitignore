@@ -43,3 +43,10 @@ secrets.yaml
 !.claude/rules/**
 !.claude/skills/
 !.claude/skills/**
+
+# Force-include paths that match global gitignore patterns (lib/, Packages/)
+# macOS case-insensitive FS causes global patterns to block these
+!packages/
+!packages/**
+!apps/web/src/lib/
+!apps/web/src/lib/**
