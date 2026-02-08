@@ -56,6 +56,17 @@
 
   <div class="flex-1"></div>
 
+  <!-- Normalize toggle -->
+  <button
+    onclick={() => session.normalized = !session.normalized}
+    class="px-2 py-1 rounded text-viewer-sm transition-colors {session.normalized ? 'bg-indigo-500/20 text-indigo-400' : 'text-viewer-text-dim hover:text-viewer-text'}"
+    title="Normalize track scales to fit data range (N)"
+  >
+    Normalize
+  </button>
+
+  <div class="w-px h-6 bg-viewer-border"></div>
+
   <!-- Zoom control -->
   <div class="flex items-center gap-2">
     <span class="text-viewer-sm text-viewer-text-dim">Zoom</span>

@@ -28,7 +28,7 @@
 		const ctx = canvasEl.getContext('2d')!;
 		ctx.scale(dpr, dpr);
 		ctx.clearRect(0, 0, w, h);
-		draw(ctx, w, h, { scrollLeft: timeline.scrollLeft, zoom: timeline.zoom, duration: timeline.duration, containerWidth: timeline.containerWidth });
+		draw(ctx, w, h, { scrollLeft: timeline.clampedScrollLeft, zoom: timeline.zoom, duration: timeline.duration, containerWidth: timeline.containerWidth });
 	}
 
 	function animationLoop() {

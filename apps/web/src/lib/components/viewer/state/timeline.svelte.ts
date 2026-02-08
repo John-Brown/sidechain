@@ -9,12 +9,22 @@ export class TimelineState {
 
   private zoomInitialized = false;
 
+  /** Maximum valid scrollLeft for current zoom/duration/container */
+  get maxScrollLeft(): number {
+    return Math.max(0, this.duration * this.zoom - this.containerWidth);
+  }
+
+  /** scrollLeft clamped to valid range — use for viewport calculations */
+  get clampedScrollLeft(): number {
+    return Math.max(0, Math.min(this.scrollLeft, this.maxScrollLeft));
+  }
+
   get viewStartTime(): number {
-    return this.scrollLeft / this.zoom;
+    return this.clampedScrollLeft / this.zoom;
   }
 
   get viewEndTime(): number {
-    return (this.scrollLeft + this.containerWidth) / this.zoom;
+    return (this.clampedScrollLeft + this.containerWidth) / this.zoom;
   }
 
   timeToPx(time: number): number {

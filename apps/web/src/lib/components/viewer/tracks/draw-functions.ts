@@ -77,12 +77,14 @@ export function drawVad(
 	height: number,
 	viewport: Viewport,
 	data: VadFrame[],
-	palette: ViewerPalette
+	palette: ViewerPalette,
+	normalizeMax?: number
 ): void {
 	if (!data || data.length === 0) return;
 
 	const { zoom } = viewport;
 	const { viewStart, viewEnd } = viewBounds(viewport);
+	const scale = normalizeMax ? 1 / normalizeMax : 1;
 
 	const startIdx = binarySearchStart(data, viewStart);
 	const endIdx = binarySearchEnd(data, viewEnd);
@@ -92,19 +94,22 @@ export function drawVad(
 		const frame = data[i];
 		const x = timeToPx(frame.time_range.start, zoom);
 		const w = Math.max(timeToPx(frame.time_range.end - frame.time_range.start, zoom), 1);
-		const h = frame.speech_probability * (height - 4);
+		const h = Math.min(frame.speech_probability * scale, 1) * (height - 4);
 		ctx.fillRect(x, height - h - 2, w, h);
 	}
 
-	// Threshold line at 0.5
-	const thresholdY = height - 0.5 * (height - 4) - 2;
-	ctx.strokeStyle = palette.vadThreshold;
-	ctx.setLineDash([3, 3]);
-	ctx.beginPath();
-	ctx.moveTo(0, thresholdY);
-	ctx.lineTo(width, thresholdY);
-	ctx.stroke();
-	ctx.setLineDash([]);
+	// Threshold line at 0.5 (skip if scaled threshold exceeds track)
+	const scaledThreshold = 0.5 * scale;
+	if (scaledThreshold <= 1) {
+		const thresholdY = height - scaledThreshold * (height - 4) - 2;
+		ctx.strokeStyle = palette.vadThreshold;
+		ctx.setLineDash([3, 3]);
+		ctx.beginPath();
+		ctx.moveTo(0, thresholdY);
+		ctx.lineTo(width, thresholdY);
+		ctx.stroke();
+		ctx.setLineDash([]);
+	}
 }
 
 export function drawDiarization(
@@ -157,11 +162,13 @@ export function drawWaveform(
 	peaksL: Float32Array,
 	peaksR: Float32Array | null,
 	peaksSampleRate: number,
-	palette: ViewerPalette
+	palette: ViewerPalette,
+	normalizeMax?: number
 ): void {
 	if (!peaksL || peaksL.length === 0) return;
 
 	const { scrollLeft, zoom, containerWidth } = viewport;
+	const scale = normalizeMax ? 1 / normalizeMax : 1;
 	// Only draw the visible pixel range
 	const pxStart = Math.max(0, Math.floor(scrollLeft));
 	const pxEnd = Math.min(width, Math.ceil(scrollLeft + containerWidth));
@@ -172,11 +179,11 @@ export function drawWaveform(
 
 		// Left channel (top)
 		ctx.fillStyle = palette.waveformL;
-		drawChannelBars(ctx, peaksL, peaksSampleRate, zoom, pxStart, pxEnd, 0, halfH, false);
+		drawChannelBars(ctx, peaksL, peaksSampleRate, zoom, pxStart, pxEnd, 0, halfH, false, scale);
 
 		// Right channel (bottom)
 		ctx.fillStyle = palette.waveformR;
-		drawChannelBars(ctx, peaksR, peaksSampleRate, zoom, pxStart, pxEnd, halfH, halfH, true);
+		drawChannelBars(ctx, peaksR, peaksSampleRate, zoom, pxStart, pxEnd, halfH, halfH, true, scale);
 
 		// Center line
 		ctx.strokeStyle = palette.waveformCenter;
@@ -195,7 +202,7 @@ export function drawWaveform(
 			if (sampleIdx < 0 || sampleIdx >= peaksL.length) continue;
 
 			const peak = peaksL[sampleIdx];
-			const barH = peak * (centerY - 2);
+			const barH = Math.min(peak * scale, 1) * (centerY - 2);
 			ctx.fillRect(px, centerY - barH, 1, barH * 2);
 		}
 
@@ -217,7 +224,8 @@ function drawChannelBars(
 	pxEnd: number,
 	yOffset: number,
 	halfH: number,
-	fromTop: boolean
+	fromTop: boolean,
+	scale: number = 1
 ): void {
 	for (let px = pxStart; px < pxEnd; px++) {
 		const time = px / zoom;
@@ -225,7 +233,7 @@ function drawChannelBars(
 		if (sampleIdx < 0 || sampleIdx >= peaks.length) continue;
 
 		const peak = peaks[sampleIdx];
-		const barH = peak * (halfH - 2);
+		const barH = Math.min(peak * scale, 1) * (halfH - 2);
 		if (fromTop) {
 			ctx.fillRect(px, yOffset, 1, barH);
 		} else {
@@ -240,12 +248,14 @@ export function drawMouthEnergy(
 	height: number,
 	viewport: Viewport,
 	data: MouthEnergySegment[],
-	palette: ViewerPalette
+	palette: ViewerPalette,
+	normalizeMax?: number
 ): void {
 	if (!data || data.length === 0) return;
 
 	const { zoom } = viewport;
 	const { viewStart, viewEnd } = viewBounds(viewport);
+	const scale = normalizeMax ? 1 / normalizeMax : 1;
 
 	const startIdx = binarySearchStart(data, viewStart);
 	const endIdx = binarySearchEnd(data, viewEnd);
@@ -261,7 +271,8 @@ export function drawMouthEnergy(
 		const seg = data[i];
 		const midpoint = (seg.time_range.start + seg.time_range.end) / 2;
 		const x = timeToPx(midpoint, zoom);
-		const y = height - (seg.mouth_energy.mouth_energy * (height - 8)) - 4;
+		const val = Math.min(seg.mouth_energy.mouth_energy * scale, 1);
+		const y = height - (val * (height - 8)) - 4;
 
 		if (!started) {
 			ctx.moveTo(x, y);
@@ -276,12 +287,8 @@ export function drawMouthEnergy(
 
 // --- Head Pose (from facial tracking) ---
 
-// Head pose angles are roughly +/-60 deg. Normalize to 0-1 range for drawing.
-const POSE_RANGE = 60; // degrees
-
-function normalizePose(degrees: number): number {
-	return Math.max(0, Math.min(1, (degrees + POSE_RANGE) / (POSE_RANGE * 2)));
-}
+// Default head pose range: +/-60 degrees
+const DEFAULT_POSE_RANGE = 60;
 
 export function drawHeadPose(
 	ctx: CanvasRenderingContext2D,
@@ -289,13 +296,22 @@ export function drawHeadPose(
 	height: number,
 	viewport: Viewport,
 	data: FacialTrackingFrame[],
-	palette: ViewerPalette
+	palette: ViewerPalette,
+	normalizeRange?: { min: number; max: number }
 ): void {
 	if (!data || data.length === 0) return;
 
 	const { scrollLeft, zoom, containerWidth } = viewport;
 	const viewStart = scrollLeft / zoom;
 	const viewEnd = (scrollLeft + containerWidth) / zoom;
+
+	const pMin = normalizeRange ? normalizeRange.min : -DEFAULT_POSE_RANGE;
+	const pMax = normalizeRange ? normalizeRange.max : DEFAULT_POSE_RANGE;
+	const pRange = pMax - pMin || 1;
+
+	function normalizePose(degrees: number): number {
+		return Math.max(0, Math.min(1, (degrees - pMin) / pRange));
+	}
 
 	// Binary search for viewport culling — FacialTrackingFrame has `time` not `time_range`
 	let startIdx = 0;
@@ -323,15 +339,18 @@ export function drawHeadPose(
 
 	if (startIdx > endIdx) return;
 
-	// Center line (0 deg = center)
-	const centerY = height / 2;
-	ctx.strokeStyle = palette.centerLine;
-	ctx.setLineDash([2, 4]);
-	ctx.beginPath();
-	ctx.moveTo(Math.max(0, scrollLeft), centerY);
-	ctx.lineTo(Math.min(width, scrollLeft + containerWidth), centerY);
-	ctx.stroke();
-	ctx.setLineDash([]);
+	// Center line at 0 degrees
+	const zeroNorm = normalizePose(0);
+	if (zeroNorm > 0 && zeroNorm < 1) {
+		const centerY = height - zeroNorm * (height - 8) - 4;
+		ctx.strokeStyle = palette.centerLine;
+		ctx.setLineDash([2, 4]);
+		ctx.beginPath();
+		ctx.moveTo(Math.max(0, scrollLeft), centerY);
+		ctx.lineTo(Math.min(width, scrollLeft + containerWidth), centerY);
+		ctx.stroke();
+		ctx.setLineDash([]);
+	}
 
 	// Draw each axis as a line
 	const axisColors = [palette.headPitch, palette.headYaw, palette.headRoll];

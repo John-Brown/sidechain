@@ -6,8 +6,11 @@ import { PIPELINE_STAGES } from "@annotation/shared";
 import type { PipelineStage } from "@annotation/shared";
 import { protectedProcedure, router } from "../trpc.js";
 import { getObject } from "../../s3.js";
+import { createCachedS3Getter } from "../../s3-cache.js";
 import { ROOT_STAGES, STAGE_RESULT_KEYS } from "../../pipeline/dag.js";
 import { triggerStage, triggerReadyStages } from "../../pipeline/trigger.js";
+
+const cachedGetObject = createCachedS3Getter(getObject);
 
 export const processingRouter = router({
   triggerPipeline: protectedProcedure
@@ -65,6 +68,11 @@ export const processingRouter = router({
           })
           .returning();
         createdJobs.push(job);
+      }
+
+      // Invalidate S3 cache for all stages being re-triggered
+      for (const job of createdJobs) {
+        if (job.resultS3Key) cachedGetObject.invalidate(job.resultS3Key);
       }
 
       // Update video status to processing
@@ -141,6 +149,9 @@ export const processingRouter = router({
           },
         })
         .returning();
+
+      // Invalidate S3 cache for the retried stage
+      cachedGetObject.invalidate(resultS3Key);
 
       // Fire-and-forget with cascade
       triggerStage(ctx.db, video.id, video.s3Key, stage, job.id)
@@ -224,7 +235,7 @@ export const processingRouter = router({
 
       if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
 
-      return getObject(job.resultS3Key);
+      return cachedGetObject.get(job.resultS3Key);
     }),
 
   getAllResults: protectedProcedure
@@ -267,7 +278,7 @@ export const processingRouter = router({
       const resultEntries = await Promise.all(
         completedJobs.map(async (j) => {
           try {
-            const data = await getObject(j.resultS3Key!);
+            const data = await cachedGetObject.get(j.resultS3Key!);
             return [j.stage, data] as const;
           } catch (err) {
             console.error(`[getAllResults] Failed to fetch ${j.stage} from S3 (key: ${j.resultS3Key}):`, err);

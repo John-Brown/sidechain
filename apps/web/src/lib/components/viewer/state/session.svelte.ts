@@ -10,6 +10,12 @@ export class SessionState {
   waveformSampleRate = $state(0); // peaks per second
   waveformLoading = $state(false);
 
+  // Waveform normalization
+  waveformMaxPeak = $state(1);
+
+  // Track normalization toggle
+  normalized = $state(false);
+
   // Picture-in-Picture
   pipActive = $state(false);
   pipSupported = $state(false);

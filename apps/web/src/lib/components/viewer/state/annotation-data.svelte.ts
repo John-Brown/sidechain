@@ -19,6 +19,12 @@ export class AnnotationDataState {
   stateAnnotation = $state<StateAnnotationResult | null>(null);
   intentClassification = $state<IntentClassificationResult | null>(null);
 
+  // Precomputed normalization ranges (set when data loads)
+  vadMax = $state(1);
+  mouthEnergyMax = $state(1);
+  headPoseMin = $state(-60);
+  headPoseMax = $state(60);
+
   loadStatus = $state<Record<PipelineStage, LoadStatus>>({
     vad: 'idle',
     transcription: 'idle',

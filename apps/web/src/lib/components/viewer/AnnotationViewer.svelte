@@ -33,6 +33,8 @@
   import TrackContent from './tracks/TrackContent.svelte';
   import { drawRuler, drawVad, drawMouthEnergy, drawWaveform, drawHeadPose } from './tracks/draw-functions.js';
   import { extractWaveform } from './utils/extract-waveform.js';
+  import { getWaveformFromCache, setWaveformInCache } from './utils/waveform-cache.js';
+  import { getCachedAnnotation, setCachedAnnotation } from './utils/annotation-cache.js';
   import { getTheme } from '$lib/stores/theme.svelte';
   import { PALETTE_DARK, PALETTE_LIGHT } from './viewer-palette.js';
   import { browser } from '$app/environment';
@@ -83,6 +85,8 @@
   let labelColumnEl: HTMLDivElement;
   let loadError = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  // Maps stage → completedAt ISO string for cache keying
+  let completedAtMap: Record<string, string> = {};
 
   // Track visibility: show when loading, loaded, OR error (so user can see failures)
   function isTrackVisible(status: string): boolean {
@@ -108,20 +112,30 @@
 
   function drawWaveformTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
     if (session.waveformPeaksL) {
-      drawWaveform(ctx, w, h, vp, session.waveformPeaksL, session.waveformPeaksR, session.waveformSampleRate, palette);
+      drawWaveform(ctx, w, h, vp, session.waveformPeaksL, session.waveformPeaksR, session.waveformSampleRate, palette,
+        session.normalized ? session.waveformMaxPeak : undefined);
     }
   }
 
   function drawVadTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.vad?.frames) drawVad(ctx, w, h, vp, annotations.vad.frames, palette);
+    if (annotations.vad?.frames) {
+      drawVad(ctx, w, h, vp, annotations.vad.frames, palette,
+        session.normalized ? annotations.vadMax : undefined);
+    }
   }
 
   function drawMouthEnergyTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.mouthEnergy?.data) drawMouthEnergy(ctx, w, h, vp, annotations.mouthEnergy.data, palette);
+    if (annotations.mouthEnergy?.data) {
+      drawMouthEnergy(ctx, w, h, vp, annotations.mouthEnergy.data, palette,
+        session.normalized ? annotations.mouthEnergyMax : undefined);
+    }
   }
 
   function drawHeadPoseTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.facialTracking?.data) drawHeadPose(ctx, w, h, vp, annotations.facialTracking.data, palette);
+    if (annotations.facialTracking?.data) {
+      drawHeadPose(ctx, w, h, vp, annotations.facialTracking.data, palette,
+        session.normalized ? { min: annotations.headPoseMin, max: annotations.headPoseMax } : undefined);
+    }
   }
 
   // --- DOM track helpers ---
@@ -214,6 +228,10 @@
         e.preventDefault();
         togglePip();
         break;
+      case 'KeyN':
+        e.preventDefault();
+        session.normalized = !session.normalized;
+        break;
     }
   }
 
@@ -225,7 +243,10 @@
     const rightEdge = timeline.containerWidth - 100;
 
     if (playheadX > rightEdge) {
-      const newScrollLeft = timeline.timeToPx(timeline.currentTime) - 100;
+      const newScrollLeft = Math.min(
+        timeline.timeToPx(timeline.currentTime) - 100,
+        timeline.maxScrollLeft
+      );
       timeline.scrollLeft = newScrollLeft;
       timelineContainerEl.scrollLeft = newScrollLeft;
     }
@@ -258,14 +279,83 @@
     }
   });
 
-  // --- Waveform extraction ---
+  // --- Normalization range computation ---
+  function computeDataRanges() {
+    if (annotations.vad?.frames) {
+      let max = 0;
+      for (const frame of annotations.vad.frames) {
+        if (frame.speech_probability > max) max = frame.speech_probability;
+      }
+      annotations.vadMax = max || 1;
+    }
+
+    if (annotations.mouthEnergy?.data) {
+      let max = 0;
+      for (const seg of annotations.mouthEnergy.data) {
+        if (seg.mouth_energy.mouth_energy > max) max = seg.mouth_energy.mouth_energy;
+      }
+      annotations.mouthEnergyMax = max || 1;
+    }
+  }
+
+  function computeHeadPoseRange() {
+    if (!annotations.facialTracking?.data) return;
+    let min = Infinity, max = -Infinity;
+    for (const frame of annotations.facialTracking.data) {
+      if (!frame.facial_tracking.tracking.face_detected) continue;
+      for (const angle of frame.facial_tracking.tracking.head_pose.rotation) {
+        if (angle < min) min = angle;
+        if (angle > max) max = angle;
+      }
+    }
+    if (min !== Infinity) {
+      const padding = (max - min) * 0.1 || 1;
+      annotations.headPoseMin = min - padding;
+      annotations.headPoseMax = max + padding;
+    }
+  }
+
+  // --- Waveform extraction (with IndexedDB cache) ---
   async function loadWaveform(url: string) {
     session.waveformLoading = true;
     try {
+      // Check cache first
+      const cached = await getWaveformFromCache(props.videoId);
+      if (cached) {
+        console.log('[viewer] Waveform loaded from cache');
+        session.waveformPeaksL = cached.peaksL;
+        session.waveformPeaksR = cached.peaksR;
+        session.waveformSampleRate = cached.sampleRate;
+        session.waveformMaxPeak = cached.maxPeak;
+        return;
+      }
+
+      // Cache miss — extract from video
       const waveform = await extractWaveform(url);
       session.waveformPeaksL = waveform.peaksL;
       session.waveformPeaksR = waveform.peaksR;
       session.waveformSampleRate = waveform.sampleRate;
+
+      // Compute peak max for normalization
+      let maxPeak = 0;
+      for (let i = 0; i < waveform.peaksL.length; i++) {
+        if (waveform.peaksL[i] > maxPeak) maxPeak = waveform.peaksL[i];
+      }
+      if (waveform.peaksR) {
+        for (let i = 0; i < waveform.peaksR.length; i++) {
+          if (waveform.peaksR[i] > maxPeak) maxPeak = waveform.peaksR[i];
+        }
+      }
+      session.waveformMaxPeak = maxPeak || 1;
+
+      // Store in cache (fire-and-forget)
+      setWaveformInCache(props.videoId, {
+        peaksL: waveform.peaksL,
+        peaksR: waveform.peaksR,
+        sampleRate: waveform.sampleRate,
+        duration: timeline.duration,
+        maxPeak: session.waveformMaxPeak,
+      });
     } catch {
       // Waveform is non-critical — fail silently
     } finally {
@@ -279,12 +369,31 @@
     status.facial_tracking = 'loading';
     annotations.loadStatus = status;
     try {
+      // Check annotation cache first
+      const completedAt = completedAtMap['facial_tracking'];
+      if (completedAt) {
+        const cached = await getCachedAnnotation<FacialTrackingResult>(props.videoId, 'facial_tracking', completedAt);
+        if (cached) {
+          console.log('[viewer] facial_tracking loaded from cache');
+          annotations.facialTracking = cached;
+          annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'loaded' };
+          computeHeadPoseRange();
+          return;
+        }
+      }
+
       const data = await trpc.processing.getResults.query({
         videoId: props.videoId,
         stage: 'facial_tracking',
       });
       annotations.facialTracking = data as FacialTrackingResult;
       annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'loaded' };
+      computeHeadPoseRange();
+
+      // Cache for next load (fire-and-forget)
+      if (completedAt) {
+        setCachedAnnotation(props.videoId, 'facial_tracking', completedAt, data);
+      }
     } catch {
       annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'error' };
     }
@@ -307,6 +416,16 @@
 
       // Start waveform extraction (non-blocking)
       loadWaveform(streamInfo.url);
+
+      // Build completedAt map for cache keying
+      completedAtMap = {};
+      for (const job of videoInfo.processingJobs) {
+        if (job.status === 'completed' && job.completedAt) {
+          completedAtMap[job.stage] = job.completedAt instanceof Date
+            ? job.completedAt.toISOString()
+            : String(job.completedAt);
+        }
+      }
 
       // Set initial load statuses from existing jobs
       let hasFacialTracking = false;
@@ -347,6 +466,36 @@
 
   async function loadResults() {
     try {
+      // Try loading all non-facial-tracking stages from annotation cache
+      const stagesWithCache = Object.entries(completedAtMap).filter(([stage]) => stage !== 'facial_tracking');
+      const cachedResults: Record<string, unknown> = {};
+      let allCached = stagesWithCache.length > 0;
+
+      for (const [stage, completedAt] of stagesWithCache) {
+        const cached = await getCachedAnnotation(props.videoId, stage, completedAt);
+        if (cached) {
+          cachedResults[stage] = cached;
+        } else {
+          allCached = false;
+        }
+      }
+
+      if (allCached && stagesWithCache.length > 0) {
+        // All completed stages were in cache — skip tRPC call entirely
+        console.log('[viewer] All annotation results loaded from cache:', Object.keys(cachedResults));
+        assignResults(cachedResults);
+        const status = { ...annotations.loadStatus };
+        for (const stage of Object.keys(cachedResults)) {
+          if (stage in status) {
+            (status as Record<string, string>)[stage] = 'loaded';
+          }
+        }
+        annotations.loadStatus = status;
+        computeDataRanges();
+        return;
+      }
+
+      // Cache miss on at least one stage — fetch from server
       const { results, jobStatuses } = await trpc.processing.getAllResults.query({
         videoId: props.videoId,
       });
@@ -375,16 +524,28 @@
       annotations.loadStatus = status;
       console.log('[viewer] Final load statuses:', { ...status });
 
-      // Assign results to state
-      if (results.vad) annotations.vad = results.vad as VadResult;
-      if (results.transcription) annotations.transcription = results.transcription as TranscriptionResult;
-      if (results.diarization) annotations.diarization = results.diarization as DiarizationResult;
-      if (results.mouth_energy) annotations.mouthEnergy = results.mouth_energy as MouthEnergyResult;
-      if (results.state_annotation) annotations.stateAnnotation = results.state_annotation as StateAnnotationResult;
-      if (results.intent_classification) annotations.intentClassification = results.intent_classification as IntentClassificationResult;
+      assignResults(results);
+      computeDataRanges();
+
+      // Cache fetched results for next load (fire-and-forget)
+      for (const [stage, data] of Object.entries(results)) {
+        const completedAt = completedAtMap[stage];
+        if (completedAt && data) {
+          setCachedAnnotation(props.videoId, stage, completedAt, data);
+        }
+      }
     } catch (e) {
       console.error('[viewer] loadResults failed:', e);
     }
+  }
+
+  function assignResults(results: Record<string, unknown>) {
+    if (results.vad) annotations.vad = results.vad as VadResult;
+    if (results.transcription) annotations.transcription = results.transcription as TranscriptionResult;
+    if (results.diarization) annotations.diarization = results.diarization as DiarizationResult;
+    if (results.mouth_energy) annotations.mouthEnergy = results.mouth_energy as MouthEnergyResult;
+    if (results.state_annotation) annotations.stateAnnotation = results.state_annotation as StateAnnotationResult;
+    if (results.intent_classification) annotations.intentClassification = results.intent_classification as IntentClassificationResult;
   }
 
   async function pollForUpdates() {
