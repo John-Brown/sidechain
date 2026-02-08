@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getTimelineState, getSessionState } from './context.js';
   import { formatTimePrecise } from './utils/format-time.js';
+  import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
   interface Props {
     onTogglePlay: () => void;
@@ -49,7 +50,7 @@
   </button>
 
   <!-- Time display -->
-  <span class="text-xs font-mono text-viewer-text tabular-nums w-28 text-center">
+  <span class="text-xs text-viewer-text tabular-nums w-28 text-center">
     {formatTimePrecise(timeline.currentTime)} / {formatTimePrecise(timeline.duration)}
   </span>
 
@@ -57,7 +58,7 @@
 
   <!-- Zoom control -->
   <div class="flex items-center gap-2">
-    <span class="text-[10px] text-viewer-text-dim">Zoom</span>
+    <span class="text-viewer-sm text-viewer-text-dim">Zoom</span>
     <input
       type="range"
       min="0.5"
@@ -67,8 +68,11 @@
       oninput={handleZoomInput}
       class="w-24 h-1 accent-indigo-500"
     />
-    <span class="text-[10px] font-mono text-viewer-text-dim w-10">{timeline.zoom.toFixed(1)}x</span>
+    <span class="text-viewer-sm tabular-nums text-viewer-text-dim w-10">{timeline.zoom.toFixed(1)}x</span>
   </div>
+
+  <!-- Theme toggle -->
+  <ThemeToggle />
 
   <!-- PiP toggle -->
   {#if session.pipSupported}

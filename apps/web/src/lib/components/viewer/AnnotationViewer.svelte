@@ -33,6 +33,9 @@
   import TrackContent from './tracks/TrackContent.svelte';
   import { drawRuler, drawVad, drawMouthEnergy, drawWaveform, drawHeadPose } from './tracks/draw-functions.js';
   import { extractWaveform } from './utils/extract-waveform.js';
+  import { getTheme } from '$lib/stores/theme.svelte';
+  import { PALETTE_DARK, PALETTE_LIGHT } from './viewer-palette.js';
+  import { browser } from '$app/environment';
 
   import './viewer.css';
 
@@ -51,6 +54,21 @@
   setTimelineState(timeline);
   setAnnotationDataState(annotations);
   setSessionState(session);
+
+  // Theme-aware palette for canvas draw functions
+  const theme = getTheme();
+  let prefersDark = $state(browser ? window.matchMedia('(prefers-color-scheme: dark)').matches : true);
+
+  if (browser) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      prefersDark = e.matches;
+    });
+  }
+
+  const isDark = $derived(
+    theme.value === 'dark' || (theme.value === 'system' && prefersDark)
+  );
+  const palette = $derived(isDark ? PALETTE_DARK : PALETTE_LIGHT);
 
   // tRPC client
   const supabase = createSupabaseBrowserClient();
@@ -83,27 +101,27 @@
   // Total timeline width in pixels
   const timelineWidth = $derived(timeline.timeToPx(timeline.duration));
 
-  // --- Draw function wrappers that capture annotation data ---
+  // --- Draw function wrappers that capture annotation data + palette ---
   function drawRulerTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    drawRuler(ctx, w, h, vp);
+    drawRuler(ctx, w, h, vp, palette);
   }
 
   function drawWaveformTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
     if (session.waveformPeaksL) {
-      drawWaveform(ctx, w, h, vp, session.waveformPeaksL, session.waveformPeaksR, session.waveformSampleRate);
+      drawWaveform(ctx, w, h, vp, session.waveformPeaksL, session.waveformPeaksR, session.waveformSampleRate, palette);
     }
   }
 
   function drawVadTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.vad?.frames) drawVad(ctx, w, h, vp, annotations.vad.frames);
+    if (annotations.vad?.frames) drawVad(ctx, w, h, vp, annotations.vad.frames, palette);
   }
 
   function drawMouthEnergyTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.mouthEnergy?.data) drawMouthEnergy(ctx, w, h, vp, annotations.mouthEnergy.data);
+    if (annotations.mouthEnergy?.data) drawMouthEnergy(ctx, w, h, vp, annotations.mouthEnergy.data, palette);
   }
 
   function drawHeadPoseTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.facialTracking?.data) drawHeadPose(ctx, w, h, vp, annotations.facialTracking.data);
+    if (annotations.facialTracking?.data) drawHeadPose(ctx, w, h, vp, annotations.facialTracking.data, palette);
   }
 
   // --- DOM track helpers ---
@@ -486,7 +504,7 @@
               <CanvasTrack height={64} draw={drawWaveformTrack} onScrub={handleScrub} />
             {:else}
               <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
+                <span class="text-viewer-sm text-viewer-text-dim">
                   {session.waveformLoading ? 'Extracting audio...' : ''}
                 </span>
               </div>
@@ -500,11 +518,11 @@
                 <CanvasTrack height={48} draw={drawVadTrack} onScrub={handleScrub} />
               {:else if annotations.loadStatus.vad === 'error'}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-red-400">Failed to load VAD data</span>
+                  <span class="text-viewer-sm text-red-400">Failed to load VAD data</span>
                 </div>
               {:else}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                  <span class="text-viewer-sm text-viewer-text-dim">Loading...</span>
                 </div>
               {/if}
             </TrackContent>
@@ -517,11 +535,11 @@
                 <CanvasTrack height={64} draw={drawHeadPoseTrack} onScrub={handleScrub} />
               {:else if annotations.loadStatus.facial_tracking === 'error'}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-red-400">Failed to load head pose data</span>
+                  <span class="text-viewer-sm text-red-400">Failed to load head pose data</span>
                 </div>
               {:else}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                  <span class="text-viewer-sm text-viewer-text-dim">Loading...</span>
                 </div>
               {/if}
             </TrackContent>
@@ -534,11 +552,11 @@
                 <CanvasTrack draw={drawMouthEnergyTrack} onScrub={handleScrub} />
               {:else if annotations.loadStatus.mouth_energy === 'error'}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-red-400">Failed to load mouth energy data</span>
+                  <span class="text-viewer-sm text-red-400">Failed to load mouth energy data</span>
                 </div>
               {:else}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                  <span class="text-viewer-sm text-viewer-text-dim">Loading...</span>
                 </div>
               {/if}
             </TrackContent>
@@ -558,11 +576,11 @@
                 />
               {:else if annotations.loadStatus.transcription === 'error'}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-red-400">Failed to load transcription data</span>
+                  <span class="text-viewer-sm text-red-400">Failed to load transcription data</span>
                 </div>
               {:else}
                 <div class="w-full h-full flex items-center justify-center">
-                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                  <span class="text-viewer-sm text-viewer-text-dim">Loading...</span>
                 </div>
               {/if}
             </TrackContent>

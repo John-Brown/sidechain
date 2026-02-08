@@ -8,7 +8,7 @@
 </script>
 
 <div
-  class="flex items-center px-3 text-[11px] font-mono text-viewer-text-dim border-r border-b border-viewer-border bg-viewer-surface"
+  class="flex items-center px-3 text-viewer-base text-viewer-text-dim border-r border-b border-viewer-border bg-viewer-surface"
   style="height: {height}px"
 >
   {label}

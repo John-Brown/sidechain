@@ -1,6 +1,7 @@
 import { binarySearchStart, binarySearchEnd } from '../utils/binary-search.js';
 import type { Viewport } from '../types.js';
 import type { VadFrame, DiarizationSegment, MouthEnergySegment, FacialTrackingFrame } from '@annotation/shared';
+import type { ViewerPalette } from '../viewer-palette.js';
 
 function timeToPx(time: number, zoom: number): number {
 	return time * zoom;
@@ -23,7 +24,8 @@ export function drawRuler(
 	ctx: CanvasRenderingContext2D,
 	width: number,
 	height: number,
-	viewport: Viewport
+	viewport: Viewport,
+	palette: ViewerPalette
 ): void {
 	const { scrollLeft, zoom, duration, containerWidth } = viewport;
 
@@ -37,7 +39,7 @@ export function drawRuler(
 
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'top';
-	ctx.font = '9px monospace';
+	ctx.font = '9px "Inter Variable", sans-serif';
 
 	for (let t = 0; t <= duration; t += tickInterval) {
 		const x = timeToPx(t, zoom);
@@ -48,7 +50,7 @@ export function drawRuler(
 		const isMajor = tickIndex % majorEvery === 0;
 
 		if (isMajor) {
-			ctx.strokeStyle = '#4a5068';
+			ctx.strokeStyle = palette.gridMajor;
 			ctx.beginPath();
 			ctx.moveTo(x, height);
 			ctx.lineTo(x, height - 16);
@@ -57,10 +59,10 @@ export function drawRuler(
 			const minutes = Math.floor(t / 60);
 			const seconds = Math.floor(t % 60);
 			const label = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-			ctx.fillStyle = '#8b90a0';
+			ctx.fillStyle = palette.rulerLabel;
 			ctx.fillText(label, x, 2);
 		} else {
-			ctx.strokeStyle = '#2e3345';
+			ctx.strokeStyle = palette.gridMinor;
 			ctx.beginPath();
 			ctx.moveTo(x, height);
 			ctx.lineTo(x, height - 8);
@@ -74,7 +76,8 @@ export function drawVad(
 	width: number,
 	height: number,
 	viewport: Viewport,
-	data: VadFrame[]
+	data: VadFrame[],
+	palette: ViewerPalette
 ): void {
 	if (!data || data.length === 0) return;
 
@@ -84,7 +87,7 @@ export function drawVad(
 	const startIdx = binarySearchStart(data, viewStart);
 	const endIdx = binarySearchEnd(data, viewEnd);
 
-	ctx.fillStyle = 'rgba(99, 102, 241, 0.6)';
+	ctx.fillStyle = palette.vadFill;
 	for (let i = startIdx; i <= endIdx && i < data.length; i++) {
 		const frame = data[i];
 		const x = timeToPx(frame.time_range.start, zoom);
@@ -95,7 +98,7 @@ export function drawVad(
 
 	// Threshold line at 0.5
 	const thresholdY = height - 0.5 * (height - 4) - 2;
-	ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+	ctx.strokeStyle = palette.vadThreshold;
 	ctx.setLineDash([3, 3]);
 	ctx.beginPath();
 	ctx.moveTo(0, thresholdY);
@@ -104,24 +107,24 @@ export function drawVad(
 	ctx.setLineDash([]);
 }
 
-const SPEAKER_COLORS: Record<string, { bg: string; border: string }> = {
-	SPEAKER_00: { bg: 'rgba(34, 211, 238, 0.3)', border: 'rgba(34, 211, 238, 0.6)' },
-	SPEAKER_01: { bg: 'rgba(244, 114, 182, 0.3)', border: 'rgba(244, 114, 182, 0.6)' }
-};
-const DEFAULT_SPEAKER_COLOR = { bg: 'rgba(100, 116, 139, 0.2)', border: 'rgba(100, 116, 139, 0.4)' };
-
 export function drawDiarization(
 	ctx: CanvasRenderingContext2D,
 	width: number,
 	height: number,
 	viewport: Viewport,
-	data: DiarizationSegment[]
+	data: DiarizationSegment[],
+	palette: ViewerPalette
 ): void {
 	if (!data || data.length === 0) return;
 
 	const { scrollLeft, zoom, containerWidth } = viewport;
 
-	ctx.font = '9px monospace';
+	const speakerColors: Record<string, { bg: string; border: string }> = {
+		SPEAKER_00: palette.speaker0,
+		SPEAKER_01: palette.speaker1,
+	};
+
+	ctx.font = '9px "Inter Variable", sans-serif';
 	ctx.textBaseline = 'middle';
 
 	for (const seg of data) {
@@ -131,7 +134,7 @@ export function drawDiarization(
 		if (x + w < scrollLeft || x > scrollLeft + containerWidth) continue;
 
 		const speaker = seg.diarization.speaker;
-		const colors = SPEAKER_COLORS[speaker] ?? DEFAULT_SPEAKER_COLOR;
+		const colors = speakerColors[speaker] ?? palette.speakerDefault;
 
 		ctx.fillStyle = colors.bg;
 		ctx.fillRect(x, 4, w, height - 8);
@@ -153,7 +156,8 @@ export function drawWaveform(
 	viewport: Viewport,
 	peaksL: Float32Array,
 	peaksR: Float32Array | null,
-	peaksSampleRate: number
+	peaksSampleRate: number,
+	palette: ViewerPalette
 ): void {
 	if (!peaksL || peaksL.length === 0) return;
 
@@ -167,15 +171,15 @@ export function drawWaveform(
 		const halfH = height / 2;
 
 		// Left channel (top)
-		ctx.fillStyle = 'rgba(34, 211, 238, 0.5)';
+		ctx.fillStyle = palette.waveformL;
 		drawChannelBars(ctx, peaksL, peaksSampleRate, zoom, pxStart, pxEnd, 0, halfH, false);
 
 		// Right channel (bottom)
-		ctx.fillStyle = 'rgba(244, 114, 182, 0.5)';
+		ctx.fillStyle = palette.waveformR;
 		drawChannelBars(ctx, peaksR, peaksSampleRate, zoom, pxStart, pxEnd, halfH, halfH, true);
 
 		// Center line
-		ctx.strokeStyle = '#2e3345';
+		ctx.strokeStyle = palette.waveformCenter;
 		ctx.beginPath();
 		ctx.moveTo(pxStart, halfH);
 		ctx.lineTo(pxEnd, halfH);
@@ -183,7 +187,7 @@ export function drawWaveform(
 	} else {
 		// Mono: mirrored around center
 		const centerY = height / 2;
-		ctx.fillStyle = 'rgba(99, 102, 241, 0.5)';
+		ctx.fillStyle = palette.waveformMono;
 
 		for (let px = pxStart; px < pxEnd; px++) {
 			const time = px / zoom;
@@ -196,7 +200,7 @@ export function drawWaveform(
 		}
 
 		// Center line
-		ctx.strokeStyle = 'rgba(46, 51, 69, 0.5)';
+		ctx.strokeStyle = palette.centerLine;
 		ctx.beginPath();
 		ctx.moveTo(pxStart, centerY);
 		ctx.lineTo(pxEnd, centerY);
@@ -235,7 +239,8 @@ export function drawMouthEnergy(
 	width: number,
 	height: number,
 	viewport: Viewport,
-	data: MouthEnergySegment[]
+	data: MouthEnergySegment[],
+	palette: ViewerPalette
 ): void {
 	if (!data || data.length === 0) return;
 
@@ -247,7 +252,7 @@ export function drawMouthEnergy(
 
 	if (startIdx > endIdx) return;
 
-	ctx.strokeStyle = 'rgba(52, 211, 153, 0.8)';
+	ctx.strokeStyle = palette.mouthEnergy;
 	ctx.lineWidth = 1.5;
 	ctx.beginPath();
 
@@ -271,13 +276,7 @@ export function drawMouthEnergy(
 
 // --- Head Pose (from facial tracking) ---
 
-const HEAD_POSE_COLORS = {
-	pitch: 'rgba(245, 158, 11, 0.8)',  // amber — nod
-	yaw: 'rgba(99, 102, 241, 0.8)',    // indigo — turn
-	roll: 'rgba(52, 211, 153, 0.8)',    // emerald — tilt
-};
-
-// Head pose angles are roughly ±60°. Normalize to 0-1 range for drawing.
+// Head pose angles are roughly +/-60 deg. Normalize to 0-1 range for drawing.
 const POSE_RANGE = 60; // degrees
 
 function normalizePose(degrees: number): number {
@@ -289,7 +288,8 @@ export function drawHeadPose(
 	width: number,
 	height: number,
 	viewport: Viewport,
-	data: FacialTrackingFrame[]
+	data: FacialTrackingFrame[],
+	palette: ViewerPalette
 ): void {
 	if (!data || data.length === 0) return;
 
@@ -323,9 +323,9 @@ export function drawHeadPose(
 
 	if (startIdx > endIdx) return;
 
-	// Center line (0° = center)
+	// Center line (0 deg = center)
 	const centerY = height / 2;
-	ctx.strokeStyle = 'rgba(46, 51, 69, 0.3)';
+	ctx.strokeStyle = palette.centerLine;
 	ctx.setLineDash([2, 4]);
 	ctx.beginPath();
 	ctx.moveTo(Math.max(0, scrollLeft), centerY);
@@ -334,14 +334,10 @@ export function drawHeadPose(
 	ctx.setLineDash([]);
 
 	// Draw each axis as a line
-	const axes: Array<{ colorKey: keyof typeof HEAD_POSE_COLORS; axisIdx: number }> = [
-		{ colorKey: 'pitch', axisIdx: 0 },
-		{ colorKey: 'yaw', axisIdx: 1 },
-		{ colorKey: 'roll', axisIdx: 2 },
-	];
+	const axisColors = [palette.headPitch, palette.headYaw, palette.headRoll];
 
-	for (const { colorKey, axisIdx } of axes) {
-		ctx.strokeStyle = HEAD_POSE_COLORS[colorKey];
+	for (let axisIdx = 0; axisIdx < 3; axisIdx++) {
+		ctx.strokeStyle = axisColors[axisIdx];
 		ctx.lineWidth = 1.2;
 		ctx.beginPath();
 

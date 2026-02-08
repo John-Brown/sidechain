@@ -53,7 +53,7 @@
 <div class="relative w-full overflow-hidden" style="height: {height}px">
   {#each visibleBlocks as block (block.index)}
     <button
-      class="absolute top-1 bottom-1 rounded-sm border text-[9px] font-mono leading-none overflow-hidden whitespace-nowrap px-1 flex items-center cursor-pointer {block.cssClass}"
+      class="absolute top-1 bottom-1 rounded-sm border text-viewer-xs leading-none overflow-hidden whitespace-nowrap px-1 flex items-center cursor-pointer {block.cssClass}"
       style="transform: translateX({block.left}px); width: {block.width}px; will-change: transform; contain: layout style;"
       onclick={() => onBlockClick?.(block.item)}
     >
