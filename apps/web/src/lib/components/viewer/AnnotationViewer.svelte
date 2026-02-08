@@ -6,6 +6,7 @@
     VadResult,
     TranscriptionResult,
     DiarizationResult,
+    FacialTrackingResult,
     MouthEnergyResult,
     StateAnnotationResult,
     IntentClassificationResult,
@@ -28,8 +29,10 @@
   import Playhead from './Playhead.svelte';
   import CanvasTrack from './tracks/CanvasTrack.svelte';
   import DOMTrack from './tracks/DOMTrack.svelte';
-  import TrackRow from './tracks/TrackRow.svelte';
-  import { drawRuler, drawMouthEnergy } from './tracks/draw-functions.js';
+  import TrackLabel from './tracks/TrackLabel.svelte';
+  import TrackContent from './tracks/TrackContent.svelte';
+  import { drawRuler, drawVad, drawMouthEnergy, drawWaveform, drawHeadPose } from './tracks/draw-functions.js';
+  import { extractWaveform } from './utils/extract-waveform.js';
 
   import './viewer.css';
 
@@ -59,8 +62,23 @@
   // Component refs
   let videoPlayer = $state<VideoPlayer>();
   let timelineContainerEl: HTMLDivElement;
+  let labelColumnEl: HTMLDivElement;
   let loadError = $state<string | null>(null);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+  // Track visibility: show when loading, loaded, OR error (so user can see failures)
+  function isTrackVisible(status: string): boolean {
+    return status === 'loaded' || status === 'loading' || status === 'error';
+  }
+
+  const showVad = $derived(isTrackVisible(annotations.loadStatus.vad));
+  const hasVad = $derived(annotations.loadStatus.vad === 'loaded' && !!annotations.vad?.frames);
+  const showMouthEnergy = $derived(isTrackVisible(annotations.loadStatus.mouth_energy));
+  const hasMouthEnergy = $derived(annotations.loadStatus.mouth_energy === 'loaded' && !!annotations.mouthEnergy?.data);
+  const showTranscription = $derived(isTrackVisible(annotations.loadStatus.transcription));
+  const hasTranscription = $derived(annotations.loadStatus.transcription === 'loaded' && !!annotations.transcription?.data);
+  const showHeadPose = $derived(isTrackVisible(annotations.loadStatus.facial_tracking));
+  const hasHeadPose = $derived(annotations.loadStatus.facial_tracking === 'loaded' && !!annotations.facialTracking?.data);
 
   // Total timeline width in pixels
   const timelineWidth = $derived(timeline.timeToPx(timeline.duration));
@@ -70,8 +88,22 @@
     drawRuler(ctx, w, h, vp);
   }
 
+  function drawWaveformTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
+    if (session.waveformPeaksL) {
+      drawWaveform(ctx, w, h, vp, session.waveformPeaksL, session.waveformPeaksR, session.waveformSampleRate);
+    }
+  }
+
+  function drawVadTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
+    if (annotations.vad?.frames) drawVad(ctx, w, h, vp, annotations.vad.frames);
+  }
+
   function drawMouthEnergyTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
     if (annotations.mouthEnergy?.data) drawMouthEnergy(ctx, w, h, vp, annotations.mouthEnergy.data);
+  }
+
+  function drawHeadPoseTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
+    if (annotations.facialTracking?.data) drawHeadPose(ctx, w, h, vp, annotations.facialTracking.data);
   }
 
   // --- DOM track helpers ---
@@ -106,6 +138,10 @@
     videoPlayer?.toggle();
   }
 
+  function togglePip() {
+    videoPlayer?.togglePip();
+  }
+
   function seekTo(time: number) {
     videoPlayer?.seek(time);
   }
@@ -114,15 +150,19 @@
   function handleTimelineScroll() {
     if (timelineContainerEl) {
       timeline.scrollLeft = timelineContainerEl.scrollLeft;
+      // Sync vertical scroll to label column
+      if (labelColumnEl) {
+        labelColumnEl.scrollTop = timelineContainerEl.scrollTop;
+      }
     }
   }
 
-  // --- Cmd/Ctrl+wheel zoom ---
+  // --- Cmd/Ctrl+wheel zoom (proportional) ---
   function handleWheel(e: WheelEvent) {
     if (e.metaKey || e.ctrlKey) {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.5 : 0.5;
-      timeline.zoom = Math.max(0.5, Math.min(20, timeline.zoom + delta));
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      timeline.zoom = Math.max(0.5, Math.min(100, timeline.zoom * factor));
     }
   }
 
@@ -152,6 +192,10 @@
         e.preventDefault();
         seekTo(timeline.duration);
         break;
+      case 'KeyP':
+        e.preventDefault();
+        togglePip();
+        break;
     }
   }
 
@@ -167,6 +211,13 @@
       timeline.scrollLeft = newScrollLeft;
       timelineContainerEl.scrollLeft = newScrollLeft;
     }
+  });
+
+  // --- Fit zoom to container when duration and width are known ---
+  $effect(() => {
+    timeline.containerWidth;
+    timeline.duration;
+    timeline.fitZoomToContainer();
   });
 
   // --- ResizeObserver for timeline container ---
@@ -189,6 +240,38 @@
     }
   });
 
+  // --- Waveform extraction ---
+  async function loadWaveform(url: string) {
+    session.waveformLoading = true;
+    try {
+      const waveform = await extractWaveform(url);
+      session.waveformPeaksL = waveform.peaksL;
+      session.waveformPeaksR = waveform.peaksR;
+      session.waveformSampleRate = waveform.sampleRate;
+    } catch {
+      // Waveform is non-critical — fail silently
+    } finally {
+      session.waveformLoading = false;
+    }
+  }
+
+  // --- Facial tracking (lazy-loaded separately — too large for getAllResults) ---
+  async function loadFacialTracking() {
+    const status = { ...annotations.loadStatus };
+    status.facial_tracking = 'loading';
+    annotations.loadStatus = status;
+    try {
+      const data = await trpc.processing.getResults.query({
+        videoId: props.videoId,
+        stage: 'facial_tracking',
+      });
+      annotations.facialTracking = data as FacialTrackingResult;
+      annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'loaded' };
+    } catch {
+      annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'error' };
+    }
+  }
+
   // --- Data loading ---
   async function loadViewerData() {
     try {
@@ -204,11 +287,17 @@
         timeline.duration = videoInfo.durationSecs;
       }
 
+      // Start waveform extraction (non-blocking)
+      loadWaveform(streamInfo.url);
+
       // Set initial load statuses from existing jobs
+      let hasFacialTracking = false;
+      console.log('[viewer] Processing jobs:', videoInfo.processingJobs.map((j: { stage: string; status: string }) => `${j.stage}:${j.status}`));
       for (const job of videoInfo.processingJobs) {
         const status = annotations.loadStatus;
         if (job.status === 'completed') {
           status[job.stage] = 'loading';
+          if (job.stage === 'facial_tracking') hasFacialTracking = true;
         } else if (job.status === 'failed') {
           status[job.stage] = 'error';
         } else if (job.status === 'running' || job.status === 'pending') {
@@ -216,9 +305,15 @@
         }
         annotations.loadStatus = { ...status };
       }
+      console.log('[viewer] Load statuses after job scan:', { ...annotations.loadStatus });
 
-      // Fetch all completed results
+      // Fetch all completed results (excludes facial_tracking)
       await loadResults();
+
+      // Lazy-load facial tracking separately (non-blocking)
+      if (hasFacialTracking) {
+        loadFacialTracking();
+      }
 
       // Poll if any stages still running
       const hasActive = videoInfo.processingJobs.some(
@@ -238,12 +333,20 @@
         videoId: props.videoId,
       });
 
+      console.log('[viewer] getAllResults:', {
+        resultKeys: Object.keys(results),
+        jobStatuses: jobStatuses.map((j: { stage: string; status: string }) => `${j.stage}:${j.status}`),
+      });
+
       // Update load statuses
       const status = { ...annotations.loadStatus };
       for (const { stage, status: jobStatus } of jobStatuses) {
+        // Skip facial_tracking — loaded separately
+        if (stage === 'facial_tracking') continue;
         if (jobStatus === 'completed' && stage in results) {
           status[stage] = 'loaded';
         } else if (jobStatus === 'completed') {
+          console.warn(`[viewer] Stage ${stage} completed but no result data — marking as error`);
           status[stage] = 'error';
         } else if (jobStatus === 'failed') {
           status[stage] = 'error';
@@ -252,6 +355,7 @@
         }
       }
       annotations.loadStatus = status;
+      console.log('[viewer] Final load statuses:', { ...status });
 
       // Assign results to state
       if (results.vad) annotations.vad = results.vad as VadResult;
@@ -260,8 +364,8 @@
       if (results.mouth_energy) annotations.mouthEnergy = results.mouth_energy as MouthEnergyResult;
       if (results.state_annotation) annotations.stateAnnotation = results.state_annotation as StateAnnotationResult;
       if (results.intent_classification) annotations.intentClassification = results.intent_classification as IntentClassificationResult;
-    } catch {
-      // Individual stage errors handled via loadStatus
+    } catch (e) {
+      console.error('[viewer] loadResults failed:', e);
     }
   }
 
@@ -288,6 +392,10 @@
 
       if (hasNewCompletions) {
         await loadResults();
+        // Check if facial_tracking just completed
+        if (status.facial_tracking === 'loading' && !annotations.facialTracking) {
+          loadFacialTracking();
+        }
       }
 
       if (!hasActive && pollTimer) {
@@ -303,7 +411,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="viewer-theme h-screen w-screen flex flex-col overflow-hidden">
-  <ViewerHeader onTogglePlay={togglePlay} onSeek={seekTo} />
+  <ViewerHeader onTogglePlay={togglePlay} onSeek={seekTo} onTogglePip={togglePip} />
 
   {#if loadError}
     <div class="px-4 py-2 bg-red-900/30 text-red-400 text-sm border-b border-red-800/50">
@@ -313,7 +421,10 @@
 
   <div class="flex-1 flex overflow-hidden">
     <!-- Left panel: Video + Inspector -->
-    <div class="flex flex-col border-r border-viewer-border" style="width: 40%">
+    <div
+      class="flex flex-col border-r border-viewer-border transition-[width] duration-200 {session.pipActive ? 'w-0 overflow-hidden border-0' : ''}"
+      style={session.pipActive ? undefined : 'width: 40%'}
+    >
       <div class="flex-1 min-h-0">
         {#if session.videoSrc}
           <VideoPlayer bind:this={videoPlayer} src={session.videoSrc} />
@@ -328,8 +439,32 @@
       </div>
     </div>
 
-    <!-- Right panel: Timeline -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <!-- Right panel: Timeline (two-column layout) -->
+    <div class="flex-1 flex min-w-0">
+      <!-- Fixed label column -->
+      <div
+        bind:this={labelColumnEl}
+        class="shrink-0 overflow-hidden bg-viewer-surface"
+        style="width: 120px"
+      >
+        <TrackLabel label="Time" height={32} />
+        <TrackLabel label="Waveform" height={64} />
+        {#if showVad}
+          <TrackLabel label="VAD" height={48} />
+        {/if}
+        {#if showHeadPose}
+          <TrackLabel label="Head Pose" height={64} />
+        {/if}
+        {#if showMouthEnergy}
+          <TrackLabel label="Mouth Energy" />
+        {/if}
+        {#if showTranscription}
+          <TrackLabel label="Transcription" />
+        {/if}
+        <!-- TODO: Diarization, States, Intents labels (in-development) -->
+      </div>
+
+      <!-- Scrollable content area -->
       <div
         bind:this={timelineContainerEl}
         class="flex-1 overflow-x-auto overflow-y-auto viewer-timeline bg-viewer-bg"
@@ -337,59 +472,103 @@
         onwheel={handleWheel}
       >
         <div class="relative" style="width: {timelineWidth}px; min-width: 100%;">
-          <!-- Playhead -->
+          <!-- Playhead (absolute position: x=0 is time=0) -->
           <Playhead />
 
           <!-- Ruler -->
-          <TrackRow label="Time" height={32}>
+          <TrackContent height={32}>
             <CanvasTrack height={32} draw={drawRulerTrack} onScrub={handleScrub} />
-          </TrackRow>
+          </TrackContent>
 
-          <!-- TODO: Re-enable these tracks when pipeline backends are ready:
-               - VAD (canvas): Silero sample size bug — needs fix in workers/ml-pipeline/stages/vad.py
-               - Energy (canvas): depends on VAD data
-               - Diarization (canvas): pyannote auth token API change
-               Draw functions ready in tracks/draw-functions.ts (drawVad, drawEnergy, drawDiarization)
-          -->
+          <!-- Waveform -->
+          <TrackContent height={64}>
+            {#if session.waveformPeaksL}
+              <CanvasTrack height={64} draw={drawWaveformTrack} onScrub={handleScrub} />
+            {:else}
+              <div class="w-full h-full flex items-center justify-center">
+                <span class="text-[10px] text-viewer-text-dim">
+                  {session.waveformLoading ? 'Extracting audio...' : ''}
+                </span>
+              </div>
+            {/if}
+          </TrackContent>
+
+          <!-- VAD -->
+          {#if showVad}
+            <TrackContent height={48}>
+              {#if hasVad}
+                <CanvasTrack height={48} draw={drawVadTrack} onScrub={handleScrub} />
+              {:else if annotations.loadStatus.vad === 'error'}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-red-400">Failed to load VAD data</span>
+                </div>
+              {:else}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                </div>
+              {/if}
+            </TrackContent>
+          {/if}
+
+          <!-- Head Pose (from facial tracking) -->
+          {#if showHeadPose}
+            <TrackContent height={64}>
+              {#if hasHeadPose}
+                <CanvasTrack height={64} draw={drawHeadPoseTrack} onScrub={handleScrub} />
+              {:else if annotations.loadStatus.facial_tracking === 'error'}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-red-400">Failed to load head pose data</span>
+                </div>
+              {:else}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                </div>
+              {/if}
+            </TrackContent>
+          {/if}
 
           <!-- Mouth Energy -->
-          <TrackRow label="Mouth Energy">
-            {#if annotations.loadStatus.mouth_energy === 'loaded' && annotations.mouthEnergy?.data}
-              <CanvasTrack draw={drawMouthEnergyTrack} onScrub={handleScrub} />
-            {:else}
-              <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
-                  {annotations.loadStatus.mouth_energy === 'loading' ? 'Loading...' : annotations.loadStatus.mouth_energy === 'error' ? 'Error' : ''}
-                </span>
-              </div>
-            {/if}
-          </TrackRow>
+          {#if showMouthEnergy}
+            <TrackContent>
+              {#if hasMouthEnergy}
+                <CanvasTrack draw={drawMouthEnergyTrack} onScrub={handleScrub} />
+              {:else if annotations.loadStatus.mouth_energy === 'error'}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-red-400">Failed to load mouth energy data</span>
+                </div>
+              {:else}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                </div>
+              {/if}
+            </TrackContent>
+          {/if}
 
           <!-- Transcription (DOM track) -->
-          <TrackRow label="Transcription">
-            {#if annotations.loadStatus.transcription === 'loaded' && annotations.transcription?.data}
-              <DOMTrack
-                data={annotations.transcription.data}
-                getStart={getTimeRangeStart}
-                getEnd={getTimeRangeEnd}
-                blockClass={transcriptionBlockClass}
-                blockLabel={transcriptionBlockLabel}
-                onBlockClick={(item) => handleBlockClick(item as unknown as Record<string, unknown>)}
-              />
-            {:else}
-              <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
-                  {annotations.loadStatus.transcription === 'loading' ? 'Loading...' : annotations.loadStatus.transcription === 'error' ? 'Error' : ''}
-                </span>
-              </div>
-            {/if}
-          </TrackRow>
+          {#if showTranscription}
+            <TrackContent>
+              {#if hasTranscription}
+                <DOMTrack
+                  data={annotations.transcription!.data}
+                  getStart={getTimeRangeStart}
+                  getEnd={getTimeRangeEnd}
+                  blockClass={transcriptionBlockClass}
+                  blockLabel={transcriptionBlockLabel}
+                  onBlockClick={(item) => handleBlockClick(item as unknown as Record<string, unknown>)}
+                />
+              {:else if annotations.loadStatus.transcription === 'error'}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-red-400">Failed to load transcription data</span>
+                </div>
+              {:else}
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-viewer-text-dim">Loading...</span>
+                </div>
+              {/if}
+            </TrackContent>
+          {/if}
 
-          <!-- TODO: Re-enable these DOM tracks when pipeline backends are ready:
-               - States (DOM): depends on diarization pipeline
-               - Intents (DOM): depends on state_annotation + transcription + vad
-               Block helpers and CSS classes ready in viewer.css
-          -->
+          <!-- TODO: Diarization, States, Intents tracks (in-development) -->
         </div>
       </div>
     </div>

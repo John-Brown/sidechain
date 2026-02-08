@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getTimelineState } from './context.js';
+  import { getTimelineState, getSessionState } from './context.js';
 
   interface Props {
     src: string;
@@ -9,6 +9,7 @@
   let { src }: Props = $props();
 
   const timeline = getTimelineState();
+  const session = getSessionState();
 
   let videoEl: HTMLVideoElement;
 
@@ -28,7 +29,21 @@
       if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
         videoEl.requestVideoFrameCallback(onVideoFrame);
       }
+
+      // PiP events (not in Svelte's type defs, attach imperatively)
+      videoEl.addEventListener('enterpictureinpicture', handleEnterPip);
+      videoEl.addEventListener('leavepictureinpicture', handleLeavePip);
     }
+
+    return () => {
+      if (videoEl) {
+        videoEl.removeEventListener('enterpictureinpicture', handleEnterPip);
+        videoEl.removeEventListener('leavepictureinpicture', handleLeavePip);
+      }
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture().catch(() => {});
+      }
+    };
   });
 
   function handleLoadedMetadata() {
@@ -73,6 +88,27 @@
       videoEl.currentTime = Math.max(0, Math.min(time, timeline.duration));
       timeline.currentTime = videoEl.currentTime;
     }
+  }
+
+  export async function togglePip() {
+    if (!videoEl) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await videoEl.requestPictureInPicture();
+      }
+    } catch {
+      // PiP request can fail if user gesture requirement not met
+    }
+  }
+
+  function handleEnterPip() {
+    session.pipActive = true;
+  }
+
+  function handleLeavePip() {
+    session.pipActive = false;
   }
 
   // React to external seek (e.g., scrubbing on timeline)

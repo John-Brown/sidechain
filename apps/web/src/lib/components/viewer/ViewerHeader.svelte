@@ -5,9 +5,10 @@
   interface Props {
     onTogglePlay: () => void;
     onSeek: (time: number) => void;
+    onTogglePip: () => void;
   }
 
-  let { onTogglePlay, onSeek }: Props = $props();
+  let { onTogglePlay, onSeek, onTogglePip }: Props = $props();
 
   const timeline = getTimelineState();
   const session = getSessionState();
@@ -60,7 +61,7 @@
     <input
       type="range"
       min="0.5"
-      max="20"
+      max="100"
       step="0.1"
       value={timeline.zoom}
       oninput={handleZoomInput}
@@ -68,4 +69,28 @@
     />
     <span class="text-[10px] font-mono text-viewer-text-dim w-10">{timeline.zoom.toFixed(1)}x</span>
   </div>
+
+  <!-- PiP toggle -->
+  {#if session.pipSupported}
+    <div class="w-px h-6 bg-viewer-border"></div>
+    <button
+      onclick={onTogglePip}
+      class="w-8 h-8 flex items-center justify-center rounded hover:bg-viewer-surface-2 text-viewer-text transition-colors"
+      title={session.pipActive ? 'Exit Picture-in-Picture (P)' : 'Picture-in-Picture (P)'}
+    >
+      {#if session.pipActive}
+        <!-- PiP exit: small rect returning into large rect -->
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="m19 13-3 0 0-3" />
+        </svg>
+      {:else}
+        <!-- PiP enter: small rect popping out of large rect -->
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <rect x="13" y="9" width="7" height="5" rx="1" fill="currentColor" opacity="0.3" />
+        </svg>
+      {/if}
+    </button>
+  {/if}
 </header>

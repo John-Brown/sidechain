@@ -13,7 +13,7 @@ AnnotationViewer.svelte creates and provides three state objects via Symbol-keye
 |---------|-------|-----------|--------|
 | `getTimelineState()` | `TimelineState` | currentTime, duration, playing, zoom, scrollLeft, containerWidth, scrubbing | AnnotationViewer |
 | `getAnnotationDataState()` | `AnnotationDataState` | vad, transcription, diarization, mouthEnergy, stateAnnotation, intentClassification, loadStatus | AnnotationViewer |
-| `getSessionState()` | `SessionState` | videoId, videoSrc, filename, selectedAnnotation | AnnotationViewer |
+| `getSessionState()` | `SessionState` | videoId, videoSrc, filename, selectedAnnotation, pipActive, pipSupported, waveform* | AnnotationViewer |
 
 To add new viewer-wide state: create class in `state/`, add Symbol+getter/setter in `context.ts`, instantiate in AnnotationViewer.
 
@@ -45,6 +45,18 @@ AnnotationViewer → ViewerHeader, VideoPlayer, InspectorPanel, Timeline[
   Playhead, TrackRow[CanvasTrack | DOMTrack] × N
 ]
 ```
+
+## Picture-in-Picture
+
+Browser PiP API floats the video and collapses the left panel to give timeline full width.
+
+- `SessionState.pipSupported` — feature-detected in constructor (`document.pictureInPictureEnabled`)
+- `SessionState.pipActive` — toggled by `enterpictureinpicture`/`leavepictureinpicture` events on `<video>`
+- `VideoPlayer.togglePip()` — exported method, calls `requestPictureInPicture` / `exitPictureInPicture`
+- Left panel collapse: CSS `w-0 overflow-hidden` (not `{#if}` removal — destroying `<video>` kills PiP)
+- Keyboard shortcut: `P`
+- PiP events not in Svelte's type defs — attached imperatively in `onMount`, cleaned up on destroy
+- `ResizeObserver` on timeline container auto-updates `containerWidth` → all tracks redraw at new width
 
 ## CSS Theme
 
