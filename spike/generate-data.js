@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates synthetic Curator-format test data for the Phase 0 de-risk spike.
+ * Generates synthetic Sidechain-format test data for the Phase 0 de-risk spike.
  * Produces: voice_activity.json, speech_transcription.json, annotations.json, diarization.json
  *
  * Usage: node generate-data.js [duration_secs]
