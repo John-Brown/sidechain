@@ -24,48 +24,59 @@ app = modal.App("annotation-pipeline")
 
 # ---------------------------------------------------------------------------
 # Modal images — one per resource profile
+# Each image includes local `stages/` package via add_local_python_source
 # ---------------------------------------------------------------------------
 
-# VAD: needs torch + torchaudio (CPU)
+# Common packages needed by all images (fastapi required for @fastapi_endpoint)
+_common = ["boto3", "pydantic", "fastapi[standard]"]
+
+# VAD: needs torch + ffmpeg + soundfile for audio extraction
 vad_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "torch",
-        "torchaudio",
-        extra_index_url="https://download.pytorch.org/whl/cpu",
-    )
-    .pip_install("boto3", "pydantic")
+    .apt_install("ffmpeg", "libsndfile1")
+    .pip_install("torch", "torchaudio", "soundfile", "packaging")
+    .pip_install(*_common)
+    .add_local_python_source("stages", copy=True)
 )
 
-# Transcription: needs faster-whisper + CUDA
+# Transcription: faster-whisper + CUDA + ffmpeg + soundfile
 transcription_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("boto3", "pydantic", "faster-whisper", "torch", "ctranslate2")
+    .apt_install("ffmpeg", "libsndfile1")
+    .pip_install("torch", "soundfile")
+    .pip_install(*_common, "faster-whisper", "ctranslate2")
+    .add_local_python_source("stages", copy=True)
 )
 
 # Facial tracking: MediaPipe + OpenCV (CPU-heavy)
 cpu_heavy_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libgl1-mesa-glx", "libglib2.0-0")
-    .pip_install("boto3", "pydantic", "mediapipe", "opencv-python-headless", "numpy")
+    .pip_install(*_common, "mediapipe", "opencv-python-headless", "numpy")
+    .add_local_python_source("stages", copy=True)
 )
 
 # Mouth energy + state annotation: lightweight CPU
 cpu_light_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("boto3", "pydantic", "numpy")
+    .pip_install(*_common, "numpy")
+    .add_local_python_source("stages", copy=True)
 )
 
-# Diarization: pyannote.audio + torch
+# Diarization: pyannote.audio + torch + ffmpeg + soundfile for audio extraction
 diarization_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("boto3", "pydantic", "pyannote.audio", "torch", "speechbrain")
+    .apt_install("ffmpeg", "libsndfile1")
+    .pip_install("torch", "soundfile")
+    .pip_install(*_common, "pyannote.audio", "speechbrain")
+    .add_local_python_source("stages", copy=True)
 )
 
 # Intent classification: Anthropic SDK (lightweight)
 intent_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("boto3", "pydantic", "anthropic")
+    .pip_install(*_common, "anthropic")
+    .add_local_python_source("stages", copy=True)
 )
 
 
@@ -152,8 +163,9 @@ def _send_callback(
     secrets=[modal.Secret.from_name("aws-credentials")],
     timeout=600,
     memory=2048,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_vad(request: VadRequest) -> VadResponse:
     """Process a video through the Silero VAD pipeline (legacy endpoint)."""
     from stages.vad import run_vad
@@ -196,8 +208,9 @@ def process_vad(request: VadRequest) -> VadResponse:
     secrets=[modal.Secret.from_name("aws-credentials")],
     timeout=600,
     memory=2048,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_vad_stage(request: StageRequest) -> StageResponse:
     """VAD via the generic StageRequest interface."""
     from stages.vad import run_vad
@@ -231,8 +244,9 @@ def process_vad_stage(request: StageRequest) -> StageResponse:
     gpu="A10G",
     timeout=1200,
     memory=4096,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_transcription(request: StageRequest) -> StageResponse:
     """Transcribe speech using Whisper large-v3 via faster-whisper."""
     from stages.transcription import run_transcription
@@ -268,8 +282,9 @@ def process_transcription(request: StageRequest) -> StageResponse:
     timeout=1800,
     memory=4096,
     cpu=4,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_facial_tracking(request: StageRequest) -> StageResponse:
     """Run MediaPipe Face Mesh on every video frame."""
     from stages.facial_tracking import run_facial_tracking
@@ -304,8 +319,9 @@ def process_facial_tracking(request: StageRequest) -> StageResponse:
     secrets=[modal.Secret.from_name("aws-credentials")],
     timeout=300,
     memory=1024,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_mouth_energy(request: StageRequest) -> StageResponse:
     """Compute mouth energy from facial tracking blend shapes."""
     from stages.mouth_energy import run_mouth_energy
@@ -344,8 +360,9 @@ def process_mouth_energy(request: StageRequest) -> StageResponse:
     gpu="A10G",
     timeout=1200,
     memory=4096,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_diarization(request: StageRequest) -> StageResponse:
     """Run pyannote speaker diarization enriched with VAD + mouth energy."""
     from stages.diarization import run_diarization
@@ -382,8 +399,9 @@ def process_diarization(request: StageRequest) -> StageResponse:
     secrets=[modal.Secret.from_name("aws-credentials")],
     timeout=300,
     memory=1024,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_state_annotation(request: StageRequest) -> StageResponse:
     """Rule-based speaking/listening state annotation from diarization."""
     from stages.state_annotation import run_state_annotation
@@ -421,8 +439,9 @@ def process_state_annotation(request: StageRequest) -> StageResponse:
     ],
     timeout=900,
     memory=1024,
+
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def process_intent_classification(request: StageRequest) -> StageResponse:
     """Classify communicative intent for speaking segments using Claude."""
     from stages.intent_classification import run_intent_classification

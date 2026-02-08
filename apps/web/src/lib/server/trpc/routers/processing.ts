@@ -6,7 +6,7 @@ import type { PipelineStage } from "@annotation/shared";
 import { protectedProcedure, router } from "../trpc.js";
 import { getObject } from "../../s3.js";
 import { ROOT_STAGES, STAGE_RESULT_KEYS } from "../../pipeline/dag.js";
-import { triggerStage } from "../../pipeline/trigger.js";
+import { triggerStage, triggerReadyStages } from "../../pipeline/trigger.js";
 
 export const processingRouter = router({
   triggerPipeline: protectedProcedure
@@ -72,11 +72,18 @@ export const processingRouter = router({
         .set({ status: "processing", updatedAt: new Date() })
         .where(eq(videos.id, video.id));
 
-      // Trigger root stages (no dependencies)
+      // Fire root stages concurrently (non-blocking).
+      // Modal endpoints are synchronous (block until done), so we don't await —
+      // the mutation returns immediately and the frontend polls for status.
       for (const stage of ROOT_STAGES) {
         const job = createdJobs.find((j) => j.stage === stage);
         if (job) {
-          await triggerStage(ctx.db, video.id, video.s3Key, stage, job.id);
+          triggerStage(ctx.db, video.id, video.s3Key, stage, job.id)
+            .then(() => {
+              // After a root stage completes, trigger any newly unblocked stages
+              return triggerReadyStages(ctx.db, video.id, video.s3Key);
+            })
+            .catch((err) => console.error(`Stage ${stage} trigger error:`, err));
         }
       }
 
@@ -134,8 +141,10 @@ export const processingRouter = router({
         })
         .returning();
 
-      // Trigger it
-      await triggerStage(ctx.db, video.id, video.s3Key, stage, job.id);
+      // Fire-and-forget with cascade
+      triggerStage(ctx.db, video.id, video.s3Key, stage, job.id)
+        .then(() => triggerReadyStages(ctx.db, video.id, video.s3Key))
+        .catch((err) => console.error(`Retry ${stage} error:`, err));
 
       return job;
     }),

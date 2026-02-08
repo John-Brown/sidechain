@@ -25,6 +25,20 @@
   let videos = $state<VideoRow[]>([]);
   let showUpload = $state(false);
   let loading = $state(false);
+  let deleting = $state<string | null>(null);
+
+  async function deleteVideo(id: string, filename: string) {
+    if (!confirm(`Delete "${filename}"? This removes the video, all processing jobs, and results.`)) return;
+    deleting = id;
+    try {
+      await trpc.videos.delete.mutate({ id });
+      await loadVideos();
+    } catch (e) {
+      alert(`Failed to delete: ${e}`);
+    } finally {
+      deleting = null;
+    }
+  }
 
   const statusColors: Record<VideoStatus, string> = {
     uploading: "bg-yellow-100 text-yellow-800",
@@ -137,13 +151,20 @@
                 <td class="px-4 py-3 text-muted-foreground">
                   {new Date(video.createdAt).toLocaleDateString()}
                 </td>
-                <td class="px-4 py-3 text-right">
+                <td class="px-4 py-3 text-right space-x-2">
                   <a
                     href="/videos/{video.id}"
                     class="text-sm font-medium text-primary hover:underline"
                   >
                     View
                   </a>
+                  <button
+                    onclick={() => deleteVideo(video.id, video.filename)}
+                    disabled={deleting === video.id}
+                    class="text-sm font-medium text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
+                  >
+                    {deleting === video.id ? "Deleting..." : "Delete"}
+                  </button>
                 </td>
               </tr>
             {/each}

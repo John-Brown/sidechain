@@ -18,7 +18,7 @@ def get_s3_client() -> boto3.client:
         "s3",
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-        region_name=os.environ.get("S3_REGION", "us-east-1"),
+        region_name=os.environ.get("AWS_DEFAULT_REGION", os.environ.get("S3_REGION", "us-east-1")),
     )
 
 
@@ -75,22 +75,34 @@ def load_audio(path: Path):
     """Load audio from a video/audio file, resample to 16kHz mono.
 
     Returns a torch.Tensor (1-D, float32).
-    Imports torch/torchaudio lazily so stages that don't need audio can skip them.
+
+    Uses ffmpeg to extract 16kHz mono PCM, then reads raw samples with
+    soundfile (no torchcodec dependency needed).
     """
+    import subprocess
+    import numpy as np
+    import soundfile as sf
     import torch
-    import torchaudio
 
     SAMPLE_RATE = 16000
 
-    waveform, sr = torchaudio.load(str(path))
+    # Extract audio to WAV via ffmpeg — resamples to 16kHz mono PCM
+    wav_path = path.with_suffix(".wav")
+    subprocess.run(
+        [
+            "ffmpeg", "-i", str(path),
+            "-vn", "-acodec", "pcm_s16le",
+            "-ar", str(SAMPLE_RATE), "-ac", "1",
+            "-y", str(wav_path),
+        ],
+        capture_output=True,
+        check=True,
+    )
 
-    # Mix to mono if stereo
-    if waveform.shape[0] > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
+    # Read WAV with soundfile (returns float64 numpy array)
+    data, sr = sf.read(str(wav_path), dtype="float32")
 
-    # Resample if needed
-    if sr != SAMPLE_RATE:
-        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=SAMPLE_RATE)
-        waveform = resampler(waveform)
+    # Convert to torch tensor
+    waveform = torch.from_numpy(data)
 
-    return waveform.squeeze(0)
+    return waveform

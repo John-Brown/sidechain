@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1770524383464,
-      "tag": "0000_fluffy_madripoor",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1770524645583,
-      "tag": "0001_curved_franklin_richards",
+      "when": 1770528078742,
+      "tag": "0000_dashing_boomerang",
       "breakpoints": true
     }
   ]

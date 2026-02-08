@@ -17,7 +17,7 @@ from .utils import download_from_s3, load_audio, upload_to_s3
 logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
-WINDOW_SIZE_SAMPLES = 1600  # 100ms at 16kHz -> 10Hz resolution
+WINDOW_SIZE_SAMPLES = 512  # 32ms at 16kHz (Silero VAD v5 requirement)
 MERGE_GAP_MS = 300
 MERGE_GAP_SAMPLES = int(MERGE_GAP_MS / 1000 * SAMPLE_RATE)
 VAD_THRESHOLD = 0.5

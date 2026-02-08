@@ -1,4 +1,4 @@
-"""Facial tracking stage using MediaPipe Face Mesh (468 landmarks + blend shapes)."""
+"""Facial tracking stage using MediaPipe FaceLandmarker (478 landmarks + blend shapes)."""
 
 from __future__ import annotations
 
@@ -33,13 +33,28 @@ BLEND_SHAPE_NAMES = [
     "noseSneerRight", "tongueOut",
 ]
 
+# Model URL for FaceLandmarker task bundle
+_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+
+
+def _download_model(dest: Path) -> Path:
+    """Download the FaceLandmarker model if not already present."""
+    model_path = dest / "face_landmarker.task"
+    if not model_path.exists():
+        import urllib.request
+        logger.info("Downloading FaceLandmarker model...")
+        urllib.request.urlretrieve(_MODEL_URL, str(model_path))
+    return model_path
+
 
 def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
-    """Download video from S3, run MediaPipe Face Mesh per-frame, upload results.
+    """Download video from S3, run MediaPipe FaceLandmarker per-frame, upload results.
 
     Output shape matches FacialTrackingResult from annotation-types.ts.
     """
     import mediapipe as mp
+    from mediapipe.tasks import python as mp_python
+    from mediapipe.tasks.python import vision
 
     t0 = time.monotonic()
 
@@ -68,14 +83,21 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
             width, height, fps, total_frames, total_duration,
         )
 
-        mp_face_mesh = mp.solutions.face_mesh
-        face_mesh = mp_face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
+        # Download and configure FaceLandmarker
+        model_path = _download_model(tmp_path)
+
+        options = vision.FaceLandmarkerOptions(
+            base_options=mp_python.BaseOptions(model_asset_path=str(model_path)),
+            running_mode=vision.RunningMode.VIDEO,
+            num_faces=1,
+            min_face_detection_confidence=0.5,
+            min_face_presence_confidence=0.5,
             min_tracking_confidence=0.5,
+            output_face_blendshapes=True,
+            output_facial_transformation_matrixes=True,
         )
+
+        landmarker = vision.FaceLandmarker.create_from_options(options)
 
         frames_data: list[dict] = []
         frame_idx = 0
@@ -86,46 +108,65 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
                 break
 
             frame_time = round(frame_idx / fps, 4)
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = face_mesh.process(rgb_frame)
+            timestamp_ms = int(frame_idx * 1000 / fps)
 
-            if results.multi_face_landmarks and len(results.multi_face_landmarks) > 0:
-                face_landmarks = results.multi_face_landmarks[0]
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            results = landmarker.detect_for_video(mp_image, timestamp_ms)
+
+            if results.face_landmarks and len(results.face_landmarks) > 0:
+                face_landmarks = results.face_landmarks[0]
 
                 # Extract 2D landmarks (normalized to pixel coords)
                 landmarks = []
-                for lm in face_landmarks.landmark:
+                for lm in face_landmarks:
                     landmarks.append([round(lm.x * width, 1), round(lm.y * height, 1)])
 
-                # Extract blend shapes if available
+                # Extract blend shapes
                 blendshapes = [0.0] * 52
-                if (
-                    results.multi_face_blendshapes
-                    and len(results.multi_face_blendshapes) > 0
-                ):
-                    for bs in results.multi_face_blendshapes[0]:
+                if results.face_blendshapes and len(results.face_blendshapes) > 0:
+                    for bs in results.face_blendshapes[0]:
                         if bs.category_name in BLEND_SHAPE_NAMES:
                             idx = BLEND_SHAPE_NAMES.index(bs.category_name)
                             blendshapes[idx] = round(bs.score, 4)
 
-                # Approximate head pose from key landmarks (nose tip, chin, eye corners)
-                # Using a simple estimation from landmark positions
-                nose_tip = face_landmarks.landmark[1]
-                rotation = [
-                    round((nose_tip.y - 0.5) * 60, 2),  # pitch estimate
-                    round((nose_tip.x - 0.5) * -60, 2),  # yaw estimate
-                    0.0,  # roll (requires more complex computation)
-                ]
-                translation = [
-                    round(nose_tip.x * width, 1),
-                    round(nose_tip.y * height, 1),
-                    round(nose_tip.z * width, 1),
-                ]
+                # Extract head pose from transformation matrix if available
+                rotation = [0.0, 0.0, 0.0]
+                translation = [0.0, 0.0, 0.0]
+                if (
+                    results.facial_transformation_matrixes
+                    and len(results.facial_transformation_matrixes) > 0
+                ):
+                    mat = results.facial_transformation_matrixes[0]
+                    # Matrix is 4x4, extract approximate euler angles
+                    rotation = [
+                        round(float(mat[0][1]) * 60, 2),  # pitch approx
+                        round(float(mat[0][0]) * 60, 2),  # yaw approx
+                        round(float(mat[1][0]) * 60, 2),  # roll approx
+                    ]
+                    translation = [
+                        round(float(mat[0][3]), 1),
+                        round(float(mat[1][3]), 1),
+                        round(float(mat[2][3]), 1),
+                    ]
+                else:
+                    # Fallback: estimate from nose landmark
+                    nose = face_landmarks[1] if len(face_landmarks) > 1 else face_landmarks[0]
+                    rotation = [
+                        round((nose.y - 0.5) * 60, 2),
+                        round((nose.x - 0.5) * -60, 2),
+                        0.0,
+                    ]
+                    translation = [
+                        round(nose.x * width, 1),
+                        round(nose.y * height, 1),
+                        round(nose.z * width, 1),
+                    ]
 
-                # Gaze direction approximation from iris landmarks (468-472)
-                if len(face_landmarks.landmark) > 472:
-                    left_iris = face_landmarks.landmark[468]
-                    right_iris = face_landmarks.landmark[473]
+                # Gaze direction from iris landmarks (468-477 in the new API)
+                if len(face_landmarks) > 473:
+                    left_iris = face_landmarks[468]
+                    right_iris = face_landmarks[473]
                     gaze_x = round((left_iris.x + right_iris.x) / 2 - 0.5, 4)
                     gaze_y = round((left_iris.y + right_iris.y) / 2 - 0.5, 4)
                     gaze_direction = [gaze_x, gaze_y, -1.0]
@@ -169,7 +210,7 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
             frame_idx += 1
 
         cap.release()
-        face_mesh.close()
+        landmarker.close()
 
         processing_time = time.monotonic() - t0
 
@@ -180,15 +221,15 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
                 "created_timestamp": datetime.now(timezone.utc).isoformat(),
                 "total_secs": round(total_duration, 3),
                 "algorithm": {
-                    "name": "mediapipe-face-mesh",
-                    "model": "face_mesh",
+                    "name": "mediapipe-face-landmarker",
+                    "model": "face_landmarker_v2",
                     "version": "0.10",
                     "processing_time": round(processing_time, 3),
                     "parameters": {
-                        "max_num_faces": 1,
-                        "refine_landmarks": True,
+                        "num_faces": 1,
                         "min_detection_confidence": 0.5,
                         "min_tracking_confidence": 0.5,
+                        "output_face_blendshapes": True,
                     },
                 },
                 "video_width": width,

@@ -7,6 +7,8 @@ import {
   getUploadPartUrl,
   completeMultipartUpload,
   getPresignedDownloadUrl,
+  deleteS3Object,
+  deleteS3Prefix,
 } from "../../s3.js";
 
 export const videosRouter = router({
@@ -188,6 +190,43 @@ export const videosRouter = router({
         .returning();
 
       return updated;
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.id))
+        .limit(1);
+
+      if (!video) throw new Error("Video not found");
+
+      // Verify project membership
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, video.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) throw new Error("Not authorized");
+
+      // Delete S3 objects: the video file + any results
+      await Promise.all([
+        deleteS3Object(video.s3Key),
+        deleteS3Prefix(`results/${video.id}/`),
+      ]);
+
+      // Delete DB row (cascades to processing_jobs, annotation_sets)
+      await ctx.db.delete(videos).where(eq(videos.id, input.id));
+
+      return { success: true };
     }),
 
   getStreamUrl: protectedProcedure

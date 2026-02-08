@@ -88,15 +88,30 @@ interface JobInfo {
 }
 
 /**
+ * Stages not yet production-ready — skipped by the orchestrator.
+ * TODO: Remove entries as each stage is validated and ready for production.
+ * - diarization: pyannote use_auth_token API change needs fix
+ * - state_annotation: depends on diarization
+ * - intent_classification: depends on state_annotation + needs Anthropic API key
+ */
+export const IN_DEVELOPMENT_STAGES: Set<PipelineStage> = new Set([
+  "diarization",
+  "state_annotation",
+  "intent_classification",
+]);
+
+/**
  * Given current job statuses, return stages that are ready to run:
  * - All dependencies are 'completed'
  * - Own status is 'pending'
+ * - Not in the IN_DEVELOPMENT set
  */
 export function getReadyStages(jobs: JobInfo[]): PipelineStage[] {
   const statusMap = new Map(jobs.map((j) => [j.stage, j.status]));
 
   return jobs
     .filter((j) => j.status === "pending")
+    .filter((j) => !IN_DEVELOPMENT_STAGES.has(j.stage))
     .filter((j) => {
       const deps = STAGE_DEPS[j.stage];
       return deps.every((dep) => statusMap.get(dep) === "completed");

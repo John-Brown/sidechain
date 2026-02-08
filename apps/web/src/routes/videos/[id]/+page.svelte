@@ -61,11 +61,19 @@
     intent_classification: ["state_annotation", "transcription", "vad"],
   };
 
+  // TODO: Remove entries as each stage is validated and production-ready
+  const IN_DEVELOPMENT: Set<PipelineStage> = new Set([
+    "diarization",
+    "state_annotation",
+    "intent_classification",
+  ]);
+
   function getJobForStage(stage: PipelineStage): ProcessingJob | undefined {
     return jobs.find((j) => j.stage === stage);
   }
 
   function areDepsCompleted(stage: PipelineStage): boolean {
+    if (IN_DEVELOPMENT.has(stage)) return false;
     return STAGE_DEPS[stage].every((dep) => {
       const job = getJobForStage(dep);
       return job?.status === "completed";
@@ -242,18 +250,22 @@
               {completedCount}/{PIPELINE_STAGES.length} stages completed
             </span>
           {/if}
+          <button
+            onclick={pollJobs}
+            class="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors hover:bg-muted"
+          >
+            Refresh
+          </button>
           {#if !allCompleted}
             <button
               onclick={processAll}
-              disabled={processingAll || hasAnyRunning}
+              disabled={processingAll}
               class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
             >
               {#if processingAll}
                 Starting...
-              {:else if hasAnyRunning}
-                Processing...
-              {:else if hasAnyFailed}
-                Reprocess All
+              {:else if hasStartedPipeline}
+                Reprocess
               {:else}
                 Process All
               {/if}
@@ -295,9 +307,15 @@
                   </span>
                 {/if}
               {:else}
-                <span class="text-xs text-muted-foreground">
-                  {depsReady ? "Waiting to start" : "Blocked"}
-                </span>
+                {#if IN_DEVELOPMENT.has(stage)}
+                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-violet-50 text-violet-700">
+                    In development
+                  </span>
+                {:else}
+                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700">
+                    Awaiting dependencies
+                  </span>
+                {/if}
               {/if}
             </div>
             <div class="flex items-center gap-2">

@@ -4,18 +4,16 @@ import { createDb, processingJobs, videos } from "@annotation/db";
 import { eq } from "drizzle-orm";
 import { getReadyStages } from "$lib/server/pipeline/dag.js";
 import { triggerStage } from "$lib/server/pipeline/trigger.js";
-
-const PROCESSING_SECRET = process.env.PROCESSING_CALLBACK_SECRET;
+import { DATABASE_URL, PROCESSING_CALLBACK_SECRET } from "$env/static/private";
 
 function getDb() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set");
-  return createDb(url);
+  if (!DATABASE_URL) throw new Error("DATABASE_URL is not set");
+  return createDb(DATABASE_URL);
 }
 
 export const POST: RequestHandler = async ({ request }) => {
   const authHeader = request.headers.get("x-callback-secret");
-  if (!PROCESSING_SECRET || authHeader !== PROCESSING_SECRET) {
+  if (!PROCESSING_CALLBACK_SECRET || authHeader !== PROCESSING_CALLBACK_SECRET) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
 
