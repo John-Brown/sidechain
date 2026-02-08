@@ -29,21 +29,21 @@
     const startIdx = binarySearchStart(wrapped, timeline.viewStartTime);
     const endIdx = binarySearchEnd(wrapped, timeline.viewEndTime);
 
-    const result: Array<{ item: T; left: number; width: number; label: string; cssClass: string }> = [];
+    const result: Array<{ item: T; left: number; width: number; label: string; cssClass: string; index: number }> = [];
     for (let i = startIdx; i <= endIdx && i < data.length; i++) {
       if (i < 0) continue;
       const item = data[i];
       const start = getStart(item);
       const end = getEnd(item);
-      const left = timeline.timeToPx(start) - timeline.scrollLeft;
+      const left = timeline.timeToPx(start);
       const width = timeline.timeToPx(end - start);
-      if (left + width < 0 || left > timeline.containerWidth) continue;
       result.push({
         item,
         left,
         width: Math.max(width, 2),
         label: blockLabel(item),
         cssClass: blockClass(item),
+        index: i,
       });
     }
     return result;
@@ -51,7 +51,7 @@
 </script>
 
 <div class="relative w-full overflow-hidden" style="height: {height}px">
-  {#each visibleBlocks as block (block.left)}
+  {#each visibleBlocks as block (block.index)}
     <button
       class="absolute top-1 bottom-1 rounded-sm border text-[9px] font-mono leading-none overflow-hidden whitespace-nowrap px-1 flex items-center cursor-pointer {block.cssClass}"
       style="transform: translateX({block.left}px); width: {block.width}px; will-change: transform; contain: layout style;"

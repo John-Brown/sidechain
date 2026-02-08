@@ -15,9 +15,9 @@
   } from '@annotation/shared';
   import type { Viewport } from './types.js';
 
-  import { createTimelineState } from './state/timeline.svelte.js';
-  import { createAnnotationDataState } from './state/annotation-data.svelte.js';
-  import { createSessionState } from './state/session.svelte.js';
+  import { TimelineState } from './state/timeline.svelte.js';
+  import { AnnotationDataState } from './state/annotation-data.svelte.js';
+  import { SessionState } from './state/session.svelte.js';
   import {
     setTimelineState,
     setAnnotationDataState,
@@ -42,9 +42,9 @@
   const props: Props = $props();
 
   // Create state
-  const timeline = createTimelineState();
-  const annotations = createAnnotationDataState();
-  const session = createSessionState(props.videoId);
+  const timeline = new TimelineState();
+  const annotations = new AnnotationDataState();
+  const session = new SessionState(props.videoId);
 
   // Provide via context
   setTimelineState(timeline);
