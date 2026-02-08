@@ -2,7 +2,7 @@
 
 Defines web endpoints for all processing stages:
 - VAD (voice activity detection)
-- Transcription (Whisper large-v3)
+- Transcription (WhisperX: faster-whisper + wav2vec2 alignment + optional diarization)
 - Facial tracking (MediaPipe Face Mesh)
 - Mouth energy (from facial tracking blend shapes)
 - Diarization (pyannote.audio 3.1)
@@ -39,12 +39,16 @@ vad_image = (
     .add_local_python_source("stages", copy=True)
 )
 
-# Transcription: faster-whisper + CUDA + ffmpeg + soundfile
+# Transcription: WhisperX (faster-whisper + wav2vec2 alignment + optional diarization)
+# TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD: wav2vec2 and pyannote checkpoints serialize
+# omegaconf/dataclass objects that can't be fully allowlisted without whack-a-mole.
+# These are trusted HuggingFace model weights, not untrusted pickles.
 transcription_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "libsndfile1")
     .pip_install("torch", "soundfile")
-    .pip_install(*_common, "faster-whisper", "ctranslate2")
+    .pip_install(*_common, "faster-whisper", "whisperx", "pyannote.audio")
+    .env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"})
     .add_local_python_source("stages", copy=True)
 )
 
@@ -69,6 +73,7 @@ diarization_image = (
     .apt_install("ffmpeg", "libsndfile1")
     .pip_install("torch", "soundfile")
     .pip_install(*_common, "pyannote.audio", "speechbrain")
+    .env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"})
     .add_local_python_source("stages", copy=True)
 )
 
@@ -240,7 +245,10 @@ def process_vad_stage(request: StageRequest) -> StageResponse:
 
 @app.function(
     image=transcription_image,
-    secrets=[modal.Secret.from_name("aws-credentials")],
+    secrets=[
+        modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("huggingface"),
+    ],
     gpu="A10G",
     timeout=1200,
     memory=4096,
@@ -248,7 +256,7 @@ def process_vad_stage(request: StageRequest) -> StageResponse:
 )
 @modal.fastapi_endpoint(method="POST")
 def process_transcription(request: StageRequest) -> StageResponse:
-    """Transcribe speech using Whisper large-v3 via faster-whisper."""
+    """Transcribe speech using WhisperX (faster-whisper + wav2vec2 alignment)."""
     from stages.transcription import run_transcription
 
     logger.info("Processing transcription for job_id=%s", request.job_id)
