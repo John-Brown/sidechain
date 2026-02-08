@@ -143,6 +143,7 @@
     flex-shrink: 0;
   }
   .track-row.ruler { min-height: var(--ruler-height); }
+  .track-row[data-track-id="waveform"] { min-height: 80px; }
   .track-label {
     width: 120px;
     min-width: 120px;
@@ -355,6 +356,14 @@ const state = {
   intents: null,
   diarization: null,
 
+  // Audio waveform (extracted from video via Web Audio API)
+  waveformPeaks: null, // Float32Array of peak values, one per pixel-bucket
+  waveformSampleRate: 0,
+  waveformDuration: 0,
+
+  // Scrub state
+  scrubbing: false,
+
   // Drag state
   dragging: null, // { element, handle, startX, startTime, annotation, side }
 
@@ -410,6 +419,7 @@ function getViewportEnd() {
 // ============================================================
 const TRACKS = [
   { id: 'ruler', label: 'Time', type: 'canvas', cssClass: 'ruler' },
+  { id: 'waveform', label: 'Waveform', type: 'canvas' },
   { id: 'vad', label: 'VAD', type: 'canvas' },
   { id: 'energy', label: 'Energy', type: 'canvas' },
   { id: 'diarization', label: 'Diarization', type: 'canvas' },
@@ -644,6 +654,89 @@ function drawDiarization(canvas) {
   }
 
   state.canvasDrawCount++;
+}
+
+function drawWaveform(canvas) {
+  if (!state.waveformPeaks) return;
+  const { width, height, dpr } = resizeCanvas(canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  const container = document.getElementById('timeline-container');
+  const scrollOffset = container.scrollLeft;
+  const viewStart = pxToTime(scrollOffset);
+  const viewEnd = pxToTime(scrollOffset + width);
+  const mid = height / 2;
+
+  const peaks = state.waveformPeaks;
+  const rate = state.waveformSampleRate;
+
+  // Draw waveform as mirrored bars
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, 'rgba(99, 102, 241, 0.7)');
+  gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.3)');
+  gradient.addColorStop(1, 'rgba(99, 102, 241, 0.7)');
+  ctx.fillStyle = gradient;
+
+  for (let px = 0; px < width; px++) {
+    const t = pxToTime(px + scrollOffset);
+    if (t < 0 || t > state.waveformDuration) continue;
+    const sampleIdx = Math.floor(t * rate);
+    if (sampleIdx >= peaks.length) continue;
+
+    const peak = peaks[sampleIdx];
+    const barH = peak * (mid - 2);
+    ctx.fillRect(px, mid - barH, 1, barH * 2);
+  }
+
+  // Playhead time indicator on waveform
+  const playX = timeToPx(state.currentTime) - scrollOffset;
+  if (playX >= 0 && playX <= width) {
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+    ctx.fillRect(playX - 1, 0, 3, height);
+  }
+
+  // Center line
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.beginPath();
+  ctx.moveTo(0, mid);
+  ctx.lineTo(width, mid);
+  ctx.stroke();
+
+  state.canvasDrawCount++;
+}
+
+// Regenerate synthetic annotation data when video duration differs from test data
+function regenerateDataForDuration(newDuration) {
+  if (!state.vad) return;
+  const oldDuration = state.vad.metadata.total_secs;
+  if (Math.abs(newDuration - oldDuration) < 1) return;
+
+  console.log(`Duration mismatch: data=${oldDuration}s, video=${newDuration}s. Scaling data.`);
+  const scale = newDuration / oldDuration;
+
+  // Scale all time ranges
+  function scaleData(data) {
+    for (const d of data) {
+      if (d.time_range) {
+        d.time_range.start = +(d.time_range.start * scale).toFixed(3);
+        d.time_range.end = +(d.time_range.end * scale).toFixed(3);
+      }
+    }
+  }
+
+  scaleData(state.vad.data);
+  state.vad.metadata.total_secs = newDuration;
+  scaleData(state.transcription.data);
+  scaleData(state.annotations.data);
+  scaleData(state.intents.data);
+  scaleData(state.diarization.data);
+
+  // Clear DOM blocks for re-render
+  for (const trackId of ['transcription', 'states', 'intents']) {
+    document.getElementById(`track-${trackId}`).innerHTML = '';
+  }
 }
 
 // Binary search helpers for time-range data
@@ -886,8 +979,14 @@ videoInput.addEventListener('change', (e) => {
   videoEl.src = url;
   videoEl.style.display = 'block';
   document.getElementById('video-prompt').style.display = 'none';
+
+  // Extract waveform in background
+  extractWaveform(file).catch(err => console.warn('Waveform extraction failed:', err));
+
   videoEl.addEventListener('loadedmetadata', () => {
     state.duration = videoEl.duration;
+    // Regenerate synthetic data to match video duration
+    regenerateDataForDuration(videoEl.duration);
     // Try requestVideoFrameCallback
     if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
       useRVFC = true;
@@ -900,6 +999,46 @@ function onVideoFrame(now, metadata) {
   state.currentTime = metadata.mediaTime;
   if (videoEl.paused) return;
   videoEl.requestVideoFrameCallback(onVideoFrame);
+}
+
+// Sync on seek/pause (RVFC only fires during playback)
+videoEl.addEventListener('timeupdate', () => {
+  if (!useRVFC || videoEl.paused) {
+    state.currentTime = videoEl.currentTime;
+  }
+});
+videoEl.addEventListener('seeked', () => {
+  state.currentTime = videoEl.currentTime;
+});
+
+// Extract audio waveform from video file via Web Audio API
+async function extractWaveform(file) {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const arrayBuffer = await file.arrayBuffer();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+  // Downsample to ~200 samples/sec (enough for visual waveform)
+  const targetRate = 200;
+  const channel = audioBuffer.getChannelData(0);
+  const samplesPerBucket = Math.floor(audioBuffer.sampleRate / targetRate);
+  const numBuckets = Math.floor(channel.length / samplesPerBucket);
+  const peaks = new Float32Array(numBuckets);
+
+  for (let i = 0; i < numBuckets; i++) {
+    let max = 0;
+    const offset = i * samplesPerBucket;
+    for (let j = 0; j < samplesPerBucket; j++) {
+      const abs = Math.abs(channel[offset + j]);
+      if (abs > max) max = abs;
+    }
+    peaks[i] = max;
+  }
+
+  state.waveformPeaks = peaks;
+  state.waveformSampleRate = targetRate;
+  state.waveformDuration = audioBuffer.duration;
+  audioCtx.close();
+  console.log(`Waveform: ${numBuckets} peaks at ${targetRate}Hz from ${audioBuffer.duration.toFixed(1)}s audio`);
 }
 
 // Simulated playback when no video loaded
@@ -957,19 +1096,55 @@ zoomSlider.addEventListener('input', () => {
   }
 });
 
-// Seek on ruler click
-document.addEventListener('click', (e) => {
-  const rulerContent = document.getElementById('track-ruler');
-  if (!rulerContent) return;
-  if (e.target === rulerContent || rulerContent.contains(e.target)) {
-    const rect = rulerContent.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+// Drag-to-scrub on ruler, waveform, and any canvas track
+function setupScrubbing() {
+  const scrubTargets = ['track-ruler', 'track-waveform', 'track-vad', 'track-energy', 'track-diarization'];
+
+  function seekToPointer(e) {
     const container = document.getElementById('timeline-container');
-    const time = pxToTime(x + container.scrollLeft);
-    state.currentTime = Math.max(0, Math.min(state.duration, time));
-    if (videoEl.src) videoEl.currentTime = state.currentTime;
+    // Find which track-content we're in
+    let target = e.target;
+    while (target && !target.classList?.contains('track-content')) {
+      target = target.parentElement;
+    }
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const time = Math.max(0, Math.min(state.duration, pxToTime(x + container.scrollLeft)));
+    state.currentTime = time;
+    if (videoEl.src) {
+      videoEl.currentTime = time;
+    }
   }
-});
+
+  for (const id of scrubTargets) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+
+    el.style.cursor = 'crosshair';
+
+    el.addEventListener('pointerdown', (e) => {
+      // Don't interfere with annotation block interactions
+      if (e.target.closest('.annotation-block')) return;
+      e.preventDefault();
+      state.scrubbing = true;
+      el.setPointerCapture(e.pointerId);
+      seekToPointer(e);
+    });
+
+    el.addEventListener('pointermove', (e) => {
+      if (!state.scrubbing) return;
+      seekToPointer(e);
+    });
+
+    el.addEventListener('pointerup', (e) => {
+      if (!state.scrubbing) return;
+      state.scrubbing = false;
+      el.releasePointerCapture(e.pointerId);
+    });
+  }
+}
+
 
 // Mouse wheel zoom
 document.getElementById('timeline-container').addEventListener('wheel', (e) => {
@@ -1089,6 +1264,7 @@ function renderFrame() {
 
   // Canvas tracks
   drawRuler(document.getElementById('canvas-ruler'));
+  drawWaveform(document.getElementById('canvas-waveform'));
   drawVAD(document.getElementById('canvas-vad'));
   drawEnergy(document.getElementById('canvas-energy'));
   drawDiarization(document.getElementById('canvas-diarization'));
@@ -1139,6 +1315,7 @@ function renderFrame() {
 async function init() {
   buildTracks();
   await loadData();
+  setupScrubbing();
   console.log(`Loaded: VAD=${state.vad.data.length}, Trans=${state.transcription.data.length}, ` +
     `Ann=${state.annotations.data.length}, Intents=${state.intents.data.length}, ` +
     `Diar=${state.diarization.data.length}`);
