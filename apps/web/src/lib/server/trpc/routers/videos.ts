@@ -6,6 +6,7 @@ import {
   createMultipartUpload,
   getUploadPartUrl,
   completeMultipartUpload,
+  getPresignedDownloadUrl,
 } from "../../s3.js";
 
 export const videosRouter = router({
@@ -187,5 +188,33 @@ export const videosRouter = router({
         .returning();
 
       return updated;
+    }),
+
+  getStreamUrl: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.id))
+        .limit(1);
+
+      if (!video) throw new Error("Video not found");
+
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, video.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) throw new Error("Not authorized to access this video");
+
+      const url = await getPresignedDownloadUrl(video.s3Key);
+      return { url };
     }),
 });

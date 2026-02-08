@@ -195,4 +195,62 @@ export const processingRouter = router({
 
       return getObject(job.resultS3Key);
     }),
+
+  getAllResults: protectedProcedure
+    .input(z.object({ videoId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.videoId))
+        .limit(1);
+
+      if (!video) throw new Error("Video not found");
+
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, video.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) throw new Error("Not authorized");
+
+      const allJobs = await ctx.db
+        .select()
+        .from(processingJobs)
+        .where(eq(processingJobs.videoId, input.videoId))
+        .orderBy(processingJobs.createdAt);
+
+      const jobStatuses = allJobs.map((j) => ({ stage: j.stage, status: j.status }));
+
+      // Fetch results for completed jobs, excluding facial_tracking (too large)
+      const completedJobs = allJobs.filter(
+        (j) => j.status === "completed" && j.resultS3Key && j.stage !== "facial_tracking",
+      );
+
+      const resultEntries = await Promise.all(
+        completedJobs.map(async (j) => {
+          try {
+            const data = await getObject(j.resultS3Key!);
+            return [j.stage, data] as const;
+          } catch {
+            return [j.stage, null] as const;
+          }
+        }),
+      );
+
+      const results: Record<string, unknown> = {};
+      for (const [stage, data] of resultEntries) {
+        if (data !== null) {
+          results[stage] = data;
+        }
+      }
+
+      return { results, jobStatuses };
+    }),
 });

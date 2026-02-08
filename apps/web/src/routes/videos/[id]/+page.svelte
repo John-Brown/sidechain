@@ -214,7 +214,17 @@
     </div>
   {:else}
     <div class="space-y-2">
-      <h1 class="text-2xl font-semibold tracking-tight">{video.filename}</h1>
+      <div class="flex items-center gap-4">
+        <h1 class="text-2xl font-semibold tracking-tight">{video.filename}</h1>
+        {#if completedCount > 0}
+          <a
+            href="/videos/{data.videoId}/viewer"
+            class="inline-flex h-9 items-center rounded-md bg-indigo-600 px-4 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          >
+            Open Viewer
+          </a>
+        {/if}
+      </div>
       <div class="flex items-center gap-4 text-sm text-muted-foreground">
         <span>Duration: {formatDuration(video.durationSecs)}</span>
         <span>Uploaded: {new Date(video.createdAt).toLocaleDateString()}</span>

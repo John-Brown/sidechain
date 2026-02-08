@@ -63,6 +63,7 @@
   }
 
   const isAuthRoute = $derived(page.url.pathname.startsWith("/auth"));
+  const isViewerRoute = $derived(page.url.pathname.includes("/viewer"));
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -74,6 +75,10 @@
   <main class="min-h-screen flex items-center justify-center bg-muted/40">
     {@render children()}
   </main>
+{:else if isViewerRoute}
+  <div class="h-screen w-screen overflow-hidden">
+    {@render children()}
+  </div>
 {:else}
   <div class="flex min-h-screen">
     <aside class="w-64 border-r bg-sidebar text-sidebar-foreground flex flex-col">

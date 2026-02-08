@@ -1,0 +1,10 @@
+import { redirect } from "@sveltejs/kit";
+import type { PageServerLoad } from "./$types";
+
+export const load: PageServerLoad = async ({ locals, params }) => {
+  const { session } = await locals.safeGetSession();
+  if (!session) {
+    redirect(303, "/auth/login");
+  }
+  return { videoId: params.id };
+};
