@@ -513,9 +513,13 @@
                   <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                     In development
                   </span>
-                {:else}
+                {:else if !depsReady}
                   <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                     Awaiting dependencies
+                  </span>
+                {:else}
+                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                    Ready
                   </span>
                 {/if}
               {/if}
@@ -528,6 +532,13 @@
                 >
                   View results
                 </button>
+                <button
+                  onclick={() => retryStage(stage)}
+                  disabled={retryingStage !== null}
+                  class="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {retryingStage === stage ? "Starting..." : "Rerun"}
+                </button>
               {/if}
               {#if job?.status === "failed" && depsReady}
                 <button
@@ -535,11 +546,16 @@
                   disabled={retryingStage !== null}
                   class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  {#if retryingStage === stage}
-                    Retrying...
-                  {:else}
-                    Retry
-                  {/if}
+                  {retryingStage === stage ? "Retrying..." : "Retry"}
+                </button>
+              {/if}
+              {#if !job && depsReady && !IN_DEVELOPMENT.has(stage)}
+                <button
+                  onclick={() => retryStage(stage)}
+                  disabled={retryingStage !== null}
+                  class="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {retryingStage === stage ? "Starting..." : "Run"}
                 </button>
               {/if}
             </div>
