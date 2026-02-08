@@ -50,3 +50,12 @@ secrets.yaml
 !packages/**
 !apps/web/src/lib/
 !apps/web/src/lib/**
+
+# Re-assert ignores for build artifacts inside force-included paths
+packages/**/node_modules/
+packages/**/dist/
+packages/**/.turbo/
+
+# Local config
+.mcp.json
+generated_imgs/

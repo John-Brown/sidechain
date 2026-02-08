@@ -43,7 +43,7 @@ def run_transcription(s3_key: str, result_s3_key: str) -> dict:
             str(local_source),
             beam_size=5,
             word_timestamps=True,
-            vad_filter=True,
+            vad_filter=False,
         )
 
         total_duration = info.duration
@@ -93,7 +93,7 @@ def run_transcription(s3_key: str, result_s3_key: str) -> dict:
                     "processing_time": round(processing_time, 3),
                     "parameters": {
                         "beam_size": 5,
-                        "vad_filter": True,
+                        "vad_filter": False,
                         "word_timestamps": True,
                         "language_detected": detected_language,
                         "language_probability": round(language_prob, 3),

@@ -60,4 +60,26 @@ Browser PiP API floats the video and collapses the left panel to give timeline f
 
 ## CSS Theme
 
-Custom properties in `viewer.css` (`.viewer-theme`): `--viewer-bg`, `--viewer-surface`, `--viewer-accent`, `--viewer-playhead`, etc. Block colors: `.block-speaker-0` (cyan), `.block-speaker-1` (pink), `.block-speaking` (green), `.block-listening` (slate), `.block-intent-*` (one per intent type).
+Custom properties in `viewer.css` (`.viewer-theme`): `--viewer-bg`, `--viewer-surface`, `--viewer-surface-2`, `--viewer-border`, `--viewer-text`, `--viewer-text-dim`, `--viewer-accent`, `--viewer-playhead`. Light/dark variants via `.dark .viewer-theme`.
+
+Block colors: `.block-speaker-0` (cyan), `.block-speaker-1` (pink), `.block-speaking` (green), `.block-listening` (slate), `.block-intent-*` (one per intent type). Each has light default + `.dark` override.
+
+Canvas draw functions receive a `ViewerPalette` object (from `viewer-palette.ts`) — theme-aware colors for fills, strokes, labels. Palette is `$derived` from the theme state in AnnotationViewer.
+
+## Typography
+
+Inter Variable is the project typeface, loaded via `@fontsource-variable/inter`. See `.claude/rules/style-guide.md` for the full type scale.
+
+Viewer-specific density tokens (defined in `app.css` `@theme`):
+
+| Token | Class | Size | Use |
+|-------|-------|------|-----|
+| `--text-viewer-xs` | `text-viewer-xs` | 9px | Canvas labels, DOM block text |
+| `--text-viewer-sm` | `text-viewer-sm` | 10px | Status text, zoom label |
+| `--text-viewer-base` | `text-viewer-base` | 11px | Track labels |
+
+Rules:
+- **No arbitrary pixel sizes** (`text-[9px]`, etc.) — use viewer tokens instead
+- **No `font-mono`** on track labels, time displays, or DOM blocks — use `tabular-nums` for fixed-width digits
+- **`font-mono`** is reserved for inspector panel JSON and code display
+- Canvas `ctx.font` strings use `"Inter Variable", sans-serif`, not `monospace`
