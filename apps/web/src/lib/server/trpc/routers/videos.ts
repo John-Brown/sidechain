@@ -1,0 +1,191 @@
+import { z } from "zod";
+import { eq, and } from "drizzle-orm";
+import { videos, processingJobs, projectMembers } from "@annotation/db";
+import { protectedProcedure, router } from "../trpc.js";
+import {
+  createMultipartUpload,
+  getUploadPartUrl,
+  completeMultipartUpload,
+} from "../../s3.js";
+
+export const videosRouter = router({
+  list: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Verify user is a member of the project
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, input.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) {
+        throw new Error("Not a member of this project");
+      }
+
+      return ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.projectId, input.projectId))
+        .orderBy(videos.createdAt);
+    }),
+
+  get: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.id))
+        .limit(1);
+
+      if (!video) {
+        throw new Error("Video not found");
+      }
+
+      // Verify project membership
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, video.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) {
+        throw new Error("Not authorized to access this video");
+      }
+
+      const jobs = await ctx.db
+        .select()
+        .from(processingJobs)
+        .where(eq(processingJobs.videoId, video.id))
+        .orderBy(processingJobs.createdAt);
+
+      return { ...video, processingJobs: jobs };
+    }),
+
+  create: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string().uuid(),
+        filename: z.string().min(1),
+        s3Key: z.string().min(1),
+        durationSecs: z.number().positive().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, input.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) {
+        throw new Error("Not a member of this project");
+      }
+
+      const [video] = await ctx.db
+        .insert(videos)
+        .values({
+          projectId: input.projectId,
+          filename: input.filename,
+          s3Key: input.s3Key,
+          durationSecs: input.durationSecs ?? null,
+          status: "uploading",
+          uploadedBy: ctx.user.id,
+        })
+        .returning();
+
+      return video;
+    }),
+
+  getUploadUrls: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid(),
+        contentType: z.string(),
+        partCount: z.number().int().min(1).max(10000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.videoId))
+        .limit(1);
+
+      if (!video) throw new Error("Video not found");
+
+      // Verify ownership
+      if (video.uploadedBy !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+
+      const uploadId = await createMultipartUpload(
+        video.s3Key,
+        input.contentType,
+      );
+
+      const partUrls = await Promise.all(
+        Array.from({ length: input.partCount }, (_, i) =>
+          getUploadPartUrl(video.s3Key, uploadId, i + 1),
+        ),
+      );
+
+      return { uploadId, partUrls };
+    }),
+
+  completeUpload: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid(),
+        uploadId: z.string(),
+        parts: z.array(
+          z.object({
+            ETag: z.string(),
+            PartNumber: z.number().int(),
+          }),
+        ),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.videoId))
+        .limit(1);
+
+      if (!video) throw new Error("Video not found");
+      if (video.uploadedBy !== ctx.user.id) {
+        throw new Error("Not authorized");
+      }
+
+      await completeMultipartUpload(video.s3Key, input.uploadId, input.parts);
+
+      const [updated] = await ctx.db
+        .update(videos)
+        .set({ status: "uploaded", updatedAt: new Date() })
+        .where(eq(videos.id, input.videoId))
+        .returning();
+
+      return updated;
+    }),
+});
