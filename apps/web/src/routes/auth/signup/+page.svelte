@@ -37,6 +37,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Sign Up — Sidechain</title>
+</svelte:head>
+
 <div class="w-full max-w-sm space-y-6">
   <div class="space-y-2 text-center">
     <h1 class="text-2xl font-semibold tracking-tight">Create an account</h1>

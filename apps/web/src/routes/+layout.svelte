@@ -64,7 +64,7 @@
   }
 
   const isAuthRoute = $derived(page.url.pathname.startsWith("/auth"));
-  const isViewerRoute = $derived(page.url.pathname.includes("/viewer"));
+  const isTimelineRoute = $derived(page.url.pathname.includes("/timeline"));
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -79,7 +79,7 @@
     </div>
     {@render children()}
   </main>
-{:else if isViewerRoute}
+{:else if isTimelineRoute}
   <div class="h-screen w-screen overflow-hidden">
     {@render children()}
   </div>
@@ -87,7 +87,7 @@
   <div class="flex min-h-screen">
     <aside class="w-64 border-r bg-sidebar text-sidebar-foreground flex flex-col">
       <div class="p-6 border-b">
-        <h1 class="text-lg font-semibold tracking-tight">Annotation</h1>
+        <h1 class="text-lg font-semibold tracking-tight">Sidechain</h1>
       </div>
 
       <!-- Project selector -->

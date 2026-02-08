@@ -5,4 +5,8 @@
   let { data }: { data: PageData } = $props();
 </script>
 
+<svelte:head>
+  <title>Timeline — Sidechain</title>
+</svelte:head>
+
 <AnnotationViewer videoId={data.videoId} />

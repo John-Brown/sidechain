@@ -1,4 +1,4 @@
-# Annotation Platform
+# Sidechain
 
 Video annotation pipeline: upload → ML processing → AI annotation → human validation → quality control.
 
@@ -9,7 +9,7 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 | 0 | Spike/prototype | Complete (`spike/`) |
 | 1 | Monorepo skeleton + schema + VAD pipeline | Complete |
 | 2 | All 7 pipeline stages + DAG orchestration + frontend | Complete (4/7 stages verified, 3 gated as in-dev) |
-| 3 | Read-only annotation viewer (multi-track timeline, Canvas + DOM tracks, viewport culling) | Complete |
+| 3 | Read-only timeline viewer (multi-track timeline, Canvas + DOM tracks, viewport culling) | Complete |
 | 4 | Annotation editing + task mode (human-in-the-loop) | **Next** → `plans/phase-4-editing-task-mode.md` |
 
 ## Architecture
@@ -61,8 +61,8 @@ apps/web/src/lib/server/pipeline/     # DAG orchestration + stage trigger
 apps/web/src/lib/trpc.ts              # Browser tRPC client
 apps/web/src/lib/supabase.ts          # Browser Supabase client
 
-# Viewer (Phase 3+)
-apps/web/src/lib/components/viewer/   # Annotation viewer root
+# Timeline viewer (Phase 3+) — route: /videos/[id]/timeline
+apps/web/src/lib/components/viewer/   # Timeline viewer components
   AnnotationViewer.svelte             #   Root: state init, track layout, keyboard/wheel handlers
   context.ts                          #   Three Symbol-keyed contexts (timeline, annotations, session)
   state/                              #   Svelte 5 rune state classes (timeline, annotation-data, session)
@@ -94,6 +94,7 @@ All tables defined in `packages/db/src/schema.ts`:
 
 ## Conventions
 
+- **Refactor freely.** This is a greenfield project with no external consumers. There are zero backwards compatibility constraints. If you see a better name, structure, API shape, or design — change it now, don't preserve the old way. Rename, reorganize files, change interfaces, flatten abstractions, merge modules. When you make structural changes, briefly note what changed and why. The cost of a bad refactor is near zero; the cost of accumulated cruft is high.
 - Svelte 5 runes (`$state`, `$derived`, `$effect`) — no legacy stores
 - Server-only code in `$lib/server/` (SvelteKit enforces this)
 - tRPC procedures use `protectedProcedure` (requires auth) by default

@@ -269,6 +269,10 @@
   });
 </script>
 
+<svelte:head>
+  <title>{video?.filename ?? 'Video'} — Sidechain</title>
+</svelte:head>
+
 <div class="space-y-8">
   <div>
     <a href="/videos" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -293,10 +297,10 @@
         <h1 class="text-2xl font-semibold tracking-tight">{video.filename}</h1>
         {#if completedCount > 0}
           <a
-            href="/videos/{data.videoId}/viewer"
+            href="/videos/{data.videoId}/timeline"
             class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Open Viewer
+            Open Timeline
           </a>
         {/if}
       </div>
