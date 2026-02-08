@@ -7,14 +7,16 @@ export interface TimeRange {
 
 // --- VAD ---
 
+/** Per-frame speech probability (used for timeline visualization). */
+export interface VadFrame {
+  time_range: TimeRange;
+  speech_probability: number;
+}
+
+/** Speech segment detected by VAD (contiguous speech region above threshold). */
 export interface VadSegment {
   time_range: TimeRange;
-  voice_activity: {
-    speech_probability: number;
-    energy_dbfs: number;
-    energy_dbfs_left: number;
-    energy_dbfs_right: number;
-  };
+  confidence: number;
 }
 
 export interface VadResult {
@@ -25,8 +27,11 @@ export interface VadResult {
       sample_rate: number;
       threshold: number;
     };
+    total_segments: number;
+    speech_ratio: number;
   };
-  data: VadSegment[];
+  segments: VadSegment[];
+  frames: VadFrame[];
 }
 
 // --- Speech Transcription ---

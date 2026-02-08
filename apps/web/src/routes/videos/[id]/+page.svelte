@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { PageData } from "./$types";
-  import type { VideoStatus, PipelineStage, JobStatus } from "@annotation/shared";
-  import { PIPELINE_STAGES } from "@annotation/shared";
+  import type { VideoStatus, PipelineStage, JobStatus, VideoMetadata, VideoLanguage } from "@annotation/shared";
+  import { PIPELINE_STAGES, VIDEO_LANGUAGES } from "@annotation/shared";
   import { createTRPCClientInstance } from "$lib/trpc";
   import { createSupabaseBrowserClient } from "$lib/supabase";
 
@@ -21,6 +21,7 @@
     durationSecs: number | null;
     s3Key: string;
     createdAt: Date;
+    uploadMetadata: VideoMetadata | null;
   }
 
   interface ProcessingJob {
@@ -42,6 +43,76 @@
   let resultsStage = $state<string | null>(null);
   let loadError = $state<string | null>(null);
   let pollTimer = $state<ReturnType<typeof setInterval> | null>(null);
+
+  // Metadata editing state
+  let editing = $state(false);
+  let saving = $state(false);
+  let editFilename = $state("");
+  let editDescription = $state("");
+  let editTags = $state<string[]>([]);
+  let editTagInput = $state("");
+  let editSpeakerCount = $state<number | undefined>(undefined);
+  let editLanguage = $state<VideoLanguage | "">("");
+
+  function startEditing() {
+    if (!video) return;
+    const meta = video.uploadMetadata;
+    editFilename = video.filename;
+    editDescription = meta?.description ?? "";
+    editTags = meta?.tags ? [...meta.tags] : [];
+    editTagInput = "";
+    editSpeakerCount = meta?.speakerCount;
+    editLanguage = meta?.language ?? "";
+    editing = true;
+  }
+
+  function cancelEditing() {
+    editing = false;
+  }
+
+  function addTag() {
+    const tag = editTagInput.trim();
+    if (tag && !editTags.includes(tag)) {
+      editTags = [...editTags, tag];
+    }
+    editTagInput = "";
+  }
+
+  function removeTag(tag: string) {
+    editTags = editTags.filter((t) => t !== tag);
+  }
+
+  function handleTagKeydown(e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addTag();
+    }
+  }
+
+  async function saveMetadata() {
+    if (!video) return;
+    saving = true;
+    loadError = null;
+    try {
+      const metadata: VideoMetadata = {};
+      if (editDescription.trim()) metadata.description = editDescription.trim();
+      if (editTags.length > 0) metadata.tags = editTags;
+      if (editSpeakerCount !== undefined) metadata.speakerCount = editSpeakerCount;
+      if (editLanguage) metadata.language = editLanguage as VideoLanguage;
+
+      await trpc.videos.update.mutate({
+        id: video.id,
+        filename: editFilename.trim() || undefined,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+      });
+      editing = false;
+      await loadVideo();
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : "Failed to save metadata";
+    } finally {
+      saving = false;
+    }
+  }
 
   const jobStatusColors: Record<JobStatus, string> = {
     pending: "bg-gray-100 text-gray-800",
@@ -238,6 +309,141 @@
         <span>Uploaded: {new Date(video.createdAt).toLocaleDateString()}</span>
         <span>Status: {video.status}</span>
       </div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="space-y-3 rounded-md border p-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Metadata</h2>
+        {#if !editing}
+          <button
+            onclick={startEditing}
+            class="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors hover:bg-muted"
+          >
+            Edit
+          </button>
+        {/if}
+      </div>
+
+      {#if editing}
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <label for="edit-filename" class="text-sm font-medium">Filename</label>
+            <input
+              id="edit-filename"
+              type="text"
+              bind:value={editFilename}
+              class="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <label for="edit-description" class="text-sm font-medium">Description</label>
+            <textarea
+              id="edit-description"
+              bind:value={editDescription}
+              rows={3}
+              class="w-full rounded-md border bg-background px-3 py-2 text-sm resize-none"
+              placeholder="Add a description..."
+            ></textarea>
+          </div>
+
+          <div class="space-y-1">
+            <label for="edit-tags" class="text-sm font-medium">Tags</label>
+            <div class="flex flex-wrap gap-1.5 mb-1.5">
+              {#each editTags as tag}
+                <span class="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
+                  {tag}
+                  <button
+                    onclick={() => removeTag(tag)}
+                    class="ml-0.5 text-muted-foreground hover:text-foreground"
+                    aria-label="Remove tag {tag}"
+                  >&times;</button>
+                </span>
+              {/each}
+            </div>
+            <input
+              id="edit-tags"
+              type="text"
+              bind:value={editTagInput}
+              onkeydown={handleTagKeydown}
+              placeholder="Type a tag and press Enter"
+              class="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <label for="edit-speakers" class="text-sm font-medium">Speaker count</label>
+              <input
+                id="edit-speakers"
+                type="number"
+                min="1"
+                max="100"
+                bind:value={editSpeakerCount}
+                placeholder="e.g. 2"
+                class="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div class="space-y-1">
+              <label for="edit-language" class="text-sm font-medium">Language</label>
+              <select
+                id="edit-language"
+                bind:value={editLanguage}
+                class="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Not set</option>
+                {#each VIDEO_LANGUAGES as lang}
+                  <option value={lang}>{lang}</option>
+                {/each}
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <button
+              onclick={saveMetadata}
+              disabled={saving}
+              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              onclick={cancelEditing}
+              disabled={saving}
+              class="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      {:else}
+        {@const meta = video.uploadMetadata}
+        {#if meta && (meta.description || meta.tags?.length || meta.speakerCount || meta.language)}
+          <div class="space-y-2 text-sm">
+            {#if meta.description}
+              <p class="text-muted-foreground whitespace-pre-wrap">{meta.description}</p>
+            {/if}
+            {#if meta.tags?.length}
+              <div class="flex flex-wrap gap-1.5">
+                {#each meta.tags as tag}
+                  <span class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">{tag}</span>
+                {/each}
+              </div>
+            {/if}
+            <div class="flex items-center gap-4 text-muted-foreground">
+              {#if meta.speakerCount}
+                <span>Speakers: {meta.speakerCount}</span>
+              {/if}
+              {#if meta.language}
+                <span>Language: {meta.language}</span>
+              {/if}
+            </div>
+          </div>
+        {:else}
+          <p class="text-sm text-muted-foreground">No metadata set.</p>
+        {/if}
+      {/if}
     </div>
 
     <!-- Processing Pipeline -->

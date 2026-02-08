@@ -28,7 +28,7 @@
 		const ctx = canvasEl.getContext('2d')!;
 		ctx.scale(dpr, dpr);
 		ctx.clearRect(0, 0, w, h);
-		draw(ctx, w, h, { scrollLeft: timeline.scrollLeft, zoom: timeline.zoom, duration: timeline.duration });
+		draw(ctx, w, h, { scrollLeft: timeline.scrollLeft, zoom: timeline.zoom, duration: timeline.duration, containerWidth: timeline.containerWidth });
 	}
 
 	function animationLoop() {
@@ -88,7 +88,8 @@
 	function scrubAt(e: PointerEvent) {
 		const rect = canvasEl.getBoundingClientRect();
 		const x = e.clientX - rect.left;
-		const time = timeline.pxToTime(x + timeline.scrollLeft);
+		// x is already the absolute pixel offset in the canvas (getBoundingClientRect accounts for scroll)
+		const time = timeline.pxToTime(x);
 		onScrub?.(Math.max(0, Math.min(time, timeline.duration)));
 	}
 </script>

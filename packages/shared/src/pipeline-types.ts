@@ -109,6 +109,21 @@ export const PROJECT_MEMBER_ROLES = [
 
 export type ProjectMemberRole = (typeof PROJECT_MEMBER_ROLES)[number];
 
+// --- Video metadata (stored in uploadMetadata JSONB) ---
+
+export const VIDEO_LANGUAGES = [
+  "en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh", "ar", "hi", "other",
+] as const;
+
+export type VideoLanguage = (typeof VIDEO_LANGUAGES)[number];
+
+export interface VideoMetadata {
+  description?: string;
+  tags?: string[];
+  speakerCount?: number;
+  language?: VideoLanguage;
+}
+
 // --- Processing job type for API responses ---
 
 export interface ProcessingJobInfo {

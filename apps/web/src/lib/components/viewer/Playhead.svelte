@@ -3,13 +3,16 @@
 
   const timeline = getTimelineState();
 
-  const xPos = $derived(timeline.timeToPx(timeline.currentTime) - timeline.scrollLeft);
+  // Absolute position within timeline for translateX
+  const absX = $derived(timeline.timeToPx(timeline.currentTime));
+  // Viewport-relative position for visibility check
+  const viewX = $derived(absX - timeline.scrollLeft);
 </script>
 
-{#if xPos >= -2 && xPos <= timeline.containerWidth + 2}
+{#if viewX >= -2 && viewX <= timeline.containerWidth + 2}
   <div
     class="absolute top-0 bottom-0 pointer-events-none z-20"
-    style="transform: translateX({xPos}px); will-change: transform;"
+    style="transform: translateX({absX}px); will-change: transform;"
   >
     <div class="w-0.5 h-full bg-red-500"></div>
   </div>

@@ -36,8 +36,10 @@ venv/
 credentials.json
 secrets.yaml
 
-# Claude internal (keep rules + project CLAUDE.md for team sharing)
+# Claude internal (keep rules, skills, + project CLAUDE.md for team sharing)
 .claude/**
 !.claude/CLAUDE.md
 !.claude/rules/
 !.claude/rules/**
+!.claude/skills/
+!.claude/skills/**

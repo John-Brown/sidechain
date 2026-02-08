@@ -247,7 +247,8 @@ export const processingRouter = router({
           try {
             const data = await getObject(j.resultS3Key!);
             return [j.stage, data] as const;
-          } catch {
+          } catch (err) {
+            console.error(`[getAllResults] Failed to fetch ${j.stage} from S3 (key: ${j.resultS3Key}):`, err);
             return [j.stage, null] as const;
           }
         }),

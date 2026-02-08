@@ -46,3 +46,57 @@
 - No tunnel for Modal callbacks — dependent stages auto-chain via `triggerReadyStages()` instead
 - Diarization fails: `Pipeline.from_pretrained() got an unexpected keyword argument 'use_auth_token'`
 - No favicon (404s on /favicon.ico, /apple-touch-icon.png — harmless)
+
+---
+
+## 2026-02-08 — Viewer Overhaul: Layout, Waveform, VAD Fix, Head Pose, Audit Skill
+
+### Layout restructure
+- Split timeline into two-column layout: fixed 120px label column + scrollable content area
+- Labels no longer scroll away horizontally — `TrackLabel.svelte` and `TrackContent.svelte` replace `TrackRow.svelte`
+- Playhead now uses absolute positioning (x=0 = time 0), fixing the 120px offset bug
+
+### Zoom + scrub fixes
+- Default zoom now fits video duration to viewport width (`fitZoomToContainer()`)
+- Proportional wheel zoom (10% per notch) — max raised from 20 to 100 px/s
+- Fixed double-scroll bug: all draw functions converted from viewport-relative to absolute pixel positioning
+- Fixed `scrubAt` in CanvasTrack — `getBoundingClientRect` already accounts for scroll offset
+
+### Audio waveform track
+- New `extract-waveform.ts`: fetches video URL → Web Audio API `decodeAudioData` → peak extraction at 200 peaks/sec
+- Supports stereo (top/bottom halves, cyan/pink) and mono (mirrored bars)
+- Non-blocking extraction with loading state
+
+### VAD data contract fix (root cause of missing VAD track)
+- **Problem**: Python pipeline outputs `{ metadata, segments, frames }` but TypeScript `VadResult` expected `{ metadata, data }` with nested `voice_activity.speech_probability` + energy fields
+- `annotations.vad?.data` silently returned `undefined` since the actual key is `frames`
+- **Fix**: Rewrote `VadResult` type to match pipeline: `segments: VadSegment[]` + `frames: VadFrame[]`
+- Removed phantom "Energy" track — pipeline produces no energy data
+- Added error state visibility for all tracks (was hiding tracks silently on S3 fetch failure)
+- Added diagnostic console logging for data loading pipeline
+
+### Data contract validation
+- Validated all 7 pipeline stages' Python output against TypeScript types
+- VAD was the only mismatch — all others (transcription, facial_tracking, mouth_energy, diarization, state_annotation, intent_classification) use `data` and match correctly
+- Updated `data-contracts.md` rule with accurate field names per stage
+
+### Head pose track (from facial tracking)
+- New `drawHeadPose` — three colored lines: pitch (amber), yaw (indigo), roll (emerald)
+- Custom binary search for `FacialTrackingFrame` (uses `time` not `time_range`)
+- Lazy-loaded separately from `getAllResults` (too large for batch response)
+
+### Pipeline audit skill
+- Created `/audit-pipeline` skill at `.claude/skills/audit-pipeline/`
+- Traces data end-to-end: Python output → S3 → TypeScript types → viewer loading → draw functions
+- Includes `expected-shapes.md` reference with validated JSON shapes for all 7 stages
+- Invoke with `/audit-pipeline <video-id>` or `/audit-pipeline types-only`
+
+### Files added
+- `apps/web/src/lib/components/viewer/tracks/TrackLabel.svelte`
+- `apps/web/src/lib/components/viewer/tracks/TrackContent.svelte`
+- `apps/web/src/lib/components/viewer/utils/extract-waveform.ts`
+- `.claude/skills/audit-pipeline/SKILL.md`
+- `.claude/skills/audit-pipeline/expected-shapes.md`
+
+### Track order (top → bottom)
+Time → Waveform → VAD → Head Pose → Mouth Energy → Transcription

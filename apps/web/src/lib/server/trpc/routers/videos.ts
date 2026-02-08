@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { videos, processingJobs, projectMembers } from "@annotation/db";
+import { VIDEO_LANGUAGES } from "@annotation/shared";
 import { protectedProcedure, router } from "../trpc.js";
 import {
   createMultipartUpload,
@@ -78,6 +79,66 @@ export const videosRouter = router({
         .orderBy(processingJobs.createdAt);
 
       return { ...video, processingJobs: jobs };
+    }),
+
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        filename: z.string().min(1).max(255).optional(),
+        metadata: z
+          .object({
+            description: z.string().max(2000).optional(),
+            tags: z.array(z.string().max(50)).max(20).optional(),
+            speakerCount: z.number().int().min(1).max(100).optional(),
+            language: z.enum(VIDEO_LANGUAGES).optional(),
+          })
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.id))
+        .limit(1);
+
+      if (!video) throw new Error("Video not found");
+
+      // Verify project membership
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, video.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) throw new Error("Not authorized");
+
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+      if (input.filename !== undefined) {
+        updates.filename = input.filename;
+      }
+
+      if (input.metadata !== undefined) {
+        // Merge with existing metadata (partial update)
+        const existing =
+          (video.uploadMetadata as Record<string, unknown>) ?? {};
+        updates.uploadMetadata = { ...existing, ...input.metadata };
+      }
+
+      const [updated] = await ctx.db
+        .update(videos)
+        .set(updates)
+        .where(eq(videos.id, input.id))
+        .returning();
+
+      return updated;
     }),
 
   create: protectedProcedure

@@ -2,6 +2,7 @@ import type {
   VadResult,
   TranscriptionResult,
   DiarizationResult,
+  FacialTrackingResult,
   MouthEnergyResult,
   StateAnnotationResult,
   IntentClassificationResult,
@@ -13,6 +14,7 @@ export class AnnotationDataState {
   vad = $state<VadResult | null>(null);
   transcription = $state<TranscriptionResult | null>(null);
   diarization = $state<DiarizationResult | null>(null);
+  facialTracking = $state<FacialTrackingResult | null>(null);
   mouthEnergy = $state<MouthEnergyResult | null>(null);
   stateAnnotation = $state<StateAnnotationResult | null>(null);
   intentClassification = $state<IntentClassificationResult | null>(null);

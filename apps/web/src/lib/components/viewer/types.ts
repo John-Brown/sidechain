@@ -2,6 +2,7 @@ export interface Viewport {
   scrollLeft: number;
   zoom: number;
   duration: number;
+  containerWidth: number;
 }
 
 export interface TrackConfig {

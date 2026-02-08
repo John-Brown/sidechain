@@ -10,14 +10,17 @@
 ## Annotation Types (`@annotation/shared`)
 
 **Pipeline result types** (S3 JSON → annotationDataState):
-- `VadResult` → `VadSegment[]` with `speech_probability`, `energy_dbfs`
-- `TranscriptionResult` → `SpeechWord[]` with `word`, `speaker`, `confidence`, `speech_segment`
-- `DiarizationResult` → `DiarizationSegment[]` with `speaker`
-- `MouthEnergyResult` → `MouthEnergySegment[]` with `mouth_energy`, `blend_shape_energy`
-- `StateAnnotationResult` → `StateAnnotation[]` with `category` ("expression.state.speaking" | "expression.state.listening")
-- `IntentClassificationResult` → `IntentAnnotation[]` with `intent` (6 types), `intensity` (3 levels), `valence` (3 levels)
+- `VadResult` → `segments: VadSegment[]` (speech regions with `confidence`) + `frames: VadFrame[]` (per-frame `speech_probability`). **NOTE: uses `segments`/`frames`, NOT `data`**
+- `TranscriptionResult` → `data: SpeechWord[]` with `word`, `speaker`, `confidence`, `speech_segment`
+- `FacialTrackingResult` → `data: FacialTrackingFrame[]` with `time` (single float, not time_range), `facial_tracking.tracking.*`
+- `DiarizationResult` → `data: DiarizationSegment[]` with `speaker`
+- `MouthEnergyResult` → `data: MouthEnergySegment[]` with `mouth_energy`, `blend_shape_energy`
+- `StateAnnotationResult` → `data: StateAnnotation[]` with `category` ("expression.state.speaking" | "expression.state.listening")
+- `IntentClassificationResult` → `data: IntentAnnotation[]` with `intent` (6 types), `intensity` (3 levels), `valence` (3 levels)
 
 **All result types** include `AnnotationMetadata`: `source_file`, `format_version`, `created_timestamp`, `total_secs`, `algorithm { name, model, version, processing_time }`.
+
+**IMPORTANT**: Always validate TypeScript types against actual Python pipeline output (check `workers/ml-pipeline/stages/`). VAD was the only stage where the Python output diverged from original TS spec.
 
 ## Pipeline Enums (`@annotation/shared`)
 

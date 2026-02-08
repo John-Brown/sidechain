@@ -1,5 +1,6 @@
 export type {
   TimeRange,
+  VadFrame,
   VadSegment,
   VadResult,
   SpeechWord,
@@ -37,6 +38,7 @@ export {
   TASK_STATUSES,
   USER_ROLES,
   PROJECT_MEMBER_ROLES,
+  VIDEO_LANGUAGES,
 } from "./pipeline-types.js";
 
 export type {
@@ -51,4 +53,6 @@ export type {
   UserRole,
   ProjectMemberRole,
   ProcessingJobInfo,
+  VideoLanguage,
+  VideoMetadata,
 } from "./pipeline-types.js";
