@@ -10,8 +10,6 @@
     StateAnnotationResult,
     IntentClassificationResult,
     SpeechWord,
-    StateAnnotation,
-    IntentAnnotation,
   } from '@annotation/shared';
   import type { Viewport } from './types.js';
 
@@ -31,7 +29,7 @@
   import CanvasTrack from './tracks/CanvasTrack.svelte';
   import DOMTrack from './tracks/DOMTrack.svelte';
   import TrackRow from './tracks/TrackRow.svelte';
-  import { drawRuler, drawVad, drawEnergy, drawDiarization, drawMouthEnergy } from './tracks/draw-functions.js';
+  import { drawRuler, drawMouthEnergy } from './tracks/draw-functions.js';
 
   import './viewer.css';
 
@@ -72,18 +70,6 @@
     drawRuler(ctx, w, h, vp);
   }
 
-  function drawVadTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.vad?.data) drawVad(ctx, w, h, vp, annotations.vad.data);
-  }
-
-  function drawEnergyTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.vad?.data) drawEnergy(ctx, w, h, vp, annotations.vad.data);
-  }
-
-  function drawDiarizationTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.diarization?.data) drawDiarization(ctx, w, h, vp, annotations.diarization.data);
-  }
-
   function drawMouthEnergyTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
     if (annotations.mouthEnergy?.data) drawMouthEnergy(ctx, w, h, vp, annotations.mouthEnergy.data);
   }
@@ -95,22 +81,6 @@
 
   function transcriptionBlockLabel(item: SpeechWord): string {
     return item.speech.word;
-  }
-
-  function stateBlockClass(item: StateAnnotation): string {
-    return item.category.includes('speaking') ? 'block-speaking' : 'block-listening';
-  }
-
-  function stateBlockLabel(item: StateAnnotation): string {
-    return item.category.includes('speaking') ? 'Speaking' : 'Listening';
-  }
-
-  function intentBlockClass(item: IntentAnnotation): string {
-    return `block-intent-${item.intent_classification.intent}`;
-  }
-
-  function intentBlockLabel(item: IntentAnnotation): string {
-    return item.intent_classification.intent;
   }
 
   function getTimeRangeStart(item: { time_range: { start: number } }): number {
@@ -375,44 +345,12 @@
             <CanvasTrack height={32} draw={drawRulerTrack} onScrub={handleScrub} />
           </TrackRow>
 
-          <!-- VAD -->
-          <TrackRow label="VAD">
-            {#if annotations.loadStatus.vad === 'loaded'}
-              <CanvasTrack draw={drawVadTrack} onScrub={handleScrub} />
-            {:else}
-              <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
-                  {annotations.loadStatus.vad === 'loading' ? 'Loading...' : annotations.loadStatus.vad === 'error' ? 'Error' : ''}
-                </span>
-              </div>
-            {/if}
-          </TrackRow>
-
-          <!-- Energy -->
-          <TrackRow label="Energy">
-            {#if annotations.loadStatus.vad === 'loaded'}
-              <CanvasTrack draw={drawEnergyTrack} onScrub={handleScrub} />
-            {:else}
-              <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
-                  {annotations.loadStatus.vad === 'loading' ? 'Loading...' : annotations.loadStatus.vad === 'error' ? 'Error' : ''}
-                </span>
-              </div>
-            {/if}
-          </TrackRow>
-
-          <!-- Diarization -->
-          <TrackRow label="Diarization">
-            {#if annotations.loadStatus.diarization === 'loaded' && annotations.diarization?.data}
-              <CanvasTrack draw={drawDiarizationTrack} onScrub={handleScrub} />
-            {:else}
-              <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
-                  {annotations.loadStatus.diarization === 'loading' ? 'Loading...' : annotations.loadStatus.diarization === 'error' ? 'Error' : ''}
-                </span>
-              </div>
-            {/if}
-          </TrackRow>
+          <!-- TODO: Re-enable these tracks when pipeline backends are ready:
+               - VAD (canvas): Silero sample size bug — needs fix in workers/ml-pipeline/stages/vad.py
+               - Energy (canvas): depends on VAD data
+               - Diarization (canvas): pyannote auth token API change
+               Draw functions ready in tracks/draw-functions.ts (drawVad, drawEnergy, drawDiarization)
+          -->
 
           <!-- Mouth Energy -->
           <TrackRow label="Mouth Energy">
@@ -447,45 +385,11 @@
             {/if}
           </TrackRow>
 
-          <!-- States (DOM track) -->
-          <TrackRow label="States">
-            {#if annotations.loadStatus.state_annotation === 'loaded' && annotations.stateAnnotation?.data}
-              <DOMTrack
-                data={annotations.stateAnnotation.data}
-                getStart={getTimeRangeStart}
-                getEnd={getTimeRangeEnd}
-                blockClass={stateBlockClass}
-                blockLabel={stateBlockLabel}
-                onBlockClick={(item) => handleBlockClick(item as unknown as Record<string, unknown>)}
-              />
-            {:else}
-              <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
-                  {annotations.loadStatus.state_annotation === 'loading' ? 'Loading...' : annotations.loadStatus.state_annotation === 'error' ? 'Error' : ''}
-                </span>
-              </div>
-            {/if}
-          </TrackRow>
-
-          <!-- Intents (DOM track) -->
-          <TrackRow label="Intents">
-            {#if annotations.loadStatus.intent_classification === 'loaded' && annotations.intentClassification?.data}
-              <DOMTrack
-                data={annotations.intentClassification.data}
-                getStart={getTimeRangeStart}
-                getEnd={getTimeRangeEnd}
-                blockClass={intentBlockClass}
-                blockLabel={intentBlockLabel}
-                onBlockClick={(item) => handleBlockClick(item as unknown as Record<string, unknown>)}
-              />
-            {:else}
-              <div class="w-full h-full flex items-center justify-center">
-                <span class="text-[10px] text-viewer-text-dim">
-                  {annotations.loadStatus.intent_classification === 'loading' ? 'Loading...' : annotations.loadStatus.intent_classification === 'error' ? 'Error' : ''}
-                </span>
-              </div>
-            {/if}
-          </TrackRow>
+          <!-- TODO: Re-enable these DOM tracks when pipeline backends are ready:
+               - States (DOM): depends on diarization pipeline
+               - Intents (DOM): depends on state_annotation + transcription + vad
+               Block helpers and CSS classes ready in viewer.css
+          -->
         </div>
       </div>
     </div>
