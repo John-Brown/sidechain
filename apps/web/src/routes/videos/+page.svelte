@@ -41,11 +41,11 @@
   }
 
   const statusColors: Record<VideoStatus, string> = {
-    uploading: "bg-yellow-100 text-yellow-800",
-    uploaded: "bg-cyan-100 text-cyan-800",
-    processing: "bg-blue-100 text-blue-800",
-    ready: "bg-green-100 text-green-800",
-    error: "bg-red-100 text-red-800",
+    uploading: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+    uploaded: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400",
+    processing: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    ready: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    error: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   };
 
   function formatDuration(secs: number | null): string {
@@ -161,7 +161,7 @@
                   <button
                     onclick={() => deleteVideo(video.id, video.filename)}
                     disabled={deleting === video.id}
-                    class="text-sm font-medium text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
+                    class="text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:underline disabled:opacity-50"
                   >
                     {deleting === video.id ? "Deleting..." : "Delete"}
                   </button>

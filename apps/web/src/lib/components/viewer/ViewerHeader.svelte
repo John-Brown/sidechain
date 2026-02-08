@@ -50,7 +50,7 @@
   </button>
 
   <!-- Time display -->
-  <span class="text-xs text-viewer-text tabular-nums w-28 text-center">
+  <span class="text-xs text-viewer-text tabular-nums whitespace-nowrap text-center">
     {formatTimePrecise(timeline.currentTime)} / {formatTimePrecise(timeline.duration)}
   </span>
 

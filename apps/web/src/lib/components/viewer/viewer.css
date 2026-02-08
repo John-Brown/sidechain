@@ -1,5 +1,19 @@
-/* Viewer dark theme variables */
+/* Viewer theme variables — light by default, dark via .dark ancestor */
 .viewer-theme {
+  --viewer-bg: #ffffff;
+  --viewer-surface: #f4f5f7;
+  --viewer-surface-2: #ebedf0;
+  --viewer-border: #d4d8e0;
+  --viewer-text: #1a1a2e;
+  --viewer-text-dim: #64748b;
+  --viewer-accent: #6366f1;
+  --viewer-playhead: #ef4444;
+
+  background-color: var(--viewer-bg);
+  color: var(--viewer-text);
+}
+
+.dark .viewer-theme {
   --viewer-bg: #0f1117;
   --viewer-surface: #1a1d27;
   --viewer-surface-2: #242836;
@@ -8,75 +22,133 @@
   --viewer-text-dim: #8b90a0;
   --viewer-accent: #6366f1;
   --viewer-playhead: #ef4444;
-
-  background-color: var(--viewer-bg);
-  color: var(--viewer-text);
 }
 
-/* Track label and border colors for use with Tailwind arbitrary values */
-.bg-viewer-surface { background-color: #1a1d27; }
-.border-viewer-border { border-color: #2e3345; }
-.text-viewer-text-dim { color: #8b90a0; }
-.text-viewer-text { color: #e1e4ed; }
-.bg-viewer-bg { background-color: #0f1117; }
-.bg-viewer-surface-2 { background-color: #242836; }
+/* Utility classes referencing CSS vars */
+.bg-viewer-surface { background-color: var(--viewer-surface); }
+.border-viewer-border { border-color: var(--viewer-border); }
+.text-viewer-text-dim { color: var(--viewer-text-dim); }
+.text-viewer-text { color: var(--viewer-text); }
+.bg-viewer-bg { background-color: var(--viewer-bg); }
+.bg-viewer-surface-2 { background-color: var(--viewer-surface-2); }
 
-/* DOM track block variants */
+/* DOM track block variants — light defaults */
 .block-speaker-0 {
+  background-color: rgba(8, 145, 178, 0.12);
+  border-color: rgba(8, 145, 178, 0.4);
+  color: rgba(8, 145, 178, 0.85);
+}
+
+.block-speaker-1 {
+  background-color: rgba(219, 39, 119, 0.1);
+  border-color: rgba(219, 39, 119, 0.35);
+  color: rgba(219, 39, 119, 0.85);
+}
+
+.block-speaking {
+  background-color: rgba(5, 150, 105, 0.1);
+  border-color: rgba(5, 150, 105, 0.35);
+  color: rgba(5, 150, 105, 0.85);
+}
+
+.block-listening {
+  background-color: rgba(71, 85, 105, 0.1);
+  border-color: rgba(71, 85, 105, 0.25);
+  color: rgba(71, 85, 105, 0.7);
+}
+
+.block-intent-engage {
+  background-color: rgba(79, 70, 229, 0.12);
+  border-color: rgba(79, 70, 229, 0.4);
+  color: rgba(79, 70, 229, 0.85);
+}
+
+.block-intent-inform {
+  background-color: rgba(8, 145, 178, 0.12);
+  border-color: rgba(8, 145, 178, 0.4);
+  color: rgba(8, 145, 178, 0.85);
+}
+
+.block-intent-inquire {
+  background-color: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.4);
+  color: rgba(217, 119, 6, 0.85);
+}
+
+.block-intent-challenge {
+  background-color: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: rgba(220, 38, 38, 0.85);
+}
+
+.block-intent-comfort {
+  background-color: rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.4);
+  color: rgba(124, 58, 237, 0.85);
+}
+
+.block-intent-celebrate {
+  background-color: rgba(5, 150, 105, 0.12);
+  border-color: rgba(5, 150, 105, 0.4);
+  color: rgba(5, 150, 105, 0.85);
+}
+
+/* Dark overrides for block variants */
+.dark .block-speaker-0 {
   background-color: rgba(34, 211, 238, 0.3);
   border-color: rgba(34, 211, 238, 0.6);
   color: rgba(34, 211, 238, 0.9);
 }
 
-.block-speaker-1 {
+.dark .block-speaker-1 {
   background-color: rgba(244, 114, 182, 0.3);
   border-color: rgba(244, 114, 182, 0.6);
   color: rgba(244, 114, 182, 0.9);
 }
 
-.block-speaking {
+.dark .block-speaking {
   background-color: rgba(52, 211, 153, 0.3);
   border-color: rgba(52, 211, 153, 0.6);
   color: rgba(52, 211, 153, 0.9);
 }
 
-.block-listening {
+.dark .block-listening {
   background-color: rgba(100, 116, 139, 0.3);
   border-color: rgba(100, 116, 139, 0.4);
   color: rgba(100, 116, 139, 0.9);
 }
 
-.block-intent-engage {
+.dark .block-intent-engage {
   background-color: rgba(99, 102, 241, 0.3);
   border-color: rgba(99, 102, 241, 0.6);
   color: rgba(99, 102, 241, 0.9);
 }
 
-.block-intent-inform {
+.dark .block-intent-inform {
   background-color: rgba(34, 211, 238, 0.3);
   border-color: rgba(34, 211, 238, 0.6);
   color: rgba(34, 211, 238, 0.9);
 }
 
-.block-intent-inquire {
+.dark .block-intent-inquire {
   background-color: rgba(245, 158, 11, 0.3);
   border-color: rgba(245, 158, 11, 0.6);
   color: rgba(245, 158, 11, 0.9);
 }
 
-.block-intent-challenge {
+.dark .block-intent-challenge {
   background-color: rgba(239, 68, 68, 0.3);
   border-color: rgba(239, 68, 68, 0.6);
   color: rgba(239, 68, 68, 0.9);
 }
 
-.block-intent-comfort {
+.dark .block-intent-comfort {
   background-color: rgba(167, 139, 250, 0.3);
   border-color: rgba(167, 139, 250, 0.6);
   color: rgba(167, 139, 250, 0.9);
 }
 
-.block-intent-celebrate {
+.dark .block-intent-celebrate {
   background-color: rgba(52, 211, 153, 0.3);
   border-color: rgba(52, 211, 153, 0.6);
   color: rgba(52, 211, 153, 0.9);
@@ -89,14 +161,18 @@
 }
 
 .viewer-timeline::-webkit-scrollbar-track {
-  background: #1a1d27;
+  background: var(--viewer-surface);
 }
 
 .viewer-timeline::-webkit-scrollbar-thumb {
-  background: #2e3345;
+  background: var(--viewer-border);
   border-radius: 4px;
 }
 
 .viewer-timeline::-webkit-scrollbar-thumb:hover {
+  background: var(--viewer-surface-2);
+}
+
+.dark .viewer-timeline::-webkit-scrollbar-thumb:hover {
   background: #4a5068;
 }

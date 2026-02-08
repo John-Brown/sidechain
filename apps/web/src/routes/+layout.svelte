@@ -6,6 +6,7 @@
   import { createTRPCClientInstance } from "$lib/trpc";
   import { getActiveProject, setActiveProject } from "$lib/stores/project.svelte";
   import { page } from "$app/state";
+  import ThemeToggle from "$lib/components/ThemeToggle.svelte";
 
   let { children, data } = $props();
 
@@ -73,6 +74,9 @@
 
 {#if isAuthRoute || !data.session}
   <main class="min-h-screen flex items-center justify-center bg-muted/40">
+    <div class="fixed top-4 right-4">
+      <ThemeToggle />
+    </div>
     {@render children()}
   </main>
 {:else if isViewerRoute}
@@ -136,11 +140,12 @@
           Projects
         </a>
       </nav>
-      <div class="p-4 border-t">
+      <div class="p-4 border-t space-y-2">
+        <span class="block text-sm text-muted-foreground truncate">
+          {data.user?.email ?? ""}
+        </span>
         <div class="flex items-center justify-between">
-          <span class="text-sm text-muted-foreground truncate">
-            {data.user?.email ?? ""}
-          </span>
+          <ThemeToggle />
           <button
             onclick={signOut}
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
