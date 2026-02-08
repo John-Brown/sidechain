@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curator – Phase 0 De-Risk Spike</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #242836;
+    --border: #2e3345;
+    --text: #e1e4ed;
+    --text-dim: #8b90a0;
+    --accent: #6366f1;
+    --accent-dim: #4f46e5;
+    --speaker-0: #22d3ee;
+    --speaker-1: #f472b6;
+    --speaking: #34d399;
+    --listening: #64748b;
+    --intent-engage: #6366f1;
+    --intent-inform: #22d3ee;
+    --intent-inquire: #f59e0b;
+    --intent-challenge: #ef4444;
+    --intent-comfort: #a78bfa;
+    --intent-celebrate: #34d399;
+    --playhead: #ef4444;
+    --track-height: 48px;
+    --ruler-height: 32px;
+    --timeline-padding: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- Header --- */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 14px; font-weight: 600; color: var(--text-dim); }
+  .header .controls { display: flex; gap: 8px; align-items: center; }
+  .header button {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+  }
+  .header button:hover { background: var(--accent-dim); border-color: var(--accent); }
+  .header .time { font-size: 13px; color: var(--accent); min-width: 120px; }
+
+  /* --- Main layout --- */
+  .main {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* --- Video panel --- */
+  .video-panel {
+    width: 400px;
+    min-width: 300px;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .video-panel video {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #111;
+    object-fit: contain;
+  }
+  .video-placeholder {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .video-placeholder input[type="file"] { font-size: 11px; }
+
+  /* --- Inspector --- */
+  .inspector {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-dim);
+  }
+  .inspector h3 { color: var(--text); margin-bottom: 4px; font-size: 12px; }
+  .inspector .field { margin-bottom: 4px; }
+  .inspector .label { color: var(--text-dim); }
+  .inspector .value { color: var(--accent); }
+
+  /* --- Timeline panel --- */
+  .timeline-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* --- Track labels --- */
+  .timeline-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .track-row {
+    display: flex;
+    min-height: var(--track-height);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .track-row.ruler { min-height: var(--ruler-height); }
+  .track-label {
+    width: 120px;
+    min-width: 120px;
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+  }
+  .track-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* --- Canvas tracks --- */
+  .track-content canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* --- DOM annotation blocks --- */
+  .annotation-block {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 9px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    user-select: none;
+    transition: opacity 0.1s;
+    will-change: transform, width;
+    contain: layout style;
+  }
+  .annotation-block:hover { opacity: 0.9; z-index: 10; }
+  .annotation-block.dragging {
+    opacity: 0.95;
+    z-index: 100;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+  }
+
+  /* Resize handles */
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    z-index: 5;
+  }
+  .resize-handle.left { left: -2px; }
+  .resize-handle.right { right: -2px; }
+  .resize-handle:hover { background: rgba(255,255,255,0.15); }
+
+  /* Block variants */
+  .block-speaking { background: rgba(52, 211, 153, 0.3); border: 1px solid rgba(52, 211, 153, 0.5); color: var(--speaking); }
+  .block-listening { background: rgba(100, 116, 139, 0.2); border: 1px solid rgba(100, 116, 139, 0.3); color: var(--listening); }
+  .block-word { border: 1px solid rgba(99, 102, 241, 0.4); color: var(--text); font-size: 8px; }
+  .block-word.speaker-0 { background: rgba(34, 211, 238, 0.2); border-color: rgba(34, 211, 238, 0.4); }
+  .block-word.speaker-1 { background: rgba(244, 114, 182, 0.2); border-color: rgba(244, 114, 182, 0.4); }
+  .block-intent { border-radius: 3px; font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+  .block-intent.engage { background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(99, 102, 241, 0.5); color: #818cf8; }
+  .block-intent.inform { background: rgba(34, 211, 238, 0.2); border: 1px solid rgba(34, 211, 238, 0.4); color: #22d3ee; }
+  .block-intent.inquire { background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); color: #f59e0b; }
+  .block-intent.challenge { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; }
+  .block-intent.comfort { background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); color: #a78bfa; }
+  .block-intent.celebrate { background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); color: #34d399; }
+
+  /* --- Playhead --- */
+  .playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--playhead);
+    z-index: 50;
+    pointer-events: none;
+    will-change: transform;
+  }
+  .playhead::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -4px;
+    width: 9px;
+    height: 9px;
+    background: var(--playhead);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+  }
+
+  /* --- Perf overlay --- */
+  .perf-overlay {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.85);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 10px;
+    line-height: 1.6;
+    z-index: 1000;
+    min-width: 180px;
+  }
+  .perf-overlay .metric { display: flex; justify-content: space-between; gap: 12px; }
+  .perf-overlay .label { color: var(--text-dim); }
+  .perf-overlay .value { font-weight: 600; }
+  .perf-overlay .value.good { color: var(--speaking); }
+  .perf-overlay .value.warn { color: #f59e0b; }
+  .perf-overlay .value.bad { color: #ef4444; }
+
+  /* --- Zoom controls --- */
+  .zoom-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 11px;
+  }
+  .zoom-controls input[type="range"] {
+    width: 100px;
+    accent-color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CURATOR SPIKE</h1>
+  <div class="controls">
+    <button id="btn-play">Play</button>
+    <button id="btn-pause">Pause</button>
+    <span class="time" id="time-display">00:00.000 / 00:00.000</span>
+  </div>
+  <div class="zoom-controls">
+    <span style="color:var(--text-dim)">Zoom:</span>
+    <input type="range" id="zoom-slider" min="0.5" max="20" step="0.1" value="4">
+    <span id="zoom-label" style="min-width:50px">4.0x</span>
+  </div>
+  <div class="controls">
+    <button id="btn-stress">Stress Test (200 blocks)</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="video-panel">
+    <div class="video-placeholder" id="video-area">
+      <video id="video" style="display:none" crossorigin="anonymous"></video>
+      <div id="video-prompt">
+        <div>Drop a video file or</div>
+        <input type="file" id="video-input" accept="video/*">
+        <div style="margin-top:8px; font-size:10px">
+          Without video, timeline runs at simulated 1x playback
+        </div>
+      </div>
+    </div>
+    <div class="inspector" id="inspector">
+      <h3>Inspector</h3>
+      <div class="field">Click an annotation block to inspect</div>
+    </div>
+  </div>
+
+  <div class="timeline-panel">
+    <div class="timeline-container" id="timeline-container">
+      <!-- Tracks injected by JS -->
+    </div>
+  </div>
+</div>
+
+<div class="perf-overlay" id="perf-overlay">
+  <div style="margin-bottom:4px; color:var(--accent); font-weight:600">Performance</div>
+  <div class="metric"><span class="label">FPS</span><span class="value" id="perf-fps">—</span></div>
+  <div class="metric"><span class="label">Frame (avg)</span><span class="value" id="perf-avg">—</span></div>
+  <div class="metric"><span class="label">Frame (p95)</span><span class="value" id="perf-p95">—</span></div>
+  <div class="metric"><span class="label">Frame (max)</span><span class="value" id="perf-max">—</span></div>
+  <div class="metric"><span class="label">Drag frames</span><span class="value" id="perf-drag">—</span></div>
+  <div class="metric"><span class="label">Drag p95</span><span class="value" id="perf-drag-p95">—</span></div>
+  <div class="metric"><span class="label">Visible blocks</span><span class="value" id="perf-blocks">—</span></div>
+  <div class="metric"><span class="label">Canvas draws</span><span class="value" id="perf-draws">—</span></div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  duration: 120,
+  currentTime: 0,
+  playing: false,
+  zoom: 4, // pixels per second
+  scrollLeft: 0,
+  trackContentWidth: 0,
+
+  // Data
+  vad: null,
+  transcription: null,
+  annotations: null,
+  intents: null,
+  diarization: null,
+
+  // Drag state
+  dragging: null, // { element, handle, startX, startTime, annotation, side }
+
+  // Perf tracking
+  frameTimes: [],
+  dragFrameTimes: [],
+  canvasDrawCount: 0,
+  lastFrameTime: 0,
+};
+
+// ============================================================
+// DATA LOADING
+// ============================================================
+async function loadData() {
+  const [vad, transcription, annotations, intents, diarization] = await Promise.all([
+    fetch('data/voice_activity.json').then(r => r.json()),
+    fetch('data/speech_transcription.json').then(r => r.json()),
+    fetch('data/annotations.json').then(r => r.json()),
+    fetch('data/intent_classification_annotations.json').then(r => r.json()),
+    fetch('data/diarization.json').then(r => r.json()),
+  ]);
+  state.vad = vad;
+  state.transcription = transcription;
+  state.annotations = annotations;
+  state.intents = intents;
+  state.diarization = diarization;
+  state.duration = vad.metadata.total_secs;
+}
+
+// ============================================================
+// TIME <-> PIXEL CONVERSION
+// ============================================================
+function timeToPx(time) {
+  return time * state.zoom;
+}
+
+function pxToTime(px) {
+  return px / state.zoom;
+}
+
+function getViewportStart() {
+  const container = document.getElementById('timeline-container');
+  return pxToTime(container.scrollLeft);
+}
+
+function getViewportEnd() {
+  const container = document.getElementById('timeline-container');
+  return pxToTime(container.scrollLeft + container.clientWidth - 120); // minus label width
+}
+
+// ============================================================
+// TRACK RENDERING
+// ============================================================
+const TRACKS = [
+  { id: 'ruler', label: 'Time', type: 'canvas', cssClass: 'ruler' },
+  { id: 'vad', label: 'VAD', type: 'canvas' },
+  { id: 'energy', label: 'Energy', type: 'canvas' },
+  { id: 'diarization', label: 'Diarization', type: 'canvas' },
+  { id: 'transcription', label: 'Transcript', type: 'dom' },
+  { id: 'states', label: 'States', type: 'dom' },
+  { id: 'intents', label: 'Intents', type: 'dom' },
+];
+
+function buildTracks() {
+  const container = document.getElementById('timeline-container');
+  container.innerHTML = '';
+
+  for (const track of TRACKS) {
+    const row = document.createElement('div');
+    row.className = `track-row ${track.cssClass || ''}`;
+    row.dataset.trackId = track.id;
+
+    const label = document.createElement('div');
+    label.className = 'track-label';
+    label.textContent = track.label;
+
+    const content = document.createElement('div');
+    content.className = 'track-content';
+    content.id = `track-${track.id}`;
+
+    if (track.type === 'canvas') {
+      const canvas = document.createElement('canvas');
+      canvas.id = `canvas-${track.id}`;
+      content.appendChild(canvas);
+    }
+
+    row.appendChild(label);
+    row.appendChild(content);
+    container.appendChild(row);
+  }
+
+  // Playhead (one per track content area, positioned via JS)
+  const playhead = document.createElement('div');
+  playhead.className = 'playhead';
+  playhead.id = 'playhead';
+  // Attach playhead to first track content for positioning reference
+  container.appendChild(playhead);
+}
+
+// ============================================================
+// CANVAS RENDERING
+// ============================================================
+function resizeCanvas(canvas) {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  return { width: rect.width, height: rect.height, dpr };
+}
+
+function drawRuler(canvas) {
+  const { width, height, dpr } = resizeCanvas(canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  const viewStart = getViewportStart();
+  const viewEnd = getViewportEnd();
+  const labelWidth = 120;
+
+  // Determine tick interval based on zoom
+  let tickInterval = 1;
+  if (state.zoom < 2) tickInterval = 10;
+  else if (state.zoom < 5) tickInterval = 5;
+  else if (state.zoom < 15) tickInterval = 2;
+  else tickInterval = 1;
+
+  const majorTickInterval = tickInterval * 5;
+
+  ctx.strokeStyle = '#2e3345';
+  ctx.fillStyle = '#8b90a0';
+  ctx.font = '9px "SF Mono", monospace';
+  ctx.textAlign = 'center';
+
+  const container = document.getElementById('timeline-container');
+  const scrollOffset = container.scrollLeft;
+
+  for (let t = 0; t <= state.duration; t += tickInterval) {
+    const x = timeToPx(t) - scrollOffset;
+    if (x < -20 || x > width) continue;
+
+    const isMajor = t % majorTickInterval === 0;
+    ctx.beginPath();
+    ctx.moveTo(x, height);
+    ctx.lineTo(x, isMajor ? height - 16 : height - 8);
+    ctx.strokeStyle = isMajor ? '#4a5068' : '#2e3345';
+    ctx.stroke();
+
+    if (isMajor) {
+      const min = Math.floor(t / 60);
+      const sec = Math.floor(t % 60);
+      ctx.fillText(`${min}:${String(sec).padStart(2, '0')}`, x, height - 19);
+    }
+  }
+
+  state.canvasDrawCount++;
+}
+
+function drawVAD(canvas) {
+  if (!state.vad) return;
+  const { width, height, dpr } = resizeCanvas(canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  const container = document.getElementById('timeline-container');
+  const scrollOffset = container.scrollLeft;
+  const viewStart = pxToTime(scrollOffset);
+  const viewEnd = pxToTime(scrollOffset + width);
+
+  // Binary search for visible range
+  const data = state.vad.data;
+  let startIdx = binarySearchStart(data, viewStart);
+  let endIdx = binarySearchEnd(data, viewEnd);
+
+  ctx.fillStyle = 'rgba(99, 102, 241, 0.6)';
+  ctx.beginPath();
+  ctx.moveTo(0, height);
+
+  for (let i = startIdx; i <= endIdx && i < data.length; i++) {
+    const d = data[i];
+    const x = timeToPx(d.time_range.start) - scrollOffset;
+    const w = timeToPx(d.time_range.end - d.time_range.start);
+    const h = d.voice_activity.speech_probability * (height - 4);
+    ctx.rect(x, height - h - 2, Math.max(w, 1), h);
+  }
+  ctx.fill();
+
+  // Threshold line
+  ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  const threshY = height - 0.5 * (height - 4) - 2;
+  ctx.moveTo(0, threshY);
+  ctx.lineTo(width, threshY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  state.canvasDrawCount++;
+}
+
+function drawEnergy(canvas) {
+  if (!state.vad) return;
+  const { width, height, dpr } = resizeCanvas(canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  const container = document.getElementById('timeline-container');
+  const scrollOffset = container.scrollLeft;
+  const viewStart = pxToTime(scrollOffset);
+  const viewEnd = pxToTime(scrollOffset + width);
+
+  const data = state.vad.data;
+  let startIdx = binarySearchStart(data, viewStart);
+  let endIdx = binarySearchEnd(data, viewEnd);
+
+  // Left channel (cyan)
+  ctx.fillStyle = 'rgba(34, 211, 238, 0.4)';
+  for (let i = startIdx; i <= endIdx && i < data.length; i++) {
+    const d = data[i];
+    const x = timeToPx(d.time_range.start) - scrollOffset;
+    const w = timeToPx(d.time_range.end - d.time_range.start);
+    // Normalize dBFS: -80 to 0 -> 0 to 1
+    const norm = Math.max(0, (d.voice_activity.energy_dbfs_left + 80) / 80);
+    const h = norm * (height / 2 - 2);
+    ctx.fillRect(x, height / 2 - h, Math.max(w, 1), h);
+  }
+
+  // Right channel (pink)
+  ctx.fillStyle = 'rgba(244, 114, 182, 0.4)';
+  for (let i = startIdx; i <= endIdx && i < data.length; i++) {
+    const d = data[i];
+    const x = timeToPx(d.time_range.start) - scrollOffset;
+    const w = timeToPx(d.time_range.end - d.time_range.start);
+    const norm = Math.max(0, (d.voice_activity.energy_dbfs_right + 80) / 80);
+    const h = norm * (height / 2 - 2);
+    ctx.fillRect(x, height / 2, Math.max(w, 1), h);
+  }
+
+  // Center line
+  ctx.strokeStyle = '#2e3345';
+  ctx.beginPath();
+  ctx.moveTo(0, height / 2);
+  ctx.lineTo(width, height / 2);
+  ctx.stroke();
+
+  state.canvasDrawCount++;
+}
+
+function drawDiarization(canvas) {
+  if (!state.diarization) return;
+  const { width, height, dpr } = resizeCanvas(canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  const container = document.getElementById('timeline-container');
+  const scrollOffset = container.scrollLeft;
+
+  const colors = {
+    SPEAKER_00: { bg: 'rgba(34, 211, 238, 0.3)', border: 'rgba(34, 211, 238, 0.6)' },
+    SPEAKER_01: { bg: 'rgba(244, 114, 182, 0.3)', border: 'rgba(244, 114, 182, 0.6)' },
+    EXCLUDED_RANGE: { bg: 'rgba(100, 116, 139, 0.2)', border: 'rgba(100, 116, 139, 0.4)' },
+  };
+
+  ctx.font = '9px "SF Mono", monospace';
+  ctx.textBaseline = 'middle';
+
+  for (const seg of state.diarization.data) {
+    const x = timeToPx(seg.time_range.start) - scrollOffset;
+    const w = timeToPx(seg.time_range.end - seg.time_range.start);
+    if (x + w < 0 || x > width) continue;
+
+    const c = colors[seg.diarization.speaker] || colors.SPEAKER_00;
+    ctx.fillStyle = c.bg;
+    ctx.fillRect(x, 4, w, height - 8);
+    ctx.strokeStyle = c.border;
+    ctx.strokeRect(x, 4, w, height - 8);
+
+    if (w > 40) {
+      ctx.fillStyle = c.border;
+      ctx.fillText(seg.diarization.speaker.replace('SPEAKER_0', 'S'), x + 4, height / 2);
+    }
+  }
+
+  state.canvasDrawCount++;
+}
+
+// Binary search helpers for time-range data
+function binarySearchStart(data, time) {
+  let lo = 0, hi = data.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    const d = data[mid];
+    const end = d.time_range ? d.time_range.end : d.time;
+    if (end < time) lo = mid + 1;
+    else hi = mid;
+  }
+  return Math.max(0, lo - 1);
+}
+
+function binarySearchEnd(data, time) {
+  let lo = 0, hi = data.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >>> 1;
+    const d = data[mid];
+    const start = d.time_range ? d.time_range.start : d.time;
+    if (start > time) hi = mid - 1;
+    else lo = mid;
+  }
+  return Math.min(data.length - 1, lo + 1);
+}
+
+// ============================================================
+// DOM ANNOTATION BLOCKS
+// ============================================================
+function renderDOMTrack(trackId, data, blockClass, labelFn) {
+  const container = document.getElementById(`track-${trackId}`);
+  const scrollOffset = document.getElementById('timeline-container').scrollLeft;
+  const viewWidth = container.clientWidth;
+  const viewStart = pxToTime(scrollOffset);
+  const viewEnd = pxToTime(scrollOffset + viewWidth);
+
+  // Remove blocks outside viewport
+  const existing = container.querySelectorAll('.annotation-block');
+  const existingMap = new Map();
+  existing.forEach(el => {
+    const idx = parseInt(el.dataset.idx);
+    existingMap.set(idx, el);
+  });
+
+  let visibleCount = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    const start = d.time_range.start;
+    const end = d.time_range.end;
+
+    // Viewport culling
+    if (end < viewStart || start > viewEnd) {
+      const el = existingMap.get(i);
+      if (el) {
+        el.style.display = 'none';
+      }
+      continue;
+    }
+
+    visibleCount++;
+    let el = existingMap.get(i);
+    if (!el) {
+      el = createAnnotationBlock(i, d, blockClass, labelFn);
+      container.appendChild(el);
+    } else {
+      el.style.display = '';
+    }
+
+    // Don't update position during drag (handled by pointermove)
+    if (state.dragging && state.dragging.element === el) continue;
+
+    const x = timeToPx(start) - scrollOffset;
+    const w = timeToPx(end - start);
+    el.style.transform = `translateX(${x}px)`;
+    el.style.width = `${Math.max(w, 2)}px`;
+  }
+
+  return visibleCount;
+}
+
+function createAnnotationBlock(idx, data, blockClass, labelFn) {
+  const el = document.createElement('div');
+  el.className = `annotation-block ${blockClass(data)}`;
+  el.dataset.idx = idx;
+  el.dataset.trackType = blockClass.name || 'block';
+
+  const label = document.createElement('span');
+  label.textContent = labelFn(data);
+  el.appendChild(label);
+
+  // Resize handles
+  const handleL = document.createElement('div');
+  handleL.className = 'resize-handle left';
+  el.appendChild(handleL);
+
+  const handleR = document.createElement('div');
+  handleR.className = 'resize-handle right';
+  el.appendChild(handleR);
+
+  // Event listeners
+  handleL.addEventListener('pointerdown', (e) => startDrag(e, el, 'left', idx, data));
+  handleR.addEventListener('pointerdown', (e) => startDrag(e, el, 'right', idx, data));
+  el.addEventListener('click', (e) => {
+    if (!state.dragging) inspectAnnotation(data);
+  });
+
+  return el;
+}
+
+// ============================================================
+// DRAG-TO-RESIZE
+// ============================================================
+function startDrag(e, element, side, idx, annotation) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  element.classList.add('dragging');
+  element.setPointerCapture(e.pointerId);
+
+  state.dragging = {
+    element,
+    side,
+    idx,
+    annotation,
+    startX: e.clientX,
+    startTime: side === 'left' ? annotation.time_range.start : annotation.time_range.end,
+    moved: false,
+  };
+  state.dragFrameTimes = [];
+
+  const onMove = (e) => {
+    if (!state.dragging) return;
+    const frameStart = performance.now();
+
+    state.dragging.moved = true;
+    const dx = e.clientX - state.dragging.startX;
+    const dt = pxToTime(dx);
+    const newTime = Math.max(0, Math.min(state.duration, state.dragging.startTime + dt));
+
+    // Update annotation data directly
+    if (state.dragging.side === 'left') {
+      if (newTime < state.dragging.annotation.time_range.end - 0.05) {
+        state.dragging.annotation.time_range.start = +newTime.toFixed(3);
+      }
+    } else {
+      if (newTime > state.dragging.annotation.time_range.start + 0.05) {
+        state.dragging.annotation.time_range.end = +newTime.toFixed(3);
+      }
+    }
+
+    // Direct DOM update — no store/re-render
+    const container = document.getElementById('timeline-container');
+    const scrollOffset = container.scrollLeft;
+    const x = timeToPx(state.dragging.annotation.time_range.start) - scrollOffset;
+    const w = timeToPx(state.dragging.annotation.time_range.end - state.dragging.annotation.time_range.start);
+    state.dragging.element.style.transform = `translateX(${x}px)`;
+    state.dragging.element.style.width = `${Math.max(w, 2)}px`;
+
+    const frameTime = performance.now() - frameStart;
+    state.dragFrameTimes.push(frameTime);
+  };
+
+  const onUp = (e) => {
+    if (!state.dragging) return;
+    state.dragging.element.classList.remove('dragging');
+    state.dragging.element.releasePointerCapture(e.pointerId);
+
+    // Log drag performance
+    if (state.dragFrameTimes.length > 0) {
+      const sorted = [...state.dragFrameTimes].sort((a, b) => a - b);
+      const p95 = sorted[Math.floor(sorted.length * 0.95)];
+      console.log(`Drag: ${sorted.length} frames, p95=${p95.toFixed(2)}ms, max=${sorted[sorted.length-1].toFixed(2)}ms`);
+    }
+
+    state.dragging = null;
+    element.removeEventListener('pointermove', onMove);
+    element.removeEventListener('pointerup', onUp);
+  };
+
+  element.addEventListener('pointermove', onMove);
+  element.addEventListener('pointerup', onUp);
+}
+
+// ============================================================
+// INSPECTOR
+// ============================================================
+function inspectAnnotation(data) {
+  const inspector = document.getElementById('inspector');
+  const fields = [];
+  fields.push(`<h3>Annotation</h3>`);
+  fields.push(`<div class="field"><span class="label">Time: </span><span class="value">${data.time_range.start.toFixed(3)} – ${data.time_range.end.toFixed(3)}</span></div>`);
+  fields.push(`<div class="field"><span class="label">Duration: </span><span class="value">${(data.time_range.end - data.time_range.start).toFixed(3)}s</span></div>`);
+
+  if (data.category) {
+    fields.push(`<div class="field"><span class="label">Category: </span><span class="value">${data.category}</span></div>`);
+  }
+  if (data.note) {
+    fields.push(`<div class="field"><span class="label">Note: </span><span class="value">${data.note}</span></div>`);
+  }
+  if (data.speech) {
+    fields.push(`<div class="field"><span class="label">Word: </span><span class="value">${data.speech.word}</span></div>`);
+    fields.push(`<div class="field"><span class="label">Speaker: </span><span class="value">${data.speech.speaker}</span></div>`);
+    fields.push(`<div class="field"><span class="label">Confidence: </span><span class="value">${data.speech.confidence}</span></div>`);
+  }
+  if (data.intent_classification) {
+    const ic = data.intent_classification;
+    fields.push(`<div class="field"><span class="label">Intent: </span><span class="value">${ic.intent}</span></div>`);
+    fields.push(`<div class="field"><span class="label">Intensity: </span><span class="value">${ic.intensity}</span></div>`);
+    fields.push(`<div class="field"><span class="label">Valence: </span><span class="value">${ic.valence}</span></div>`);
+    fields.push(`<div class="field"><span class="label">Confidence: </span><span class="value">${ic.confidence}</span></div>`);
+  }
+  inspector.innerHTML = fields.join('');
+}
+
+// ============================================================
+// PLAYHEAD + SYNC
+// ============================================================
+function updatePlayhead() {
+  const playhead = document.getElementById('playhead');
+  const container = document.getElementById('timeline-container');
+  const scrollOffset = container.scrollLeft;
+  const x = timeToPx(state.currentTime) - scrollOffset + 120; // account for label width
+  playhead.style.transform = `translateX(${x}px)`;
+}
+
+// ============================================================
+// VIDEO HANDLING
+// ============================================================
+const videoEl = document.getElementById('video');
+const videoInput = document.getElementById('video-input');
+let useRVFC = false;
+let simulatedPlayback = null;
+
+videoInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  videoEl.src = url;
+  videoEl.style.display = 'block';
+  document.getElementById('video-prompt').style.display = 'none';
+  videoEl.addEventListener('loadedmetadata', () => {
+    state.duration = videoEl.duration;
+    // Try requestVideoFrameCallback
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      useRVFC = true;
+      videoEl.requestVideoFrameCallback(onVideoFrame);
+    }
+  });
+});
+
+function onVideoFrame(now, metadata) {
+  state.currentTime = metadata.mediaTime;
+  if (videoEl.paused) return;
+  videoEl.requestVideoFrameCallback(onVideoFrame);
+}
+
+// Simulated playback when no video loaded
+function startSimulatedPlayback() {
+  if (simulatedPlayback) return;
+  state.playing = true;
+  let lastTime = performance.now();
+  simulatedPlayback = () => {
+    if (!state.playing) { simulatedPlayback = null; return; }
+    const now = performance.now();
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    state.currentTime = Math.min(state.currentTime + dt, state.duration);
+    if (state.currentTime >= state.duration) {
+      state.currentTime = 0; // loop
+    }
+    requestAnimationFrame(simulatedPlayback);
+  };
+  requestAnimationFrame(simulatedPlayback);
+}
+
+function stopSimulatedPlayback() {
+  state.playing = false;
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (videoEl.src) {
+    videoEl.play();
+    if (useRVFC) videoEl.requestVideoFrameCallback(onVideoFrame);
+  } else {
+    startSimulatedPlayback();
+  }
+  state.playing = true;
+});
+
+document.getElementById('btn-pause').addEventListener('click', () => {
+  if (videoEl.src) videoEl.pause();
+  stopSimulatedPlayback();
+  state.playing = false;
+});
+
+// Zoom
+const zoomSlider = document.getElementById('zoom-slider');
+const zoomLabel = document.getElementById('zoom-label');
+zoomSlider.addEventListener('input', () => {
+  state.zoom = parseFloat(zoomSlider.value);
+  zoomLabel.textContent = state.zoom.toFixed(1) + 'x';
+  // Force full re-render by clearing DOM blocks
+  for (const trackId of ['transcription', 'states', 'intents']) {
+    const container = document.getElementById(`track-${trackId}`);
+    container.innerHTML = '';
+  }
+});
+
+// Seek on ruler click
+document.addEventListener('click', (e) => {
+  const rulerContent = document.getElementById('track-ruler');
+  if (!rulerContent) return;
+  if (e.target === rulerContent || rulerContent.contains(e.target)) {
+    const rect = rulerContent.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const container = document.getElementById('timeline-container');
+    const time = pxToTime(x + container.scrollLeft);
+    state.currentTime = Math.max(0, Math.min(state.duration, time));
+    if (videoEl.src) videoEl.currentTime = state.currentTime;
+  }
+});
+
+// Mouse wheel zoom
+document.getElementById('timeline-container').addEventListener('wheel', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault();
+    const delta = -e.deltaY * 0.01;
+    state.zoom = Math.max(0.5, Math.min(20, state.zoom + delta));
+    zoomSlider.value = state.zoom;
+    zoomLabel.textContent = state.zoom.toFixed(1) + 'x';
+    // Clear DOM blocks for re-render
+    for (const trackId of ['transcription', 'states', 'intents']) {
+      const container = document.getElementById(`track-${trackId}`);
+      container.innerHTML = '';
+    }
+  }
+}, { passive: false });
+
+// Stress test
+document.getElementById('btn-stress').addEventListener('click', () => {
+  const extra = [];
+  for (let i = 0; i < 200; i++) {
+    const start = Math.random() * (state.duration - 2);
+    const dur = 0.3 + Math.random() * 3;
+    extra.push({
+      time_range: { start: +start.toFixed(3), end: +(start + dur).toFixed(3) },
+      category: Math.random() > 0.5 ? 'expression.state.speaking' : 'expression.state.listening',
+      note: `Stress test block ${i}`,
+      parameters: {},
+    });
+  }
+  state.annotations.data = [...state.annotations.data, ...extra].sort(
+    (a, b) => a.time_range.start - b.time_range.start
+  );
+  // Clear for re-render
+  document.getElementById('track-states').innerHTML = '';
+  console.log(`Stress test: ${state.annotations.data.length} total annotation blocks`);
+});
+
+// ============================================================
+// TIME DISPLAY
+// ============================================================
+function formatTime(t) {
+  const min = Math.floor(t / 60);
+  const sec = Math.floor(t % 60);
+  const ms = Math.floor((t % 1) * 1000);
+  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+}
+
+// ============================================================
+// PERFORMANCE METRICS
+// ============================================================
+function updatePerfOverlay() {
+  const fps = document.getElementById('perf-fps');
+  const avg = document.getElementById('perf-avg');
+  const p95 = document.getElementById('perf-p95');
+  const max = document.getElementById('perf-max');
+  const drag = document.getElementById('perf-drag');
+  const dragP95 = document.getElementById('perf-drag-p95');
+  const blocks = document.getElementById('perf-blocks');
+  const draws = document.getElementById('perf-draws');
+
+  if (state.frameTimes.length > 10) {
+    const recent = state.frameTimes.slice(-120);
+    const sorted = [...recent].sort((a, b) => a - b);
+    const avgMs = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const p95Ms = sorted[Math.floor(sorted.length * 0.95)];
+    const maxMs = sorted[sorted.length - 1];
+    const fpsVal = 1000 / avgMs;
+
+    fps.textContent = fpsVal.toFixed(0);
+    fps.className = `value ${fpsVal >= 50 ? 'good' : fpsVal >= 30 ? 'warn' : 'bad'}`;
+
+    avg.textContent = avgMs.toFixed(1) + 'ms';
+    avg.className = `value ${avgMs < 16 ? 'good' : avgMs < 33 ? 'warn' : 'bad'}`;
+
+    p95.textContent = p95Ms.toFixed(1) + 'ms';
+    p95.className = `value ${p95Ms < 20 ? 'good' : p95Ms < 33 ? 'warn' : 'bad'}`;
+
+    max.textContent = maxMs.toFixed(1) + 'ms';
+    max.className = `value ${maxMs < 33 ? 'good' : maxMs < 50 ? 'warn' : 'bad'}`;
+  }
+
+  if (state.dragFrameTimes.length > 0) {
+    drag.textContent = state.dragFrameTimes.length.toString();
+    const sorted = [...state.dragFrameTimes].sort((a, b) => a - b);
+    const dp95 = sorted[Math.floor(sorted.length * 0.95)];
+    dragP95.textContent = dp95.toFixed(2) + 'ms';
+    dragP95.className = `value ${dp95 < 5 ? 'good' : dp95 < 16 ? 'warn' : 'bad'}`;
+  }
+
+  blocks.textContent = visibleBlockCount.toString();
+  draws.textContent = state.canvasDrawCount.toString();
+}
+
+// ============================================================
+// MAIN RENDER LOOP
+// ============================================================
+let visibleBlockCount = 0;
+
+function renderFrame() {
+  const frameStart = performance.now();
+
+  // Update time display
+  document.getElementById('time-display').textContent =
+    `${formatTime(state.currentTime)} / ${formatTime(state.duration)}`;
+
+  // Auto-scroll to keep playhead visible
+  if (state.playing) {
+    const container = document.getElementById('timeline-container');
+    const playheadX = timeToPx(state.currentTime);
+    const viewLeft = container.scrollLeft;
+    const viewRight = viewLeft + container.clientWidth - 120;
+    if (playheadX > viewRight - 50 || playheadX < viewLeft) {
+      container.scrollLeft = playheadX - 100;
+    }
+  }
+
+  // Canvas tracks
+  drawRuler(document.getElementById('canvas-ruler'));
+  drawVAD(document.getElementById('canvas-vad'));
+  drawEnergy(document.getElementById('canvas-energy'));
+  drawDiarization(document.getElementById('canvas-diarization'));
+
+  // DOM tracks
+  visibleBlockCount = 0;
+  if (state.transcription) {
+    visibleBlockCount += renderDOMTrack(
+      'transcription',
+      state.transcription.data,
+      (d) => `block-word ${d.speech.speaker === 'SPEAKER_00' ? 'speaker-0' : 'speaker-1'}`,
+      (d) => d.speech.word,
+    );
+  }
+  if (state.annotations) {
+    visibleBlockCount += renderDOMTrack(
+      'states',
+      state.annotations.data,
+      (d) => d.category.includes('speaking') ? 'block-speaking' : 'block-listening',
+      (d) => d.category.split('.').pop(),
+    );
+  }
+  if (state.intents) {
+    visibleBlockCount += renderDOMTrack(
+      'intents',
+      state.intents.data,
+      (d) => `block-intent ${d.intent_classification.intent}`,
+      (d) => `${d.intent_classification.intent} (${d.intent_classification.intensity})`,
+    );
+  }
+
+  // Playhead
+  updatePlayhead();
+
+  // Performance tracking
+  const frameTime = performance.now() - frameStart;
+  state.frameTimes.push(frameTime);
+  if (state.frameTimes.length > 300) state.frameTimes.shift();
+
+  updatePerfOverlay();
+
+  requestAnimationFrame(renderFrame);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  buildTracks();
+  await loadData();
+  console.log(`Loaded: VAD=${state.vad.data.length}, Trans=${state.transcription.data.length}, ` +
+    `Ann=${state.annotations.data.length}, Intents=${state.intents.data.length}, ` +
+    `Diar=${state.diarization.data.length}`);
+  renderFrame();
+}
+
+init().catch(console.error);
+</script>
+</body>
+</html>

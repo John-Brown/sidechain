@@ -1,0 +1,520 @@
+{
+  "metadata": {
+    "source_file": "test_video.mp4",
+    "format_version": "1.0",
+    "created_timestamp": "2026-02-08T03:14:22.391Z",
+    "total_secs": 120,
+    "algorithm": {
+      "name": "state_annotation_generator",
+      "version": "1.0",
+      "source_algorithm": "speaker_diarization",
+      "processing_time": 0.02
+    }
+  },
+  "data": [
+    {
+      "time_range": {
+        "start": 0,
+        "end": 2.113
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 2.113,
+        "end": 3.873
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 3.873,
+        "end": 5.633
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 5.633,
+        "end": 7.393
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 7.393,
+        "end": 8.885
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 8.885,
+        "end": 13.09
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 13.09,
+        "end": 17.294
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 17.294,
+        "end": 17.856
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 17.856,
+        "end": 20.253
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 20.253,
+        "end": 22.65
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 22.65,
+        "end": 23.67
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 23.67,
+        "end": 26.616
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 26.616,
+        "end": 27.43
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 27.43,
+        "end": 31.22
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 31.22,
+        "end": 35.009
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 35.009,
+        "end": 36.399
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 36.399,
+        "end": 36.963
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 36.963,
+        "end": 37.527
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 37.527,
+        "end": 38.076
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 38.076,
+        "end": 39.169
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 39.169,
+        "end": 40.262
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 40.262,
+        "end": 41.327
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 41.327,
+        "end": 43.186
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 43.186,
+        "end": 45.045
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 45.045,
+        "end": 46.904
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 46.904,
+        "end": 50.011
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 50.011,
+        "end": 57.16
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 57.16,
+        "end": 59.497
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 59.497,
+        "end": 62.214
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 62.214,
+        "end": 63.159
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 63.159,
+        "end": 65.325
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 65.325,
+        "end": 67.492
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 67.492,
+        "end": 68.131
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 68.131,
+        "end": 72.751
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 72.751,
+        "end": 75.779
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 75.779,
+        "end": 77.662
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 77.662,
+        "end": 79.546
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 79.546,
+        "end": 81.429
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 81.429,
+        "end": 81.853
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 81.853,
+        "end": 86.062
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 86.062,
+        "end": 90.27
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 90.27,
+        "end": 90.632
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 90.632,
+        "end": 92.571
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 92.571,
+        "end": 94.51
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 94.51,
+        "end": 96.449
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 96.449,
+        "end": 98.716
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 98.716,
+        "end": 107.109
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 107.109,
+        "end": 108.601
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 108.601,
+        "end": 110.4
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 110.4,
+        "end": 112.2
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 112.2,
+        "end": 113.999
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 113.999,
+        "end": 114.43
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 114.43,
+        "end": 115.439
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 115.439,
+        "end": 116.447
+      },
+      "category": "expression.state.speaking",
+      "note": "Speaker SPEAKER_01",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 116.447,
+        "end": 117.456
+      },
+      "category": "expression.state.speaking",
+      "note": "Visible speaker SPEAKER_00",
+      "parameters": {}
+    },
+    {
+      "time_range": {
+        "start": 117.456,
+        "end": 120
+      },
+      "category": "expression.state.listening",
+      "note": "Silence / listening",
+      "parameters": {}
+    }
+  ]
+}

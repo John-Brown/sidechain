@@ -1,0 +1,499 @@
+{
+  "metadata": {
+    "source_file": "test_video.mp4",
+    "format_version": "1.0",
+    "created_timestamp": "2026-02-08T03:14:22.391Z",
+    "total_secs": 120,
+    "algorithm": {
+      "name": "intent_classification",
+      "model": "claude-3-5-sonnet",
+      "temperature": 0.3,
+      "max_context_chunks": 10,
+      "max_concurrent_requests": 20,
+      "processing_time": 35.7
+    }
+  },
+  "data": [
+    {
+      "time_range": {
+        "start": 2.113,
+        "end": 3.873
+      },
+      "intent_classification": {
+        "intent": "engage",
+        "intensity": "low",
+        "valence": "positive",
+        "confidence": 0.8,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 3.873,
+        "end": 5.633
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "low",
+        "valence": "negative",
+        "confidence": 0.88,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 5.633,
+        "end": 7.393
+      },
+      "intent_classification": {
+        "intent": "inform",
+        "intensity": "high",
+        "valence": "negative",
+        "confidence": 0.79,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 8.885,
+        "end": 13.09
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "low",
+        "valence": "neutral",
+        "confidence": 0.97,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 13.09,
+        "end": 17.294
+      },
+      "intent_classification": {
+        "intent": "engage",
+        "intensity": "low",
+        "valence": "neutral",
+        "confidence": 0.77,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 17.856,
+        "end": 20.253
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "low",
+        "valence": "neutral",
+        "confidence": 0.96,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 20.253,
+        "end": 22.65
+      },
+      "intent_classification": {
+        "intent": "engage",
+        "intensity": "moderate",
+        "valence": "positive",
+        "confidence": 0.79,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 23.67,
+        "end": 26.616
+      },
+      "intent_classification": {
+        "intent": "inform",
+        "intensity": "high",
+        "valence": "neutral",
+        "confidence": 0.92,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 27.43,
+        "end": 31.22
+      },
+      "intent_classification": {
+        "intent": "engage",
+        "intensity": "low",
+        "valence": "negative",
+        "confidence": 0.61,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 31.22,
+        "end": 35.009
+      },
+      "intent_classification": {
+        "intent": "inquire",
+        "intensity": "high",
+        "valence": "positive",
+        "confidence": 0.93,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 36.399,
+        "end": 36.963
+      },
+      "intent_classification": {
+        "intent": "inform",
+        "intensity": "moderate",
+        "valence": "neutral",
+        "confidence": 0.78,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 36.963,
+        "end": 37.527
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "low",
+        "valence": "negative",
+        "confidence": 0.76,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 38.076,
+        "end": 39.169
+      },
+      "intent_classification": {
+        "intent": "inquire",
+        "intensity": "moderate",
+        "valence": "positive",
+        "confidence": 0.75,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 39.169,
+        "end": 40.262
+      },
+      "intent_classification": {
+        "intent": "inquire",
+        "intensity": "high",
+        "valence": "positive",
+        "confidence": 0.75,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 41.327,
+        "end": 43.186
+      },
+      "intent_classification": {
+        "intent": "inquire",
+        "intensity": "moderate",
+        "valence": "neutral",
+        "confidence": 0.9,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 43.186,
+        "end": 45.045
+      },
+      "intent_classification": {
+        "intent": "inform",
+        "intensity": "low",
+        "valence": "neutral",
+        "confidence": 0.91,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 45.045,
+        "end": 46.904
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "moderate",
+        "valence": "neutral",
+        "confidence": 0.75,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 50.011,
+        "end": 57.16
+      },
+      "intent_classification": {
+        "intent": "inquire",
+        "intensity": "moderate",
+        "valence": "negative",
+        "confidence": 0.61,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 59.497,
+        "end": 62.214
+      },
+      "intent_classification": {
+        "intent": "challenge",
+        "intensity": "high",
+        "valence": "negative",
+        "confidence": 0.91,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 63.159,
+        "end": 65.325
+      },
+      "intent_classification": {
+        "intent": "comfort",
+        "intensity": "high",
+        "valence": "neutral",
+        "confidence": 0.68,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 65.325,
+        "end": 67.492
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "low",
+        "valence": "neutral",
+        "confidence": 0.64,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 68.131,
+        "end": 72.751
+      },
+      "intent_classification": {
+        "intent": "comfort",
+        "intensity": "high",
+        "valence": "positive",
+        "confidence": 0.92,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 75.779,
+        "end": 77.662
+      },
+      "intent_classification": {
+        "intent": "inquire",
+        "intensity": "high",
+        "valence": "negative",
+        "confidence": 0.63,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 77.662,
+        "end": 79.546
+      },
+      "intent_classification": {
+        "intent": "inform",
+        "intensity": "low",
+        "valence": "positive",
+        "confidence": 0.97,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 79.546,
+        "end": 81.429
+      },
+      "intent_classification": {
+        "intent": "comfort",
+        "intensity": "high",
+        "valence": "neutral",
+        "confidence": 0.91,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 81.853,
+        "end": 86.062
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "moderate",
+        "valence": "positive",
+        "confidence": 0.82,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 86.062,
+        "end": 90.27
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "moderate",
+        "valence": "negative",
+        "confidence": 0.77,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 90.632,
+        "end": 92.571
+      },
+      "intent_classification": {
+        "intent": "comfort",
+        "intensity": "high",
+        "valence": "neutral",
+        "confidence": 0.94,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 92.571,
+        "end": 94.51
+      },
+      "intent_classification": {
+        "intent": "celebrate",
+        "intensity": "high",
+        "valence": "negative",
+        "confidence": 0.83,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 94.51,
+        "end": 96.449
+      },
+      "intent_classification": {
+        "intent": "comfort",
+        "intensity": "high",
+        "valence": "negative",
+        "confidence": 0.62,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 98.716,
+        "end": 107.109
+      },
+      "intent_classification": {
+        "intent": "challenge",
+        "intensity": "moderate",
+        "valence": "negative",
+        "confidence": 0.65,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 108.601,
+        "end": 110.4
+      },
+      "intent_classification": {
+        "intent": "inquire",
+        "intensity": "low",
+        "valence": "neutral",
+        "confidence": 0.92,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 110.4,
+        "end": 112.2
+      },
+      "intent_classification": {
+        "intent": "challenge",
+        "intensity": "low",
+        "valence": "neutral",
+        "confidence": 0.87,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 112.2,
+        "end": 113.999
+      },
+      "intent_classification": {
+        "intent": "challenge",
+        "intensity": "high",
+        "valence": "negative",
+        "confidence": 0.99,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 114.43,
+        "end": 115.439
+      },
+      "intent_classification": {
+        "intent": "inform",
+        "intensity": "high",
+        "valence": "positive",
+        "confidence": 0.73,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 115.439,
+        "end": 116.447
+      },
+      "intent_classification": {
+        "intent": "engage",
+        "intensity": "high",
+        "valence": "neutral",
+        "confidence": 0.69,
+        "reasoning": "Synthetic test data"
+      }
+    },
+    {
+      "time_range": {
+        "start": 116.447,
+        "end": 117.456
+      },
+      "intent_classification": {
+        "intent": "challenge",
+        "intensity": "moderate",
+        "valence": "neutral",
+        "confidence": 0.84,
+        "reasoning": "Synthetic test data"
+      }
+    }
+  ]
+}

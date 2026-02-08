@@ -1,0 +1,3238 @@
+{
+  "metadata": {
+    "source_file": "test_video.mp4",
+    "format_version": "1.0",
+    "created_timestamp": "2026-02-08T03:14:22.391Z",
+    "total_secs": 120,
+    "algorithm": {
+      "name": "speech_transcription",
+      "model": "openai-whisper-large-v3",
+      "language": "en",
+      "word_timestamps": true,
+      "temperature": 0,
+      "processing_time": 95.1,
+      "parameters": {
+        "audio_duration": 120,
+        "speaker_count": 2
+      }
+    }
+  },
+  "data": [
+    {
+      "time_range": {
+        "start": 2.113,
+        "end": 2.345
+      },
+      "speech": {
+        "word": "me",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.99,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 2.434,
+        "end": 2.746
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 2.777,
+        "end": 2.912
+      },
+      "speech": {
+        "word": "let",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 3.01,
+        "end": 3.324
+      },
+      "speech": {
+        "word": "makes",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 3.421,
+        "end": 3.648
+      },
+      "speech": {
+        "word": "yeah",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.84,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 3.717,
+        "end": 4.075
+      },
+      "speech": {
+        "word": "sure",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.86,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 4.112,
+        "end": 4.486
+      },
+      "speech": {
+        "word": "main",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 4.577,
+        "end": 4.683
+      },
+      "speech": {
+        "word": "yeah",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.88,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 4.725,
+        "end": 5.162
+      },
+      "speech": {
+        "word": "at",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.8,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 5.212,
+        "end": 5.532
+      },
+      "speech": {
+        "word": "but",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.99,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 5.559,
+        "end": 5.889
+      },
+      "speech": {
+        "word": "this",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.71,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 5.984,
+        "end": 6.465
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.73,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 6.533,
+        "end": 6.736
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 6.775,
+        "end": 7.045
+      },
+      "speech": {
+        "word": "thing",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 7.075,
+        "end": 7.309
+      },
+      "speech": {
+        "word": "perspective",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 0
+      }
+    },
+    {
+      "time_range": {
+        "start": 8.885,
+        "end": 9.063
+      },
+      "speech": {
+        "word": "at",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.73,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 9.098,
+        "end": 9.412
+      },
+      "speech": {
+        "word": "option",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.99,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 9.482,
+        "end": 9.844
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 9.888,
+        "end": 10.234
+      },
+      "speech": {
+        "word": "is",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 10.259,
+        "end": 10.445
+      },
+      "speech": {
+        "word": "about",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 10.492,
+        "end": 10.609
+      },
+      "speech": {
+        "word": "is",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 10.63,
+        "end": 10.914
+      },
+      "speech": {
+        "word": "it",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 10.95,
+        "end": 11.313
+      },
+      "speech": {
+        "word": "me",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 11.392,
+        "end": 11.839
+      },
+      "speech": {
+        "word": "like",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.79,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 11.925,
+        "end": 12.121
+      },
+      "speech": {
+        "word": "works",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 12.179,
+        "end": 12.472
+      },
+      "speech": {
+        "word": "because",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.92,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 12.522,
+        "end": 12.99
+      },
+      "speech": {
+        "word": "could",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 13.012,
+        "end": 13.328
+      },
+      "speech": {
+        "word": "perspective",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.8,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 13.375,
+        "end": 13.717
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.7,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 13.81,
+        "end": 14.286
+      },
+      "speech": {
+        "word": "probably",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 14.342,
+        "end": 14.536
+      },
+      "speech": {
+        "word": "actually",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.78,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 14.575,
+        "end": 14.941
+      },
+      "speech": {
+        "word": "different",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 14.985,
+        "end": 15.4
+      },
+      "speech": {
+        "word": "makes",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.86,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 15.425,
+        "end": 15.666
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.88,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 15.737,
+        "end": 16.034
+      },
+      "speech": {
+        "word": "explain",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.86,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 16.1,
+        "end": 16.359
+      },
+      "speech": {
+        "word": "main",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.79,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 16.43,
+        "end": 16.59
+      },
+      "speech": {
+        "word": "me",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 16.67,
+        "end": 17.008
+      },
+      "speech": {
+        "word": "okay",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.75,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 17.041,
+        "end": 17.294
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.91,
+        "speech_segment": 1
+      }
+    },
+    {
+      "time_range": {
+        "start": 17.856,
+        "end": 18.196
+      },
+      "speech": {
+        "word": "also",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.86,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 18.235,
+        "end": 18.495
+      },
+      "speech": {
+        "word": "figure",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 18.521,
+        "end": 18.715
+      },
+      "speech": {
+        "word": "sense",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.91,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 18.784,
+        "end": 18.935
+      },
+      "speech": {
+        "word": "also",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.84,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 19.016,
+        "end": 19.372
+      },
+      "speech": {
+        "word": "here",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 19.407,
+        "end": 19.613
+      },
+      "speech": {
+        "word": "figure",
+        "speaker": "SPEAKER_01",
+        "confidence": 1,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 19.664,
+        "end": 19.785
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.99,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 19.883,
+        "end": 20.199
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.85,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 20.281,
+        "end": 20.498
+      },
+      "speech": {
+        "word": "like",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.78,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 20.594,
+        "end": 20.996
+      },
+      "speech": {
+        "word": "we",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 21.031,
+        "end": 21.137
+      },
+      "speech": {
+        "word": "but",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 21.203,
+        "end": 21.591
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 21.678,
+        "end": 21.989
+      },
+      "speech": {
+        "word": "works",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 22.032,
+        "end": 22.261
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 22.353,
+        "end": 22.454
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.91,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 22.499,
+        "end": 22.65
+      },
+      "speech": {
+        "word": "absolutely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 2
+      }
+    },
+    {
+      "time_range": {
+        "start": 23.67,
+        "end": 23.854
+      },
+      "speech": {
+        "word": "um",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 3
+      }
+    },
+    {
+      "time_range": {
+        "start": 23.898,
+        "end": 24.213
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.84,
+        "speech_segment": 3
+      }
+    },
+    {
+      "time_range": {
+        "start": 24.289,
+        "end": 24.779
+      },
+      "speech": {
+        "word": "right",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.87,
+        "speech_segment": 3
+      }
+    },
+    {
+      "time_range": {
+        "start": 24.839,
+        "end": 25.231
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.87,
+        "speech_segment": 3
+      }
+    },
+    {
+      "time_range": {
+        "start": 25.255,
+        "end": 25.568
+      },
+      "speech": {
+        "word": "because",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 3
+      }
+    },
+    {
+      "time_range": {
+        "start": 25.645,
+        "end": 25.949
+      },
+      "speech": {
+        "word": "could",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 3
+      }
+    },
+    {
+      "time_range": {
+        "start": 26.041,
+        "end": 26.463
+      },
+      "speech": {
+        "word": "here",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 3
+      }
+    },
+    {
+      "time_range": {
+        "start": 27.43,
+        "end": 27.548
+      },
+      "speech": {
+        "word": "look",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 27.63,
+        "end": 27.995
+      },
+      "speech": {
+        "word": "but",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 28.082,
+        "end": 28.546
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 28.58,
+        "end": 29.015
+      },
+      "speech": {
+        "word": "basically",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.91,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 29.101,
+        "end": 29.501
+      },
+      "speech": {
+        "word": "interesting",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.79,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 29.597,
+        "end": 30.096
+      },
+      "speech": {
+        "word": "sense",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 30.136,
+        "end": 30.448
+      },
+      "speech": {
+        "word": "we",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.83,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 30.512,
+        "end": 30.635
+      },
+      "speech": {
+        "word": "agree",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 30.724,
+        "end": 30.86
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 30.883,
+        "end": 30.989
+      },
+      "speech": {
+        "word": "it",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.92,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 31.041,
+        "end": 31.273
+      },
+      "speech": {
+        "word": "maybe",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 31.297,
+        "end": 31.66
+      },
+      "speech": {
+        "word": "something",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 31.689,
+        "end": 31.943
+      },
+      "speech": {
+        "word": "yeah",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 31.989,
+        "end": 32.135
+      },
+      "speech": {
+        "word": "probably",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 32.169,
+        "end": 32.318
+      },
+      "speech": {
+        "word": "actually",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 32.405,
+        "end": 32.605
+      },
+      "speech": {
+        "word": "interesting",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.83,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 32.673,
+        "end": 32.935
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.8,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 32.971,
+        "end": 33.203
+      },
+      "speech": {
+        "word": "main",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.95,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 33.223,
+        "end": 33.56
+      },
+      "speech": {
+        "word": "absolutely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 33.623,
+        "end": 33.773
+      },
+      "speech": {
+        "word": "point",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 33.848,
+        "end": 34.195
+      },
+      "speech": {
+        "word": "like",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 34.239,
+        "end": 34.401
+      },
+      "speech": {
+        "word": "okay",
+        "speaker": "SPEAKER_01",
+        "confidence": 1,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 34.448,
+        "end": 34.915
+      },
+      "speech": {
+        "word": "interesting",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 4
+      }
+    },
+    {
+      "time_range": {
+        "start": 36.399,
+        "end": 36.843
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 5
+      }
+    },
+    {
+      "time_range": {
+        "start": 36.923,
+        "end": 37.189
+      },
+      "speech": {
+        "word": "basically",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.87,
+        "speech_segment": 5
+      }
+    },
+    {
+      "time_range": {
+        "start": 37.27,
+        "end": 37.527
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 5
+      }
+    },
+    {
+      "time_range": {
+        "start": 38.076,
+        "end": 38.295
+      },
+      "speech": {
+        "word": "perspective",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.72,
+        "speech_segment": 6
+      }
+    },
+    {
+      "time_range": {
+        "start": 38.365,
+        "end": 38.583
+      },
+      "speech": {
+        "word": "probably",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.74,
+        "speech_segment": 6
+      }
+    },
+    {
+      "time_range": {
+        "start": 38.621,
+        "end": 39.062
+      },
+      "speech": {
+        "word": "perspective",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.87,
+        "speech_segment": 6
+      }
+    },
+    {
+      "time_range": {
+        "start": 39.099,
+        "end": 39.382
+      },
+      "speech": {
+        "word": "option",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.95,
+        "speech_segment": 6
+      }
+    },
+    {
+      "time_range": {
+        "start": 39.43,
+        "end": 39.694
+      },
+      "speech": {
+        "word": "so",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.84,
+        "speech_segment": 6
+      }
+    },
+    {
+      "time_range": {
+        "start": 39.739,
+        "end": 40.187
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.9,
+        "speech_segment": 6
+      }
+    },
+    {
+      "time_range": {
+        "start": 41.327,
+        "end": 41.703
+      },
+      "speech": {
+        "word": "because",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 41.763,
+        "end": 42.133
+      },
+      "speech": {
+        "word": "um",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 42.185,
+        "end": 42.441
+      },
+      "speech": {
+        "word": "so",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 42.534,
+        "end": 42.943
+      },
+      "speech": {
+        "word": "works",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.88,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 43.012,
+        "end": 43.118
+      },
+      "speech": {
+        "word": "this",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 43.156,
+        "end": 43.285
+      },
+      "speech": {
+        "word": "maybe",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 43.313,
+        "end": 43.64
+      },
+      "speech": {
+        "word": "from",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 43.709,
+        "end": 44.131
+      },
+      "speech": {
+        "word": "basically",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.78,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 44.172,
+        "end": 44.398
+      },
+      "speech": {
+        "word": "probably",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.85,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 44.483,
+        "end": 44.852
+      },
+      "speech": {
+        "word": "it",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 44.95,
+        "end": 45.28
+      },
+      "speech": {
+        "word": "you",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.99,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 45.358,
+        "end": 45.522
+      },
+      "speech": {
+        "word": "is",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 45.563,
+        "end": 45.699
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 45.794,
+        "end": 46.066
+      },
+      "speech": {
+        "word": "like",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.84,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 46.148,
+        "end": 46.432
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 46.481,
+        "end": 46.711
+      },
+      "speech": {
+        "word": "try",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 46.732,
+        "end": 46.904
+      },
+      "speech": {
+        "word": "try",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 7
+      }
+    },
+    {
+      "time_range": {
+        "start": 50.011,
+        "end": 50.168
+      },
+      "speech": {
+        "word": "option",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.75,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 50.224,
+        "end": 50.645
+      },
+      "speech": {
+        "word": "right",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 50.682,
+        "end": 50.829
+      },
+      "speech": {
+        "word": "at",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.83,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 50.923,
+        "end": 51.045
+      },
+      "speech": {
+        "word": "this",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 51.136,
+        "end": 51.503
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_01",
+        "confidence": 1,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 51.528,
+        "end": 51.917
+      },
+      "speech": {
+        "word": "yeah",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.8,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 51.964,
+        "end": 52.081
+      },
+      "speech": {
+        "word": "also",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.99,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 52.15,
+        "end": 52.534
+      },
+      "speech": {
+        "word": "interesting",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 52.619,
+        "end": 52.748
+      },
+      "speech": {
+        "word": "well",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.71,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 52.77,
+        "end": 53.266
+      },
+      "speech": {
+        "word": "because",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 53.331,
+        "end": 53.762
+      },
+      "speech": {
+        "word": "look",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 53.854,
+        "end": 54.234
+      },
+      "speech": {
+        "word": "look",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.86,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 54.27,
+        "end": 54.444
+      },
+      "speech": {
+        "word": "let",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.92,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 54.483,
+        "end": 54.679
+      },
+      "speech": {
+        "word": "option",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 54.74,
+        "end": 54.905
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 54.997,
+        "end": 55.399
+      },
+      "speech": {
+        "word": "out",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.76,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 55.421,
+        "end": 55.914
+      },
+      "speech": {
+        "word": "I",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.84,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 55.998,
+        "end": 56.221
+      },
+      "speech": {
+        "word": "let",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 56.281,
+        "end": 56.763
+      },
+      "speech": {
+        "word": "let",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.95,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 56.817,
+        "end": 57.16
+      },
+      "speech": {
+        "word": "basically",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.72,
+        "speech_segment": 8
+      }
+    },
+    {
+      "time_range": {
+        "start": 59.497,
+        "end": 59.791
+      },
+      "speech": {
+        "word": "well",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 9
+      }
+    },
+    {
+      "time_range": {
+        "start": 59.85,
+        "end": 60.18
+      },
+      "speech": {
+        "word": "thing",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 9
+      }
+    },
+    {
+      "time_range": {
+        "start": 60.261,
+        "end": 60.758
+      },
+      "speech": {
+        "word": "try",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.96,
+        "speech_segment": 9
+      }
+    },
+    {
+      "time_range": {
+        "start": 60.816,
+        "end": 61.081
+      },
+      "speech": {
+        "word": "other",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.7,
+        "speech_segment": 9
+      }
+    },
+    {
+      "time_range": {
+        "start": 61.11,
+        "end": 61.477
+      },
+      "speech": {
+        "word": "how",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 9
+      }
+    },
+    {
+      "time_range": {
+        "start": 61.517,
+        "end": 61.977
+      },
+      "speech": {
+        "word": "probably",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 9
+      }
+    },
+    {
+      "time_range": {
+        "start": 63.159,
+        "end": 63.381
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.81,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 63.42,
+        "end": 63.576
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.8,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 63.608,
+        "end": 63.813
+      },
+      "speech": {
+        "word": "sure",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.81,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 63.837,
+        "end": 64.161
+      },
+      "speech": {
+        "word": "maybe",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.91,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 64.245,
+        "end": 64.668
+      },
+      "speech": {
+        "word": "what",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.89,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 64.761,
+        "end": 64.995
+      },
+      "speech": {
+        "word": "okay",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.87,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 65.057,
+        "end": 65.358
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.91,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 65.39,
+        "end": 65.645
+      },
+      "speech": {
+        "word": "need",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.84,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 65.705,
+        "end": 65.844
+      },
+      "speech": {
+        "word": "is",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.79,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 65.919,
+        "end": 66.246
+      },
+      "speech": {
+        "word": "um",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.74,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 66.304,
+        "end": 66.774
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.89,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 66.855,
+        "end": 67.309
+      },
+      "speech": {
+        "word": "from",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.85,
+        "speech_segment": 10
+      }
+    },
+    {
+      "time_range": {
+        "start": 68.131,
+        "end": 68.508
+      },
+      "speech": {
+        "word": "right",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.74,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 68.528,
+        "end": 68.915
+      },
+      "speech": {
+        "word": "right",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.72,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 69.009,
+        "end": 69.483
+      },
+      "speech": {
+        "word": "point",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.81,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 69.535,
+        "end": 69.829
+      },
+      "speech": {
+        "word": "me",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.84,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 69.881,
+        "end": 70.168
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.72,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 70.263,
+        "end": 70.387
+      },
+      "speech": {
+        "word": "works",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.82,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 70.471,
+        "end": 70.861
+      },
+      "speech": {
+        "word": "also",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.96,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 70.908,
+        "end": 71.354
+      },
+      "speech": {
+        "word": "works",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.83,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 71.447,
+        "end": 71.875
+      },
+      "speech": {
+        "word": "sense",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.99,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 71.971,
+        "end": 72.073
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.99,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 72.094,
+        "end": 72.435
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.83,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 72.504,
+        "end": 72.73
+      },
+      "speech": {
+        "word": "so",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.91,
+        "speech_segment": 11
+      }
+    },
+    {
+      "time_range": {
+        "start": 75.779,
+        "end": 76.097
+      },
+      "speech": {
+        "word": "about",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 76.172,
+        "end": 76.628
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.79,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 76.675,
+        "end": 76.834
+      },
+      "speech": {
+        "word": "interesting",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.86,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 76.88,
+        "end": 77.181
+      },
+      "speech": {
+        "word": "main",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 77.211,
+        "end": 77.665
+      },
+      "speech": {
+        "word": "need",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 77.715,
+        "end": 77.923
+      },
+      "speech": {
+        "word": "option",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 77.962,
+        "end": 78.27
+      },
+      "speech": {
+        "word": "perspective",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.95,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 78.333,
+        "end": 78.467
+      },
+      "speech": {
+        "word": "is",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.87,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 78.51,
+        "end": 78.901
+      },
+      "speech": {
+        "word": "probably",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 78.927,
+        "end": 79.19
+      },
+      "speech": {
+        "word": "but",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.8,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 79.226,
+        "end": 79.593
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.75,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 79.671,
+        "end": 79.962
+      },
+      "speech": {
+        "word": "to",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 80.046,
+        "end": 80.373
+      },
+      "speech": {
+        "word": "try",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 80.442,
+        "end": 80.587
+      },
+      "speech": {
+        "word": "yeah",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.95,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 80.633,
+        "end": 81.046
+      },
+      "speech": {
+        "word": "try",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.91,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 81.089,
+        "end": 81.289
+      },
+      "speech": {
+        "word": "maybe",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.88,
+        "speech_segment": 12
+      }
+    },
+    {
+      "time_range": {
+        "start": 81.853,
+        "end": 82.327
+      },
+      "speech": {
+        "word": "let",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 82.398,
+        "end": 82.72
+      },
+      "speech": {
+        "word": "to",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 82.783,
+        "end": 83.044
+      },
+      "speech": {
+        "word": "makes",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.8,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 83.118,
+        "end": 83.368
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.83,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 83.396,
+        "end": 83.587
+      },
+      "speech": {
+        "word": "because",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 83.663,
+        "end": 84.073
+      },
+      "speech": {
+        "word": "option",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.75,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 84.167,
+        "end": 84.343
+      },
+      "speech": {
+        "word": "from",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.79,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 84.403,
+        "end": 84.765
+      },
+      "speech": {
+        "word": "point",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 84.83,
+        "end": 85.248
+      },
+      "speech": {
+        "word": "figure",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.73,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 85.294,
+        "end": 85.45
+      },
+      "speech": {
+        "word": "at",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 85.535,
+        "end": 85.736
+      },
+      "speech": {
+        "word": "figure",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.73,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 85.789,
+        "end": 86.01
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 86.061,
+        "end": 86.528
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.71,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 86.552,
+        "end": 86.884
+      },
+      "speech": {
+        "word": "sure",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.97,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 86.935,
+        "end": 87.365
+      },
+      "speech": {
+        "word": "also",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.87,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 87.436,
+        "end": 87.82
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.73,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 87.912,
+        "end": 88.375
+      },
+      "speech": {
+        "word": "so",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 88.402,
+        "end": 88.59
+      },
+      "speech": {
+        "word": "actually",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.88,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 88.616,
+        "end": 88.891
+      },
+      "speech": {
+        "word": "makes",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 88.967,
+        "end": 89.208
+      },
+      "speech": {
+        "word": "you",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.78,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 89.268,
+        "end": 89.485
+      },
+      "speech": {
+        "word": "try",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.83,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 89.526,
+        "end": 89.727
+      },
+      "speech": {
+        "word": "perspective",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.76,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 89.764,
+        "end": 89.969
+      },
+      "speech": {
+        "word": "basically",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 90.037,
+        "end": 90.27
+      },
+      "speech": {
+        "word": "because",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.91,
+        "speech_segment": 13
+      }
+    },
+    {
+      "time_range": {
+        "start": 90.632,
+        "end": 90.831
+      },
+      "speech": {
+        "word": "okay",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.81,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 90.922,
+        "end": 91.284
+      },
+      "speech": {
+        "word": "maybe",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.75,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 91.382,
+        "end": 91.812
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.78,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 91.894,
+        "end": 92.018
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.74,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 92.087,
+        "end": 92.581
+      },
+      "speech": {
+        "word": "here",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.98,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 92.602,
+        "end": 92.971
+      },
+      "speech": {
+        "word": "other",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.78,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 93.016,
+        "end": 93.143
+      },
+      "speech": {
+        "word": "from",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.91,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 93.187,
+        "end": 93.309
+      },
+      "speech": {
+        "word": "need",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.9,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 93.329,
+        "end": 93.445
+      },
+      "speech": {
+        "word": "actually",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.88,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 93.511,
+        "end": 93.699
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.79,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 93.769,
+        "end": 94.111
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.71,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 94.201,
+        "end": 94.65
+      },
+      "speech": {
+        "word": "how",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.95,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 94.714,
+        "end": 95.2
+      },
+      "speech": {
+        "word": "something",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.87,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 95.238,
+        "end": 95.387
+      },
+      "speech": {
+        "word": "out",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.8,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 95.463,
+        "end": 95.851
+      },
+      "speech": {
+        "word": "at",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.84,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 95.876,
+        "end": 96.002
+      },
+      "speech": {
+        "word": "out",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.84,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 96.05,
+        "end": 96.209
+      },
+      "speech": {
+        "word": "here",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.7,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 96.242,
+        "end": 96.449
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.71,
+        "speech_segment": 14
+      }
+    },
+    {
+      "time_range": {
+        "start": 98.716,
+        "end": 99.063
+      },
+      "speech": {
+        "word": "it",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.73,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 99.122,
+        "end": 99.479
+      },
+      "speech": {
+        "word": "absolutely",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.97,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 99.525,
+        "end": 99.79
+      },
+      "speech": {
+        "word": "this",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.76,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 99.811,
+        "end": 99.952
+      },
+      "speech": {
+        "word": "other",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.98,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 99.985,
+        "end": 100.219
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.77,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 100.259,
+        "end": 100.394
+      },
+      "speech": {
+        "word": "that",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.85,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 100.47,
+        "end": 100.791
+      },
+      "speech": {
+        "word": "about",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.7,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 100.864,
+        "end": 101.168
+      },
+      "speech": {
+        "word": "to",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.94,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 101.212,
+        "end": 101.55
+      },
+      "speech": {
+        "word": "okay",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.87,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 101.622,
+        "end": 101.978
+      },
+      "speech": {
+        "word": "let",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.75,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 102.032,
+        "end": 102.247
+      },
+      "speech": {
+        "word": "could",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.79,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 102.272,
+        "end": 102.716
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.9,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 102.788,
+        "end": 103.075
+      },
+      "speech": {
+        "word": "me",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.97,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 103.107,
+        "end": 103.333
+      },
+      "speech": {
+        "word": "actually",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.87,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 103.364,
+        "end": 103.618
+      },
+      "speech": {
+        "word": "this",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.72,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 103.669,
+        "end": 103.903
+      },
+      "speech": {
+        "word": "you",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.9,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 103.983,
+        "end": 104.212
+      },
+      "speech": {
+        "word": "what",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.87,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 104.238,
+        "end": 104.479
+      },
+      "speech": {
+        "word": "you",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.92,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 104.517,
+        "end": 104.783
+      },
+      "speech": {
+        "word": "works",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.9,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 104.867,
+        "end": 105.039
+      },
+      "speech": {
+        "word": "out",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.77,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 105.118,
+        "end": 105.353
+      },
+      "speech": {
+        "word": "absolutely",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.72,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 105.427,
+        "end": 105.843
+      },
+      "speech": {
+        "word": "um",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.98,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 105.921,
+        "end": 106.16
+      },
+      "speech": {
+        "word": "thing",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.82,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 106.229,
+        "end": 106.709
+      },
+      "speech": {
+        "word": "right",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.91,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 106.807,
+        "end": 107.109
+      },
+      "speech": {
+        "word": "actually",
+        "speaker": "SPEAKER_00",
+        "confidence": 0.95,
+        "speech_segment": 15
+      }
+    },
+    {
+      "time_range": {
+        "start": 108.601,
+        "end": 108.847
+      },
+      "speech": {
+        "word": "point",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.89,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 108.891,
+        "end": 109.122
+      },
+      "speech": {
+        "word": "look",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 109.145,
+        "end": 109.483
+      },
+      "speech": {
+        "word": "makes",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.79,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 109.548,
+        "end": 110.044
+      },
+      "speech": {
+        "word": "the",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 110.114,
+        "end": 110.525
+      },
+      "speech": {
+        "word": "basically",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.92,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 110.614,
+        "end": 110.991
+      },
+      "speech": {
+        "word": "me",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 111.023,
+        "end": 111.226
+      },
+      "speech": {
+        "word": "interesting",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 111.252,
+        "end": 111.596
+      },
+      "speech": {
+        "word": "it",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.84,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 111.664,
+        "end": 111.913
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 111.991,
+        "end": 112.452
+      },
+      "speech": {
+        "word": "this",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 112.508,
+        "end": 112.675
+      },
+      "speech": {
+        "word": "me",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 112.73,
+        "end": 112.856
+      },
+      "speech": {
+        "word": "look",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.87,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 112.894,
+        "end": 113.067
+      },
+      "speech": {
+        "word": "when",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.84,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 113.103,
+        "end": 113.573
+      },
+      "speech": {
+        "word": "definitely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.94,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 113.63,
+        "end": 113.999
+      },
+      "speech": {
+        "word": "makes",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.74,
+        "speech_segment": 16
+      }
+    },
+    {
+      "time_range": {
+        "start": 114.43,
+        "end": 114.768
+      },
+      "speech": {
+        "word": "think",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.93,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 114.801,
+        "end": 115.013
+      },
+      "speech": {
+        "word": "absolutely",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 115.044,
+        "end": 115.359
+      },
+      "speech": {
+        "word": "actually",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.75,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 115.427,
+        "end": 115.833
+      },
+      "speech": {
+        "word": "let",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.9,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 115.865,
+        "end": 116.058
+      },
+      "speech": {
+        "word": "at",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.98,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 116.099,
+        "end": 116.36
+      },
+      "speech": {
+        "word": "point",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.79,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 116.421,
+        "end": 116.629
+      },
+      "speech": {
+        "word": "probably",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.82,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 116.693,
+        "end": 116.886
+      },
+      "speech": {
+        "word": "I",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.77,
+        "speech_segment": 17
+      }
+    },
+    {
+      "time_range": {
+        "start": 116.91,
+        "end": 117.23
+      },
+      "speech": {
+        "word": "so",
+        "speaker": "SPEAKER_01",
+        "confidence": 0.81,
+        "speech_segment": 17
+      }
+    }
+  ]
+}
