@@ -89,9 +89,12 @@ interface JobInfo {
 
 /**
  * Stages not yet production-ready — skipped by the orchestrator.
- * All stages enabled as of 2026-02-08.
  */
-export const IN_DEVELOPMENT_STAGES: Set<PipelineStage> = new Set([]);
+export const IN_DEVELOPMENT_STAGES: Set<PipelineStage> = new Set([
+  "diarization",
+  "state_annotation",
+  "intent_classification",
+]);
 
 /**
  * Given current job statuses, return stages that are ready to run:

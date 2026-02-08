@@ -56,3 +56,11 @@ export type {
   VideoLanguage,
   VideoMetadata,
 } from "./pipeline-types.js";
+
+export type {
+  TargetFilter,
+  AnnotationTarget,
+  AnnotationCommand,
+  CommandResult,
+  TaskConstraints,
+} from "./command-types.js";

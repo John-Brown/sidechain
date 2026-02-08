@@ -25,7 +25,7 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 
 ## Tech Stack
 
-- **Frontend**: SvelteKit, Svelte 5 (runes), Tailwind CSS 4, shadcn-svelte v2, bits-ui
+- **Frontend**: SvelteKit, Svelte 5 (runes), Tailwind CSS 4, shadcn-svelte v2, bits-ui, Inter Variable typeface
 - **API**: tRPC v11 (server + client, superjson transformer)
 - **Auth**: Supabase SSR (@supabase/ssr)
 - **Database**: PostgreSQL via Supabase, Drizzle ORM
@@ -101,6 +101,8 @@ All tables defined in `packages/db/src/schema.ts`:
 - S3 keys: `videos/{project_id}/{video_id}/{filename}` (uploads), `results/{video_id}/{stage}.json` (outputs)
 - All times in seconds (float), time ranges half-open `[start, end)`
 
+- Typography: Inter Variable (`@fontsource-variable/inter`) self-hosted. See `.claude/rules/style-guide.md` for type scale and usage rules.
+
 Detailed conventions by domain in `.claude/rules/` — automatically loaded when working on matching paths.
 
 ## Common Commands (Modal)
@@ -161,6 +163,8 @@ Path-scoped rules auto-load when working on matching files:
 | `pipeline.md` | `pipeline/**`, `workers/**` | DAG structure, trigger pattern, human gates, Modal conventions |
 | `testing.md` | `*.test.ts` | Vitest setup, Phase 4 test priorities |
 | `performance.md` | `viewer/**` | 60fps drag budget, viewport culling mandate, no-DnD-library rule |
+| `ai-first.md` | `viewer/**`, `trpc/**`, `shared/**` | Command layer, semantic targeting, agent API, NL-readiness checklist |
+| `style-guide.md` | `*.svelte`, `*.css`, `viewer/**` | Typography (Inter), type scale, color system, viewer density tokens |
 
 ## Reference Docs
 

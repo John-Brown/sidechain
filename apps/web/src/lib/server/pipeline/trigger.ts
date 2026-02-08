@@ -3,12 +3,18 @@
  * Expects the job row to already exist; updates it to running or failed.
  */
 
+import { z } from "zod";
 import type { PipelineStage } from "@annotation/shared";
 import type { Database } from "@annotation/db";
 import { processingJobs, videos } from "@annotation/db";
 import { eq } from "drizzle-orm";
 import { STAGE_RESULT_KEYS, buildS3KeysIn, getReadyStages } from "./dag.js";
 import { env } from "$env/dynamic/private";
+
+const ModalResponseSchema = z.object({
+  status: z.enum(["completed", "failed"]),
+  error: z.string().nullable().optional(),
+});
 
 /** Maps stage to its Modal web endpoint function name (used to build URL). */
 const STAGE_FUNCTIONS: Record<PipelineStage, string> = {
@@ -76,7 +82,16 @@ export async function triggerStage(
 
     // Modal's @fastapi_endpoint is synchronous — 200 means the function ran.
     // Parse the StageResponse to get the actual completion status.
-    const body = await res.json() as { status: string; error?: string | null };
+    let body: z.infer<typeof ModalResponseSchema>;
+    try {
+      body = ModalResponseSchema.parse(await res.json());
+    } catch {
+      await db
+        .update(processingJobs)
+        .set({ status: "failed", errorMessage: "Invalid Modal response" })
+        .where(eq(processingJobs.id, jobId));
+      return;
+    }
 
     if (body.status === "completed") {
       await db

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { eq, and } from "drizzle-orm";
 import { videos, processingJobs, projectMembers } from "@annotation/db";
 import { PIPELINE_STAGES } from "@annotation/shared";
@@ -18,7 +19,7 @@ export const processingRouter = router({
         .where(eq(videos.id, input.videoId))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       // Verify project membership
       const [membership] = await ctx.db
@@ -32,7 +33,7 @@ export const processingRouter = router({
         )
         .limit(1);
 
-      if (!membership) throw new Error("Not authorized");
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
 
       // Create all 7 job rows as pending (upsert to handle retries)
       const jobInserts = PIPELINE_STAGES.map((stage) => ({
@@ -102,7 +103,7 @@ export const processingRouter = router({
         .where(eq(videos.id, input.videoId))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       const [membership] = await ctx.db
         .select()
@@ -115,7 +116,7 @@ export const processingRouter = router({
         )
         .limit(1);
 
-      if (!membership) throw new Error("Not authorized");
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
 
       const { stage } = input;
       const resultS3Key = `results/${video.id}/${STAGE_RESULT_KEYS[stage]}`;
@@ -152,6 +153,27 @@ export const processingRouter = router({
   getJobStatus: protectedProcedure
     .input(z.object({ videoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.videoId))
+        .limit(1);
+
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
+
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, video.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+
       return ctx.db
         .select()
         .from(processingJobs)
@@ -176,9 +198,9 @@ export const processingRouter = router({
         )
         .limit(1);
 
-      if (!job) throw new Error("No processing job found");
+      if (!job) throw new TRPCError({ code: "NOT_FOUND", message: "No processing job found" });
       if (job.status !== "completed" || !job.resultS3Key) {
-        throw new Error(`Job is not completed (status: ${job.status})`);
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Job is not completed (status: ${job.status})` });
       }
 
       const [video] = await ctx.db
@@ -187,7 +209,7 @@ export const processingRouter = router({
         .where(eq(videos.id, input.videoId))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       const [membership] = await ctx.db
         .select()
@@ -200,7 +222,7 @@ export const processingRouter = router({
         )
         .limit(1);
 
-      if (!membership) throw new Error("Not authorized");
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
 
       return getObject(job.resultS3Key);
     }),
@@ -214,7 +236,7 @@ export const processingRouter = router({
         .where(eq(videos.id, input.videoId))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       const [membership] = await ctx.db
         .select()
@@ -227,7 +249,7 @@ export const processingRouter = router({
         )
         .limit(1);
 
-      if (!membership) throw new Error("Not authorized");
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
 
       const allJobs = await ctx.db
         .select()

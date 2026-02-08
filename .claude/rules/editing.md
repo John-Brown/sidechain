@@ -44,7 +44,9 @@ During drag: zero Svelte reactivity. One DOM mutation per frame on `will-change:
 
 ## Operations (Pure Functions)
 
-All in `editing/operations.ts`. Signature: `(items: T[], index: number, ...args) → T[]`. Caller assigns result to editorState, pushes undo snapshot.
+All in `editing/operations.ts`. Signature: `(items: T[], index: number, ...args) → T[]`.
+
+**IMPORTANT**: Operations are called via the **command executor**, not directly from UI handlers. See `ai-first.md` for the command layer architecture. UI handlers produce `AnnotationCommand` objects; the executor resolves targets, calls operations, pushes undo, and sets dirty flags.
 
 ## Auto-Save
 

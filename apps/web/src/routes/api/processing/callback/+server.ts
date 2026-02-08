@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "@sveltejs/kit";
 import { createDb, processingJobs, videos } from "@annotation/db";
@@ -13,7 +14,12 @@ function getDb() {
 
 export const POST: RequestHandler = async ({ request }) => {
   const authHeader = request.headers.get("x-callback-secret");
-  if (!PROCESSING_CALLBACK_SECRET || authHeader !== PROCESSING_CALLBACK_SECRET) {
+  if (!PROCESSING_CALLBACK_SECRET || !authHeader) {
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const expected = Buffer.from(PROCESSING_CALLBACK_SECRET);
+  const received = Buffer.from(authHeader);
+  if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -40,6 +46,11 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ error: "Job not found" }, { status: 404 });
   }
 
+  // Dedup: if already completed, return early
+  if (job.status === "completed") {
+    return json({ ok: true, message: "Already processed" });
+  }
+
   if (body.status === "completed") {
     await db
       .update(processingJobs)
@@ -51,20 +62,15 @@ export const POST: RequestHandler = async ({ request }) => {
       })
       .where(eq(processingJobs.id, body.job_id));
 
-    // Fetch all jobs for this video to check DAG readiness
+    // Re-fetch all jobs fresh to avoid race conditions with stale local state
     const allJobs = await db
       .select()
       .from(processingJobs)
       .where(eq(processingJobs.videoId, job.videoId));
 
-    // Update the completed job's status in the local list for accurate dependency check
-    const updatedJobs = allJobs.map((j) =>
-      j.id === body.job_id ? { ...j, status: "completed" as const } : j,
-    );
-
     // Check which stages are now ready to run
     const readyStages = getReadyStages(
-      updatedJobs.map((j) => ({ stage: j.stage, status: j.status })),
+      allJobs.map((j) => ({ stage: j.stage, status: j.status })),
     );
 
     if (readyStages.length > 0) {
@@ -77,7 +83,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
       if (video) {
         for (const stage of readyStages) {
-          const stageJob = updatedJobs.find((j) => j.stage === stage);
+          const stageJob = allJobs.find((j) => j.stage === stage);
           if (stageJob) {
             // Fire and forget — don't block the callback response
             triggerStage(db, video.id, video.s3Key, stage, stageJob.id).catch(
@@ -89,7 +95,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     // Check if ALL jobs are now completed
-    const allCompleted = updatedJobs.every((j) => j.status === "completed");
+    const allCompleted = allJobs.every((j) => j.status === "completed");
     if (allCompleted) {
       await db
         .update(videos)

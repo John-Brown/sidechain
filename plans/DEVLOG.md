@@ -100,3 +100,64 @@
 
 ### Track order (top → bottom)
 Time → Waveform → VAD → Head Pose → Mouth Energy → Transcription
+
+### Picture-in-Picture video pop-out
+- Toggle via header button or `P` key — floats video via browser PiP API
+- Left panel CSS-collapses to `w-0 overflow-hidden` (not `{#if}` removal — destroying `<video>` kills PiP)
+- `ResizeObserver` on timeline container auto-fires → `containerWidth` updates → all tracks redraw at full viewport width
+- `leavepictureinpicture` event handles both button toggle and native browser PiP close
+- `SessionState` gains `pipActive` / `pipSupported`; feature-detected via `document.pictureInPictureEnabled`
+- PiP events not in Svelte's HTMLVideoElement type defs — attached imperatively in `onMount`, cleaned up on destroy
+- Button hidden entirely when browser doesn't support PiP (`pipSupported` gate)
+
+---
+
+## 2026-02-08 — Phase 4 Prep: Backend Hardening, Command Types, Editor Foundation
+
+### Project audit
+- Full codebase audit across 5 domains: frontend, backend/tRPC, shared packages/DB, ML pipeline, plans/docs
+- Identified 10 critical issues in backend code (all fixed below)
+- Validated all pipeline data contracts, schema alignment, and type coverage
+
+### AI-first architecture
+- Created `.claude/rules/ai-first.md` — command layer pattern for agent/NL-accessible state mutations
+- All editing operations flow through `AnnotationCommand → CommandExecutor → state mutation`
+- Semantic targeting: annotations addressable by index, id, time, timeRange, selected, or query filter
+- Dual execution: same commands work client-side (Svelte) and server-side (tRPC)
+
+### Backend hardening (Stream A)
+- Replaced 18 `throw new Error()` with `TRPCError` (NOT_FOUND, FORBIDDEN, BAD_REQUEST) across videos.ts + processing.ts
+- Added project membership check to `getJobStatus` (was accessible to any authenticated user)
+- Changed auto-created profile default role from "admin" to "annotator"
+- Callback handler: timing-safe secret comparison (`crypto.timingSafeEqual`), deduplication (skip if already completed), race condition fix (fresh DB query after update)
+- Modal response validation: Zod schema replaces `as` type assertion in trigger.ts
+- Re-gated IN_DEVELOPMENT_STAGES: diarization, state_annotation, intent_classification
+
+### Shared types (Stream B)
+- Extended `AnnotationData` union with `transcription` + `session_bounds` variants
+- Created `packages/shared/src/command-types.ts`:
+  - `AnnotationTarget` — 6-variant discriminated union for semantic addressing
+  - `AnnotationCommand` — 8 action types (select, create, resize, delete, split, merge, classify, bulk)
+  - `CommandResult` — structured ok/error with `suggestedFix`
+  - `TaskConstraints` — editableTypes, allowedCategories, lockedTimeRanges, allowedOperations
+  - `TargetFilter` — duration, category, confidence criteria
+
+### Editor foundation (Stream C)
+- `state/history.svelte.ts` — Generic `History<T>` class, snapshot undo/redo via structuredClone, max 50
+- `state/editor.svelte.ts` — `EditorState` class with editable arrays (states, intents, transcription, backchannels), per-type history + dirty tracking, Symbol-keyed context
+- `editing/operations.ts` — 6 pure functions: resize, delete, split, merge, create, classify (all return new arrays)
+- `editing/time-validation.ts` — bounds check, overlap detection, contiguity validation, locked range enforcement
+
+### Files added
+- `.claude/rules/ai-first.md`
+- `packages/shared/src/command-types.ts`
+- `apps/web/src/lib/components/viewer/state/history.svelte.ts`
+- `apps/web/src/lib/components/viewer/state/editor.svelte.ts`
+- `apps/web/src/lib/components/viewer/editing/operations.ts`
+- `apps/web/src/lib/components/viewer/editing/time-validation.ts`
+
+### What's unblocked for Phase 4
+- Wave 2: EditableDOMTrack with drag-to-resize (operations + validation ready)
+- Wave 3: CRUD UI (operations ready)
+- Wave 4: Auto-save + tRPC annotations/tasks routers (command types ready)
+- Command executor: bridge between command types and operations

@@ -222,4 +222,6 @@ export interface AnnotationMetadata {
 export type AnnotationData =
   | { type: "state"; data: StateAnnotation[] }
   | { type: "intent"; data: IntentAnnotation[] }
-  | { type: "backchannel"; data: BackchannelAnnotation[] };
+  | { type: "backchannel"; data: BackchannelAnnotation[] }
+  | { type: "transcription"; data: SpeechWord[] }
+  | { type: "session_bounds"; data: TimeRange[] };

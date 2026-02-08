@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { eq, and } from "drizzle-orm";
 import { videos, processingJobs, projectMembers } from "@annotation/db";
 import { VIDEO_LANGUAGES } from "@annotation/shared";
@@ -33,7 +34,7 @@ export const videosRouter = router({
         .limit(1);
 
       if (!membership) {
-        throw new Error("Not a member of this project");
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this project" });
       }
 
       return ctx.db
@@ -53,7 +54,7 @@ export const videosRouter = router({
         .limit(1);
 
       if (!video) {
-        throw new Error("Video not found");
+        throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
       }
 
       // Verify project membership
@@ -69,7 +70,7 @@ export const videosRouter = router({
         .limit(1);
 
       if (!membership) {
-        throw new Error("Not authorized to access this video");
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to access this video" });
       }
 
       const jobs = await ctx.db
@@ -103,7 +104,7 @@ export const videosRouter = router({
         .where(eq(videos.id, input.id))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       // Verify project membership
       const [membership] = await ctx.db
@@ -117,7 +118,7 @@ export const videosRouter = router({
         )
         .limit(1);
 
-      if (!membership) throw new Error("Not authorized");
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
 
       const updates: Record<string, unknown> = { updatedAt: new Date() };
 
@@ -163,7 +164,7 @@ export const videosRouter = router({
         .limit(1);
 
       if (!membership) {
-        throw new Error("Not a member of this project");
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this project" });
       }
 
       const [video] = await ctx.db
@@ -196,11 +197,11 @@ export const videosRouter = router({
         .where(eq(videos.id, input.videoId))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       // Verify ownership
       if (video.uploadedBy !== ctx.user.id) {
-        throw new Error("Not authorized");
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
       }
 
       const uploadId = await createMultipartUpload(
@@ -237,9 +238,9 @@ export const videosRouter = router({
         .where(eq(videos.id, input.videoId))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
       if (video.uploadedBy !== ctx.user.id) {
-        throw new Error("Not authorized");
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
       }
 
       await completeMultipartUpload(video.s3Key, input.uploadId, input.parts);
@@ -262,7 +263,7 @@ export const videosRouter = router({
         .where(eq(videos.id, input.id))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       // Verify project membership
       const [membership] = await ctx.db
@@ -276,7 +277,7 @@ export const videosRouter = router({
         )
         .limit(1);
 
-      if (!membership) throw new Error("Not authorized");
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
 
       // Delete S3 objects: the video file + any results
       await Promise.all([
@@ -299,7 +300,7 @@ export const videosRouter = router({
         .where(eq(videos.id, input.id))
         .limit(1);
 
-      if (!video) throw new Error("Video not found");
+      if (!video) throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
 
       const [membership] = await ctx.db
         .select()
@@ -312,7 +313,7 @@ export const videosRouter = router({
         )
         .limit(1);
 
-      if (!membership) throw new Error("Not authorized to access this video");
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to access this video" });
 
       const url = await getPresignedDownloadUrl(video.s3Key);
       return { url };

@@ -56,7 +56,7 @@ export async function createContext(event: RequestEvent): Promise<Context> {
       .values({
         id: supabaseUser.id,
         displayName,
-        role: "admin",
+        role: "annotator",
       })
       .onConflictDoNothing()
       .returning({
