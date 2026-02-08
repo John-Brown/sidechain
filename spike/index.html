@@ -138,12 +138,13 @@
   }
   .track-row {
     display: flex;
-    min-height: var(--track-height);
+    height: var(--track-height);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    flex-grow: 0;
   }
-  .track-row.ruler { min-height: var(--ruler-height); }
-  .track-row[data-track-id="waveform"] { min-height: 80px; }
+  .track-row.ruler { height: var(--ruler-height); }
+  .track-row[data-track-id="waveform"] { height: 80px; }
   .track-label {
     width: 120px;
     min-width: 120px;
