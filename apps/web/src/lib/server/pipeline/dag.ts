@@ -89,16 +89,9 @@ interface JobInfo {
 
 /**
  * Stages not yet production-ready — skipped by the orchestrator.
- * TODO: Remove entries as each stage is validated and ready for production.
- * - diarization: pyannote use_auth_token API change needs fix
- * - state_annotation: depends on diarization
- * - intent_classification: depends on state_annotation + needs Anthropic API key
+ * All stages enabled as of 2026-02-08.
  */
-export const IN_DEVELOPMENT_STAGES: Set<PipelineStage> = new Set([
-  "diarization",
-  "state_annotation",
-  "intent_classification",
-]);
+export const IN_DEVELOPMENT_STAGES: Set<PipelineStage> = new Set([]);
 
 /**
  * Given current job statuses, return stages that are ready to run:

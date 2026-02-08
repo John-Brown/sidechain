@@ -115,11 +115,11 @@
   }
 
   const jobStatusColors: Record<JobStatus, string> = {
-    pending: "bg-gray-100 text-gray-800",
-    running: "bg-blue-100 text-blue-800",
-    completed: "bg-green-100 text-green-800",
-    failed: "bg-red-100 text-red-800",
-    cancelled: "bg-gray-100 text-gray-500",
+    pending: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
+    running: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-900/30 dark:text-gray-500",
   };
 
   const STAGE_DEPS: Record<PipelineStage, PipelineStage[]> = {
@@ -132,12 +132,8 @@
     intent_classification: ["state_annotation", "transcription", "vad"],
   };
 
-  // TODO: Remove entries as each stage is validated and production-ready
-  const IN_DEVELOPMENT: Set<PipelineStage> = new Set([
-    "diarization",
-    "state_annotation",
-    "intent_classification",
-  ]);
+  // All stages enabled as of 2026-02-08
+  const IN_DEVELOPMENT: Set<PipelineStage> = new Set([]);
 
   function getJobForStage(stage: PipelineStage): ProcessingJob | undefined {
     return jobs.find((j) => j.stage === stage);
@@ -298,7 +294,7 @@
         {#if completedCount > 0}
           <a
             href="/videos/{data.videoId}/viewer"
-            class="inline-flex h-9 items-center rounded-md bg-indigo-600 px-4 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Open Viewer
           </a>
@@ -514,11 +510,11 @@
                 {/if}
               {:else}
                 {#if IN_DEVELOPMENT.has(stage)}
-                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-violet-50 text-violet-700">
+                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                     In development
                   </span>
                 {:else}
-                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700">
+                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                     Awaiting dependencies
                   </span>
                 {/if}

@@ -36,8 +36,8 @@ def run_transcription(s3_key: str, result_s3_key: str) -> dict:
             raise RuntimeError(f"Failed to download source from S3: {e}") from e
 
         # Load model and transcribe
-        logger.info("Loading Whisper large-v3 model...")
-        model = WhisperModel("large-v3", device="cuda", compute_type="float16")
+        logger.info("Loading Whisper large-v3-turbo model...")
+        model = WhisperModel("large-v3-turbo", device="cuda", compute_type="float16")
 
         segments_iter, info = model.transcribe(
             str(local_source),
@@ -88,7 +88,7 @@ def run_transcription(s3_key: str, result_s3_key: str) -> dict:
                 "total_secs": round(total_duration, 3),
                 "algorithm": {
                     "name": "whisper",
-                    "model": "large-v3",
+                    "model": "large-v3-turbo",
                     "version": "faster-whisper",
                     "processing_time": round(processing_time, 3),
                     "parameters": {

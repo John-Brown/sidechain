@@ -128,8 +128,13 @@ def run_diarization(
         logger.info("Loading pyannote diarization pipeline...")
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
-            use_auth_token=hf_token,
+            token=hf_token,
         )
+
+        import torch
+        if torch.cuda.is_available():
+            pipeline.to(torch.device("cuda"))
+            logger.info("Pipeline moved to GPU")
 
         logger.info("Running diarization...")
         diarization_output = pipeline(str(local_source))
