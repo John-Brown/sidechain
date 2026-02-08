@@ -45,7 +45,7 @@ class VadFrame:
 class VadMetadata:
     model: str = "silero-vad-v5"
     sample_rate: int = SAMPLE_RATE
-    frame_size_ms: int = 100
+    frame_size_ms: int = 32
     merge_gap_ms: int = MERGE_GAP_MS
     total_segments: int = 0
     speech_ratio: float = 0.0

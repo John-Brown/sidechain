@@ -22,8 +22,8 @@ These are the ground truth — TypeScript types must match these, not the other 
       "model": "silero-vad-v5",
       "version": "v5",
       "processing_time": 7.537,
-      "window_size_ms": 100,
-      "hop_size_ms": 100,
+      "window_size_ms": 32,
+      "hop_size_ms": 32,
       "sample_rate": 16000,
       "threshold": 0.5,
       "parameters": { "merge_gap_ms": 300 }
