@@ -1,7 +1,7 @@
 [project]
 name = "annotation-ml-pipeline"
-version = "0.1.0"
-description = "ML processing pipeline for annotation platform (VAD, transcription, etc.)"
+version = "0.2.0"
+description = "ML processing pipeline for annotation platform (VAD, transcription, facial tracking, diarization, etc.)"
 requires-python = ">=3.11"
 dependencies = [
     "modal>=0.73",
@@ -9,6 +9,12 @@ dependencies = [
     "torchaudio>=2.2",
     "boto3>=1.34",
     "pydantic>=2.6",
+    "faster-whisper>=1.0",
+    "mediapipe>=0.10",
+    "opencv-python-headless>=4.9",
+    "pyannote.audio>=3.1",
+    "anthropic>=0.30",
+    "numpy>=1.26",
 ]
 
 [build-system]
@@ -16,5 +22,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv]
-# CPU-only torch — Modal image handles GPU separately if needed
+# CPU-only torch — Modal images handle GPU separately if needed
 extra-index-url = ["https://download.pytorch.org/whl/cpu"]

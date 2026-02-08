@@ -1,19 +1,16 @@
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { videos, processingJobs, projectMembers } from "@annotation/db";
+import { PIPELINE_STAGES } from "@annotation/shared";
+import type { PipelineStage } from "@annotation/shared";
 import { protectedProcedure, router } from "../trpc.js";
 import { getObject } from "../../s3.js";
-
-const MODAL_ENDPOINT = process.env.MODAL_ENDPOINT_URL;
-const PROCESSING_SECRET = process.env.PROCESSING_CALLBACK_SECRET;
+import { ROOT_STAGES, STAGE_RESULT_KEYS } from "../../pipeline/dag.js";
+import { triggerStage } from "../../pipeline/trigger.js";
 
 export const processingRouter = router({
-  triggerVAD: protectedProcedure
-    .input(
-      z.object({
-        videoId: z.string().uuid(),
-      }),
-    )
+  triggerPipeline: protectedProcedure
+    .input(z.object({ videoId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const [video] = await ctx.db
         .select()
@@ -37,14 +34,91 @@ export const processingRouter = router({
 
       if (!membership) throw new Error("Not authorized");
 
-      const resultS3Key = `results/${video.id}/vad.json`;
+      // Create all 7 job rows as pending (upsert to handle retries)
+      const jobInserts = PIPELINE_STAGES.map((stage) => ({
+        videoId: video.id,
+        stage: stage as PipelineStage,
+        status: "pending" as const,
+        progress: 0,
+        resultS3Key: `results/${video.id}/${STAGE_RESULT_KEYS[stage as PipelineStage]}`,
+        errorMessage: null,
+        startedAt: null,
+        completedAt: null,
+      }));
 
-      // Insert the job as pending
+      const createdJobs = [];
+      for (const values of jobInserts) {
+        const [job] = await ctx.db
+          .insert(processingJobs)
+          .values(values)
+          .onConflictDoUpdate({
+            target: [processingJobs.videoId, processingJobs.stage],
+            set: {
+              status: "pending",
+              progress: 0,
+              errorMessage: null,
+              startedAt: null,
+              completedAt: null,
+              resultS3Key: values.resultS3Key,
+            },
+          })
+          .returning();
+        createdJobs.push(job);
+      }
+
+      // Update video status to processing
+      await ctx.db
+        .update(videos)
+        .set({ status: "processing", updatedAt: new Date() })
+        .where(eq(videos.id, video.id));
+
+      // Trigger root stages (no dependencies)
+      for (const stage of ROOT_STAGES) {
+        const job = createdJobs.find((j) => j.stage === stage);
+        if (job) {
+          await triggerStage(ctx.db, video.id, video.s3Key, stage, job.id);
+        }
+      }
+
+      return createdJobs;
+    }),
+
+  retryStage: protectedProcedure
+    .input(z.object({
+      videoId: z.string().uuid(),
+      stage: z.enum(PIPELINE_STAGES),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const [video] = await ctx.db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, input.videoId))
+        .limit(1);
+
+      if (!video) throw new Error("Video not found");
+
+      const [membership] = await ctx.db
+        .select()
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, video.projectId),
+            eq(projectMembers.userId, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) throw new Error("Not authorized");
+
+      const { stage } = input;
+      const resultS3Key = `results/${video.id}/${STAGE_RESULT_KEYS[stage]}`;
+
+      // Reset the job to pending
       const [job] = await ctx.db
         .insert(processingJobs)
         .values({
           videoId: video.id,
-          stage: "vad",
+          stage,
           status: "pending",
           resultS3Key,
         })
@@ -56,75 +130,18 @@ export const processingRouter = router({
             errorMessage: null,
             startedAt: null,
             completedAt: null,
-            createdAt: new Date(),
           },
         })
         .returning();
 
-      // POST to Modal web endpoint
-      if (!MODAL_ENDPOINT) {
-        throw new Error("MODAL_ENDPOINT_URL not configured");
-      }
+      // Trigger it
+      await triggerStage(ctx.db, video.id, video.s3Key, stage, job.id);
 
-      try {
-        const callbackUrl = process.env.PUBLIC_APP_URL
-          ? `${process.env.PUBLIC_APP_URL}/api/processing/callback`
-          : undefined;
-
-        const res = await fetch(MODAL_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            job_id: job.id,
-            video_s3_key: video.s3Key,
-            result_s3_key: resultS3Key,
-            callback_url: callbackUrl,
-            callback_secret: PROCESSING_SECRET,
-          }),
-        });
-
-        if (!res.ok) {
-          const text = await res.text();
-          await ctx.db
-            .update(processingJobs)
-            .set({ status: "failed", errorMessage: `Modal returned ${res.status}: ${text}` })
-            .where(eq(processingJobs.id, job.id));
-          throw new Error(`Failed to trigger Modal: ${res.status}`);
-        }
-
-        const body = (await res.json()) as { call_id?: string };
-
-        // Update to running
-        const [updated] = await ctx.db
-          .update(processingJobs)
-          .set({
-            status: "running",
-            startedAt: new Date(),
-            modalCallId: body.call_id ?? null,
-          })
-          .where(eq(processingJobs.id, job.id))
-          .returning();
-
-        return updated;
-      } catch (err) {
-        if (err instanceof Error && err.message.startsWith("Failed to trigger Modal")) {
-          throw err;
-        }
-        // Network/fetch error
-        await ctx.db
-          .update(processingJobs)
-          .set({ status: "failed", errorMessage: String(err) })
-          .where(eq(processingJobs.id, job.id));
-        throw new Error(`Failed to contact Modal endpoint: ${err}`);
-      }
+      return job;
     }),
 
   getJobStatus: protectedProcedure
-    .input(
-      z.object({
-        videoId: z.string().uuid(),
-      }),
-    )
+    .input(z.object({ videoId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.db
         .select()
@@ -134,20 +151,10 @@ export const processingRouter = router({
     }),
 
   getResults: protectedProcedure
-    .input(
-      z.object({
-        videoId: z.string().uuid(),
-        stage: z.enum([
-          "vad",
-          "transcription",
-          "facial_tracking",
-          "mouth_energy",
-          "diarization",
-          "state_annotation",
-          "intent_classification",
-        ]),
-      }),
-    )
+    .input(z.object({
+      videoId: z.string().uuid(),
+      stage: z.enum(PIPELINE_STAGES),
+    }))
     .query(async ({ ctx, input }) => {
       const [job] = await ctx.db
         .select()
@@ -165,7 +172,6 @@ export const processingRouter = router({
         throw new Error(`Job is not completed (status: ${job.status})`);
       }
 
-      // Verify project membership via video
       const [video] = await ctx.db
         .select()
         .from(videos)

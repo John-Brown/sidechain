@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
-import boto3
 import torch
-import torchaudio
+
+from .utils import download_from_s3, load_audio, upload_to_s3
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,12 @@ class VadSegment:
 
 
 @dataclass
+class VadFrame:
+    time_range: TimeRange
+    speech_probability: float
+
+
+@dataclass
 class VadMetadata:
     model: str = "silero-vad-v5"
     sample_rate: int = SAMPLE_RATE
@@ -46,59 +54,8 @@ class VadMetadata:
 @dataclass
 class VadResult:
     segments: list[VadSegment] = field(default_factory=list)
+    frames: list[VadFrame] = field(default_factory=list)
     metadata: VadMetadata = field(default_factory=VadMetadata)
-
-
-def _get_s3_client() -> boto3.client:
-    import os
-
-    return boto3.client(
-        "s3",
-        aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-        region_name=os.environ.get("S3_REGION", "us-east-1"),
-    )
-
-
-def _get_bucket() -> str:
-    import os
-
-    return os.environ["S3_BUCKET"]
-
-
-def _download_from_s3(s3_key: str, local_path: Path) -> None:
-    client = _get_s3_client()
-    bucket = _get_bucket()
-    logger.info("Downloading s3://%s/%s -> %s", bucket, s3_key, local_path)
-    client.download_file(bucket, s3_key, str(local_path))
-
-
-def _upload_to_s3(local_path: Path, s3_key: str) -> None:
-    client = _get_s3_client()
-    bucket = _get_bucket()
-    logger.info("Uploading %s -> s3://%s/%s", local_path, bucket, s3_key)
-    client.upload_file(
-        str(local_path),
-        bucket,
-        s3_key,
-        ExtraArgs={"ContentType": "application/json"},
-    )
-
-
-def _load_audio(path: Path) -> torch.Tensor:
-    """Load audio file, convert to 16kHz mono."""
-    waveform, sr = torchaudio.load(str(path))
-
-    # Mix to mono if stereo
-    if waveform.shape[0] > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
-
-    # Resample if needed
-    if sr != SAMPLE_RATE:
-        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=SAMPLE_RATE)
-        waveform = resampler(waveform)
-
-    return waveform.squeeze(0)
 
 
 def _merge_segments(
@@ -112,17 +69,14 @@ def _merge_segments(
 
     current_start = timestamps[0]["start"]
     current_end = timestamps[0]["end"]
-    # Silero returns probabilities per-chunk — average them for merged segments
     confidences = [timestamps[0].get("confidence", 1.0)]
 
     for ts in timestamps[1:]:
         gap_samples = ts["start"] - current_end
         if gap_samples <= MERGE_GAP_SAMPLES:
-            # Extend current segment
             current_end = ts["end"]
             confidences.append(ts.get("confidence", 1.0))
         else:
-            # Finalize current segment
             merged.append(
                 VadSegment(
                     time_range=TimeRange(
@@ -136,7 +90,6 @@ def _merge_segments(
             current_end = ts["end"]
             confidences = [ts.get("confidence", 1.0)]
 
-    # Finalize last segment
     merged.append(
         VadSegment(
             time_range=TimeRange(
@@ -150,8 +103,8 @@ def _merge_segments(
     return merged
 
 
-def _run_silero_vad(waveform: torch.Tensor) -> list[VadSegment]:
-    """Run Silero VAD on waveform, return merged speech segments."""
+def _run_silero_vad(waveform: torch.Tensor) -> tuple[list[VadSegment], list[VadFrame]]:
+    """Run Silero VAD on waveform. Returns (merged segments, per-window frames at 10Hz)."""
     model, utils = torch.hub.load(
         repo_or_dir="snakers4/silero-vad",
         model="silero_vad",
@@ -168,7 +121,25 @@ def _run_silero_vad(waveform: torch.Tensor) -> list[VadSegment]:
         return_seconds=False,
     )
 
-    return _merge_segments(timestamps, len(waveform))
+    segments = _merge_segments(timestamps, len(waveform))
+
+    # Compute per-window speech probabilities at 10Hz (100ms windows)
+    frames: list[VadFrame] = []
+    model.reset_states()
+    num_windows = len(waveform) // WINDOW_SIZE_SAMPLES
+    for i in range(num_windows):
+        chunk = waveform[i * WINDOW_SIZE_SAMPLES : (i + 1) * WINDOW_SIZE_SAMPLES]
+        prob = model(chunk.unsqueeze(0), SAMPLE_RATE).item()
+        start_sec = round(i * WINDOW_SIZE_SAMPLES / SAMPLE_RATE, 3)
+        end_sec = round((i + 1) * WINDOW_SIZE_SAMPLES / SAMPLE_RATE, 3)
+        frames.append(
+            VadFrame(
+                time_range=TimeRange(start=start_sec, end=end_sec),
+                speech_probability=round(prob, 4),
+            )
+        )
+
+    return segments, frames
 
 
 def _compute_speech_ratio(segments: list[VadSegment], total_duration: float) -> float:
@@ -178,8 +149,29 @@ def _compute_speech_ratio(segments: list[VadSegment], total_duration: float) -> 
     return round(speech_duration / total_duration, 3)
 
 
-def _result_to_dict(result: VadResult) -> dict:
+def _result_to_dict(result: VadResult, source_file: str, total_duration: float, processing_time: float) -> dict:
     return {
+        "metadata": {
+            "source_file": source_file,
+            "format_version": "1.0",
+            "created_timestamp": datetime.now(timezone.utc).isoformat(),
+            "total_secs": round(total_duration, 3),
+            "algorithm": {
+                "name": "silero-vad",
+                "model": result.metadata.model,
+                "version": "v5",
+                "processing_time": round(processing_time, 3),
+                "window_size_ms": result.metadata.frame_size_ms,
+                "hop_size_ms": result.metadata.frame_size_ms,
+                "sample_rate": result.metadata.sample_rate,
+                "threshold": VAD_THRESHOLD,
+                "parameters": {
+                    "merge_gap_ms": result.metadata.merge_gap_ms,
+                },
+            },
+            "total_segments": result.metadata.total_segments,
+            "speech_ratio": result.metadata.speech_ratio,
+        },
         "segments": [
             {
                 "time_range": {
@@ -190,19 +182,23 @@ def _result_to_dict(result: VadResult) -> dict:
             }
             for seg in result.segments
         ],
-        "metadata": {
-            "model": result.metadata.model,
-            "sample_rate": result.metadata.sample_rate,
-            "frame_size_ms": result.metadata.frame_size_ms,
-            "merge_gap_ms": result.metadata.merge_gap_ms,
-            "total_segments": result.metadata.total_segments,
-            "speech_ratio": result.metadata.speech_ratio,
-        },
+        "frames": [
+            {
+                "time_range": {
+                    "start": frame.time_range.start,
+                    "end": frame.time_range.end,
+                },
+                "speech_probability": frame.speech_probability,
+            }
+            for frame in result.frames
+        ],
     }
 
 
 def run_vad(s3_key: str, result_s3_key: str) -> VadResult:
     """Download video from S3, run Silero VAD, upload results, return VadResult."""
+    t0 = time.monotonic()
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
 
@@ -210,13 +206,13 @@ def run_vad(s3_key: str, result_s3_key: str) -> VadResult:
         source_ext = Path(s3_key).suffix or ".mp4"
         local_source = tmp_path / f"source{source_ext}"
         try:
-            _download_from_s3(s3_key, local_source)
+            download_from_s3(s3_key, local_source)
         except Exception as e:
             raise RuntimeError(f"Failed to download source from S3: {e}") from e
 
         # Load and prepare audio
         try:
-            waveform = _load_audio(local_source)
+            waveform = load_audio(local_source)
         except Exception as e:
             raise RuntimeError(f"Failed to decode audio: {e}") from e
 
@@ -227,14 +223,16 @@ def run_vad(s3_key: str, result_s3_key: str) -> VadResult:
 
         # Run VAD
         try:
-            segments = _run_silero_vad(waveform)
+            segments, frames = _run_silero_vad(waveform)
         except Exception as e:
             raise RuntimeError(f"VAD inference failed: {e}") from e
 
         speech_ratio = _compute_speech_ratio(segments, total_duration)
+        processing_time = time.monotonic() - t0
 
         result = VadResult(
             segments=segments,
+            frames=frames,
             metadata=VadMetadata(
                 total_segments=len(segments),
                 speech_ratio=speech_ratio,
@@ -242,18 +240,20 @@ def run_vad(s3_key: str, result_s3_key: str) -> VadResult:
         )
 
         # Serialize and upload
-        result_json = json.dumps(_result_to_dict(result), indent=2)
+        result_dict = _result_to_dict(result, s3_key, total_duration, processing_time)
+        result_json = json.dumps(result_dict, indent=2)
         result_file = tmp_path / "vad_result.json"
         result_file.write_text(result_json)
 
         try:
-            _upload_to_s3(result_file, result_s3_key)
+            upload_to_s3(result_file, result_s3_key)
         except Exception as e:
             raise RuntimeError(f"Failed to upload result to S3: {e}") from e
 
         logger.info(
-            "VAD complete: %d segments, speech_ratio=%.3f",
+            "VAD complete: %d segments, %d frames, speech_ratio=%.3f",
             len(segments),
+            len(frames),
             speech_ratio,
         )
 

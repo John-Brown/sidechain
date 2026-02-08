@@ -1,9 +1,19 @@
 <script lang="ts">
+  import { createTRPCClientInstance } from "$lib/trpc";
+  import { createSupabaseBrowserClient } from "$lib/supabase";
+
   interface Props {
-    onComplete: () => void;
+    projectId: string;
+    onComplete: (videoId: string) => void;
   }
 
-  let { onComplete }: Props = $props();
+  let { projectId, onComplete }: Props = $props();
+
+  const supabase = createSupabaseBrowserClient();
+  const trpc = createTRPCClientInstance(async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  });
 
   let file = $state<File | null>(null);
   let dragOver = $state(false);
@@ -14,6 +24,7 @@
   const ACCEPTED_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
   const MAX_SIZE_GB = 5;
   const MAX_SIZE_BYTES = MAX_SIZE_GB * 1024 * 1024 * 1024;
+  const PART_SIZE = 5 * 1024 * 1024; // 5MB per part
 
   function handleDragOver(e: DragEvent) {
     e.preventDefault();
@@ -56,6 +67,34 @@
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
+  function uploadPart(url: string, body: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", url);
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const etag = xhr.getResponseHeader("ETag");
+          if (!etag) {
+            reject(new Error("No ETag in upload response"));
+            return;
+          }
+          resolve(etag);
+        } else {
+          reject(new Error(`Part upload failed: ${xhr.status}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Network error during part upload"));
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          partProgress = e.loaded / e.total;
+        }
+      };
+      xhr.send(body);
+    });
+  }
+
+  let partProgress = $state(0);
+
   async function handleUpload() {
     if (!file) return;
     uploading = true;
@@ -63,19 +102,48 @@
     error = null;
 
     try {
-      // TODO: Implement S3 multipart upload via tRPC:
-      // 1. Call tRPC getUploadUrls to get presigned URLs
-      // 2. Upload each part with XMLHttpRequest for progress tracking
-      // 3. Call tRPC completeUpload
-      // 4. Call tRPC createVideo to create the database record
+      const s3Key = `videos/${projectId}/${crypto.randomUUID()}/${file.name}`;
 
-      // Simulating upload progress for now
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((r) => setTimeout(r, 100));
-        progress = i / 100;
+      // 1. Create video record
+      const video = await trpc.videos.create.mutate({
+        projectId,
+        filename: file.name,
+        s3Key,
+      });
+
+      // 2. Calculate parts
+      const partCount = Math.ceil(file.size / PART_SIZE);
+
+      // 3. Get presigned upload URLs
+      const { uploadId, partUrls } = await trpc.videos.getUploadUrls.mutate({
+        videoId: video.id,
+        contentType: file.type,
+        partCount,
+      });
+
+      // 4. Upload each part
+      const parts: { ETag: string; PartNumber: number }[] = [];
+
+      for (let i = 0; i < partCount; i++) {
+        const start = i * PART_SIZE;
+        const end = Math.min(start + PART_SIZE, file.size);
+        const blob = file.slice(start, end);
+        partProgress = 0;
+
+        const etag = await uploadPart(partUrls[i], blob);
+        parts.push({ ETag: etag, PartNumber: i + 1 });
+
+        progress = (i + 1) / partCount;
       }
 
-      onComplete();
+      // 5. Complete upload
+      await trpc.videos.completeUpload.mutate({
+        videoId: video.id,
+        uploadId,
+        parts,
+      });
+
+      onComplete(video.id);
     } catch (e) {
       error = e instanceof Error ? e.message : "Upload failed";
       uploading = false;
