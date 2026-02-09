@@ -4,6 +4,7 @@ import {
   UploadPartCommand,
   CompleteMultipartUploadCommand,
   GetObjectCommand,
+  PutObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
   type CompletedPart,
@@ -108,6 +109,21 @@ export async function deleteS3Prefix(prefix: string): Promise<void> {
 export async function deleteS3Object(key: string): Promise<void> {
   await getS3().send(
     new DeleteObjectCommand({ Bucket: getBucket(), Key: key }),
+  );
+}
+
+export async function putObject(
+  key: string,
+  body: string,
+  contentType = "application/json",
+): Promise<void> {
+  await getS3().send(
+    new PutObjectCommand({
+      Bucket: getBucket(),
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
   );
 }
 

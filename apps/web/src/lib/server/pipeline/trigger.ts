@@ -5,9 +5,10 @@
 
 import { z } from "zod";
 import type { PipelineStage } from "@annotation/shared";
+import { HUMAN_GATES } from "@annotation/shared";
 import type { Database } from "@annotation/db";
-import { processingJobs, videos } from "@annotation/db";
-import { eq } from "drizzle-orm";
+import { processingJobs, videos, tasks } from "@annotation/db";
+import { eq, and } from "drizzle-orm";
 import { STAGE_RESULT_KEYS, buildS3KeysIn, getReadyStages } from "./dag.js";
 import { env } from "$env/dynamic/private";
 
@@ -113,8 +114,43 @@ export async function triggerStage(
 }
 
 /**
+ * Build the set of pipeline stages whose human gates are satisfied
+ * (i.e., all approved tasks of the corresponding gate type exist for this video).
+ */
+async function getApprovedGates(
+  db: Database,
+  videoId: string,
+): Promise<Set<PipelineStage>> {
+  // Invert HUMAN_GATES: taskType -> pipelineStage
+  const taskTypeToStage = new Map<string, PipelineStage>();
+  for (const [stage, taskType] of Object.entries(HUMAN_GATES)) {
+    if (taskType) taskTypeToStage.set(taskType, stage as PipelineStage);
+  }
+
+  if (taskTypeToStage.size === 0) return new Set();
+
+  const approvedTasks = await db
+    .select({ taskType: tasks.taskType })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.videoId, videoId),
+        eq(tasks.status, "approved"),
+      ),
+    );
+
+  const gates = new Set<PipelineStage>();
+  for (const t of approvedTasks) {
+    const stage = taskTypeToStage.get(t.taskType);
+    if (stage) gates.add(stage);
+  }
+
+  return gates;
+}
+
+/**
  * Check for stages whose dependencies are all completed and trigger them.
- * Called after a stage completes to cascade the DAG.
+ * Called after a stage completes or a task is approved to cascade the DAG.
  */
 export async function triggerReadyStages(
   db: Database,
@@ -126,7 +162,8 @@ export async function triggerReadyStages(
     .from(processingJobs)
     .where(eq(processingJobs.videoId, videoId));
 
-  const ready = getReadyStages(allJobs);
+  const approvedGates = await getApprovedGates(db, videoId);
+  const ready = getReadyStages(allJobs, approvedGates);
 
   for (const stage of ready) {
     const job = allJobs.find((j) => j.stage === stage);

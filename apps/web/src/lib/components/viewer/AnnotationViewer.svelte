@@ -17,10 +17,12 @@
   import { TimelineState } from './state/timeline.svelte.js';
   import { AnnotationDataState } from './state/annotation-data.svelte.js';
   import { SessionState } from './state/session.svelte.js';
+  import { EditorState } from './state/editor.svelte.js';
   import {
     setTimelineState,
     setAnnotationDataState,
     setSessionState,
+    setEditorState,
   } from './context.js';
 
   import ViewerHeader from './ViewerHeader.svelte';
@@ -39,10 +41,17 @@
   import { PALETTE_DARK, PALETTE_LIGHT } from './viewer-palette.js';
   import { browser } from '$app/environment';
 
+  import { deleteAnnotation, splitAnnotation, mergeAnnotations } from './editing/operations.js';
+  import type { EditableType } from './state/editor.svelte.js';
+  import { AutoSaveState } from './state/autosave.svelte.js';
+  import type { AnnotationSetType } from '@annotation/shared';
+  import DraftRecoveryBanner from './components/DraftRecoveryBanner.svelte';
+
   import './viewer.css';
 
   interface Props {
     videoId: string;
+    taskId?: string;
   }
 
   const props: Props = $props();
@@ -51,11 +60,26 @@
   const timeline = new TimelineState();
   const annotations = new AnnotationDataState();
   const session = new SessionState(props.videoId);
+  const editor = new EditorState();
 
   // Provide via context
   setTimelineState(timeline);
   setAnnotationDataState(annotations);
   setSessionState(session);
+  setEditorState(editor);
+
+  // Auto-save: wraps tRPC save mutation for annotation persistence
+  const autosave = new AutoSaveState(editor, props.videoId, async (videoId, type, data) => {
+    await trpc.annotations.save.mutate({
+      videoId,
+      type: type as AnnotationSetType,
+      data,
+      edits: [],
+    });
+  });
+
+  // Check for existing draft on mount
+  let pendingDraft = $state(AutoSaveState.loadDraft(props.videoId));
 
   // Theme-aware palette for canvas draw functions
   const theme = getTheme();
@@ -198,10 +222,163 @@
     }
   }
 
+  // --- Edit mode ---
+  function toggleEditMode() {
+    if (editor.editing) {
+      editor.exitEditMode();
+    } else {
+      editor.enterEditMode(annotations);
+    }
+  }
+
+  // --- Editing operation helpers ---
+  function pushUndoForType(type: EditableType) {
+    switch (type) {
+      case 'states':
+        if (editor.states) editor.stateHistory.push(structuredClone(editor.states));
+        break;
+      case 'intents':
+        if (editor.intents) editor.intentHistory.push(structuredClone(editor.intents));
+        break;
+      case 'transcription':
+        if (editor.transcription) editor.transcriptionHistory.push(structuredClone(editor.transcription));
+        break;
+      case 'backchannels':
+        if (editor.backchannels) editor.backchannelHistory.push(structuredClone(editor.backchannels));
+        break;
+    }
+  }
+
+  function applyOperation(type: EditableType, newArray: unknown[]) {
+    (editor as unknown as Record<string, unknown>)[type] = newArray;
+    editor.lastEditedType = type;
+    editor.markDirty(type);
+  }
+
+  function deleteSelected() {
+    if (!editor.hasSelection || editor.selectedType === null || editor.selectedIndex === null) return;
+    const type = editor.selectedType;
+    const idx = editor.selectedIndex;
+    const arr = editor[type];
+    if (!arr || idx >= arr.length) return;
+
+    pushUndoForType(type);
+    applyOperation(type, deleteAnnotation(arr as unknown[], idx));
+    editor.deselect();
+  }
+
+  function splitSelected() {
+    if (!editor.hasSelection || editor.selectedType === null || editor.selectedIndex === null) return;
+    const type = editor.selectedType;
+    const idx = editor.selectedIndex;
+    const arr = editor[type] as { time_range: { start: number; end: number } }[] | null;
+    if (!arr || idx >= arr.length) return;
+
+    const item = arr[idx];
+    const playhead = timeline.currentTime;
+    // Validate split point is within the annotation
+    if (playhead <= item.time_range.start + 0.05 || playhead >= item.time_range.end - 0.05) return;
+
+    pushUndoForType(type);
+    applyOperation(type, splitAnnotation(arr as { time_range: { start: number; end: number } }[], idx, playhead));
+  }
+
+  function mergeSelected() {
+    if (!editor.hasSelection || editor.selectedType === null || editor.selectedIndex === null) return;
+    const type = editor.selectedType;
+    const idx = editor.selectedIndex;
+    const arr = editor[type] as { time_range: { start: number; end: number } }[] | null;
+    if (!arr) return;
+
+    // Try merging with next, then with previous
+    const mergeArr = arr as { time_range: { start: number; end: number } }[];
+    if (idx + 1 < arr.length) {
+      pushUndoForType(type);
+      applyOperation(type, mergeAnnotations(mergeArr, idx, idx + 1));
+    } else if (idx > 0) {
+      pushUndoForType(type);
+      applyOperation(type, mergeAnnotations(mergeArr, idx - 1, idx));
+      editor.select(type, idx - 1);
+    }
+  }
+
+  function selectNextAnnotation(reverse: boolean) {
+    if (!editor.editing) return;
+
+    // If nothing is selected, select the first/last in the first available type
+    if (!editor.hasSelection || editor.selectedType === null || editor.selectedIndex === null) {
+      const types: EditableType[] = ['states', 'intents', 'transcription', 'backchannels'];
+      for (const type of types) {
+        const arr = editor[type];
+        if (arr && arr.length > 0) {
+          editor.select(type, reverse ? arr.length - 1 : 0);
+          return;
+        }
+      }
+      return;
+    }
+
+    const type = editor.selectedType;
+    const arr = editor[type];
+    if (!arr) return;
+
+    const nextIdx = editor.selectedIndex + (reverse ? -1 : 1);
+    if (nextIdx >= 0 && nextIdx < arr.length) {
+      editor.select(type, nextIdx);
+    }
+  }
+
+  // Dialog state
+  let showClassifyDialog = $state(false);
+  let showShortcutsHelp = $state(false);
+
   // --- Keyboard shortcuts ---
   function handleKeydown(e: KeyboardEvent) {
-    // Don't capture if focus is on an input
-    if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+    // Don't capture if focus is on an input or textarea
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if ((e.target as HTMLElement)?.isContentEditable) return;
+
+    const mod = e.metaKey || e.ctrlKey;
+
+    // ? — toggle keyboard shortcuts help
+    if (e.key === '?' && !mod) {
+      e.preventDefault();
+      showShortcutsHelp = !showShortcutsHelp;
+      return;
+    }
+
+    // Don't process other shortcuts while help overlay is open
+    if (showShortcutsHelp) return;
+
+    // Ctrl/Cmd+Z — undo, Ctrl/Cmd+Shift+Z — redo
+    if (mod && e.code === 'KeyZ') {
+      if (editor.editing) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          editor.redo();
+        } else {
+          editor.undo();
+        }
+      }
+      return;
+    }
+
+    // Ctrl/Cmd+E — toggle edit mode
+    if (mod && e.code === 'KeyE') {
+      e.preventDefault();
+      toggleEditMode();
+      return;
+    }
+
+    // Ctrl/Cmd+S — force save (prevent browser save dialog)
+    if (mod && e.code === 'KeyS') {
+      e.preventDefault();
+      if (editor.editing && editor.hasChanges) {
+        autosave.saveNow();
+      }
+      return;
+    }
 
     switch (e.code) {
       case 'Space':
@@ -230,7 +407,51 @@
         break;
       case 'KeyN':
         e.preventDefault();
-        session.normalized = !session.normalized;
+        if (!editor.editing) {
+          session.normalized = !session.normalized;
+        }
+        // In edit mode, N creates annotation — handled by CreateAnnotationBar
+        break;
+      case 'Delete':
+      case 'Backspace':
+        if (editor.editing && editor.hasSelection) {
+          e.preventDefault();
+          deleteSelected();
+        }
+        break;
+      case 'KeyS':
+        if (editor.editing && editor.hasSelection) {
+          e.preventDefault();
+          splitSelected();
+        }
+        break;
+      case 'KeyM':
+        if (editor.editing && editor.hasSelection) {
+          e.preventDefault();
+          mergeSelected();
+        }
+        break;
+      case 'KeyC':
+        if (editor.editing && editor.hasSelection) {
+          e.preventDefault();
+          showClassifyDialog = true;
+        }
+        break;
+      case 'Tab':
+        if (editor.editing) {
+          e.preventDefault();
+          selectNextAnnotation(e.shiftKey);
+        }
+        break;
+      case 'Escape':
+        if (editor.editing) {
+          e.preventDefault();
+          if (editor.hasSelection) {
+            editor.deselect();
+          } else {
+            editor.exitEditMode();
+          }
+        }
         break;
     }
   }
@@ -259,6 +480,31 @@
     timeline.fitZoomToContainer();
   });
 
+  // --- Auto-save: watch dirty state and trigger draft backup + debounced server save ---
+  $effect(() => {
+    const dirty = editor.hasChanges;
+    if (dirty) {
+      autosave.saveDraft();
+      autosave.scheduleSave();
+    }
+  });
+
+  // --- Draft recovery handlers ---
+  function restoreDraft() {
+    if (!pendingDraft) return;
+    editor.enterEditMode(annotations);
+    if (pendingDraft.states) editor.states = pendingDraft.states as typeof editor.states;
+    if (pendingDraft.intents) editor.intents = pendingDraft.intents as typeof editor.intents;
+    if (pendingDraft.transcription) editor.transcription = pendingDraft.transcription as typeof editor.transcription;
+    if (pendingDraft.backchannels) editor.backchannels = pendingDraft.backchannels as typeof editor.backchannels;
+    pendingDraft = null;
+  }
+
+  function discardDraft() {
+    AutoSaveState.discardDraft(props.videoId);
+    pendingDraft = null;
+  }
+
   // --- ResizeObserver for timeline container ---
   onMount(() => {
     if (timelineContainerEl) {
@@ -275,6 +521,7 @@
       return () => {
         observer.disconnect();
         if (pollTimer) clearInterval(pollTimer);
+        autosave.dispose();
       };
     }
   });
@@ -590,12 +837,20 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="viewer-theme h-screen w-screen flex flex-col overflow-hidden">
-  <ViewerHeader onTogglePlay={togglePlay} onSeek={seekTo} onTogglePip={togglePip} />
+  <ViewerHeader onTogglePlay={togglePlay} onSeek={seekTo} onTogglePip={togglePip} onToggleEditMode={toggleEditMode} {autosave} {showShortcutsHelp} onToggleShortcutsHelp={() => showShortcutsHelp = !showShortcutsHelp} />
 
   {#if loadError}
     <div class="px-4 py-2 bg-red-900/30 text-red-400 text-sm border-b border-red-800/50">
       {loadError}
     </div>
+  {/if}
+
+  {#if pendingDraft}
+    <DraftRecoveryBanner
+      draft={pendingDraft}
+      onRestore={restoreDraft}
+      onDiscard={discardDraft}
+    />
   {/if}
 
   <div class="flex-1 flex overflow-hidden">

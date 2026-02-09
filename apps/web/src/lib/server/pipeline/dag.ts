@@ -2,8 +2,8 @@
  * Pipeline DAG — defines stage dependencies and resolves ready stages.
  */
 
-import type { PipelineStage } from "@annotation/shared";
-import { PIPELINE_STAGES } from "@annotation/shared";
+import type { PipelineStage, TaskType } from "@annotation/shared";
+import { PIPELINE_STAGES, HUMAN_GATES } from "@annotation/shared";
 
 /**
  * Each stage maps to its direct dependency stages.
@@ -101,8 +101,16 @@ export const IN_DEVELOPMENT_STAGES: Set<PipelineStage> = new Set([
  * - All dependencies are 'completed'
  * - Own status is 'pending'
  * - Not in the IN_DEVELOPMENT set
+ * - All upstream human gates have been satisfied (approved tasks)
+ *
+ * @param approvedGates Set of pipeline stages whose human gates are satisfied
+ *   (i.e., all tasks of that gate type for this video are approved).
+ *   When omitted, human gates are not checked (backwards-compatible).
  */
-export function getReadyStages(jobs: JobInfo[]): PipelineStage[] {
+export function getReadyStages(
+  jobs: JobInfo[],
+  approvedGates?: Set<PipelineStage>,
+): PipelineStage[] {
   const statusMap = new Map(jobs.map((j) => [j.stage, j.status]));
 
   return jobs
@@ -110,7 +118,17 @@ export function getReadyStages(jobs: JobInfo[]): PipelineStage[] {
     .filter((j) => !IN_DEVELOPMENT_STAGES.has(j.stage))
     .filter((j) => {
       const deps = STAGE_DEPS[j.stage];
-      return deps.every((dep) => statusMap.get(dep) === "completed");
+      return deps.every((dep) => {
+        // Dependency must be completed
+        if (statusMap.get(dep) !== "completed") return false;
+
+        // If this dependency has a human gate, it must be approved
+        if (approvedGates && HUMAN_GATES[dep]) {
+          return approvedGates.has(dep);
+        }
+
+        return true;
+      });
     })
     .map((j) => j.stage);
 }

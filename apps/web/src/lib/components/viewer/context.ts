@@ -2,10 +2,12 @@ import { getContext, setContext } from 'svelte';
 import type { TimelineState } from './state/timeline.svelte.js';
 import type { AnnotationDataState } from './state/annotation-data.svelte.js';
 import type { SessionState } from './state/session.svelte.js';
+import type { EditorState } from './state/editor.svelte.js';
 
 const TIMELINE_KEY = Symbol('timeline');
 const ANNOTATION_DATA_KEY = Symbol('annotation-data');
 const SESSION_KEY = Symbol('session');
+const EDITOR_KEY = Symbol('editor');
 
 export function setTimelineState(state: TimelineState) {
   setContext(TIMELINE_KEY, state);
@@ -26,4 +28,11 @@ export function setSessionState(state: SessionState) {
 }
 export function getSessionState(): SessionState {
   return getContext<SessionState>(SESSION_KEY);
+}
+
+export function setEditorState(state: EditorState) {
+  setContext(EDITOR_KEY, state);
+}
+export function getEditorState(): EditorState {
+  return getContext<EditorState>(EDITOR_KEY);
 }

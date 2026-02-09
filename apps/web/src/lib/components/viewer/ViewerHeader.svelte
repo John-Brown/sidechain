@@ -1,18 +1,26 @@
 <script lang="ts">
-  import { getTimelineState, getSessionState } from './context.js';
+  import { getTimelineState, getSessionState, getEditorState } from './context.js';
   import { formatTimePrecise } from './utils/format-time.js';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+  import SaveIndicator from './components/SaveIndicator.svelte';
+  import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp.svelte';
+  import type { AutoSaveState } from './state/autosave.svelte.js';
 
   interface Props {
     onTogglePlay: () => void;
     onSeek: (time: number) => void;
     onTogglePip: () => void;
+    onToggleEditMode: () => void;
+    autosave: AutoSaveState;
+    showShortcutsHelp: boolean;
+    onToggleShortcutsHelp: () => void;
   }
 
-  let { onTogglePlay, onSeek, onTogglePip }: Props = $props();
+  let { onTogglePlay, onSeek, onTogglePip, onToggleEditMode, autosave, showShortcutsHelp, onToggleShortcutsHelp }: Props = $props();
 
   const timeline = getTimelineState();
   const session = getSessionState();
+  const editor = getEditorState();
 
   function handleZoomInput(e: Event) {
     const target = e.target as HTMLInputElement;
@@ -20,7 +28,7 @@
   }
 </script>
 
-<header class="h-12 flex items-center gap-4 px-4 bg-viewer-surface border-b border-viewer-border shrink-0">
+<header class="h-12 flex items-center gap-4 px-4 border-b border-viewer-border shrink-0 {editor.editing ? 'viewer-header-editing' : 'bg-viewer-surface'}">
   <!-- Back link -->
   <a
     href="/videos/{session.videoId}"
@@ -54,6 +62,38 @@
     {formatTimePrecise(timeline.currentTime)} / {formatTimePrecise(timeline.duration)}
   </span>
 
+  <!-- Edit mode controls -->
+  <div class="w-px h-6 bg-viewer-border"></div>
+
+  <button
+    onclick={onToggleEditMode}
+    class="px-2 py-1 rounded text-viewer-sm transition-colors {editor.editing ? 'bg-amber-500/20 text-amber-400' : 'text-viewer-text-dim hover:text-viewer-text'}"
+    title="Toggle edit mode ({navigator?.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+E)"
+  >
+    {editor.editing ? 'Editing' : 'Edit'}
+  </button>
+
+  {#if editor.editing}
+    <button
+      onclick={() => editor.undo()}
+      disabled={!editor.canUndo}
+      class="w-8 h-8 flex items-center justify-center rounded transition-colors {editor.canUndo ? 'text-viewer-text hover:bg-viewer-surface-2' : 'text-viewer-text-dim/40 cursor-not-allowed'}"
+      title="Undo ({navigator?.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+Z)"
+    >
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.69 3L3 13"/></svg>
+    </button>
+    <button
+      onclick={() => editor.redo()}
+      disabled={!editor.canRedo}
+      class="w-8 h-8 flex items-center justify-center rounded transition-colors {editor.canRedo ? 'text-viewer-text hover:bg-viewer-surface-2' : 'text-viewer-text-dim/40 cursor-not-allowed'}"
+      title="Redo ({navigator?.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+Shift+Z)"
+    >
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.69 3L21 13"/></svg>
+    </button>
+
+    <SaveIndicator {autosave} onForceSave={() => autosave.saveNow()} />
+  {/if}
+
   <div class="flex-1"></div>
 
   <!-- Normalize toggle -->
@@ -85,6 +125,15 @@
   <!-- Theme toggle -->
   <ThemeToggle />
 
+  <!-- Keyboard shortcuts help -->
+  <button
+    onclick={onToggleShortcutsHelp}
+    class="w-8 h-8 flex items-center justify-center rounded hover:bg-viewer-surface-2 text-viewer-text-dim hover:text-viewer-text transition-colors"
+    title="Keyboard shortcuts (?)"
+  >
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+  </button>
+
   <!-- PiP toggle -->
   {#if session.pipSupported}
     <div class="w-px h-6 bg-viewer-border"></div>
@@ -109,3 +158,7 @@
     </button>
   {/if}
 </header>
+
+{#if showShortcutsHelp}
+  <KeyboardShortcutsHelp onClose={onToggleShortcutsHelp} />
+{/if}

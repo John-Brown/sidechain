@@ -168,7 +168,7 @@
   async function loadVideo() {
     try {
       const result = await trpc.videos.get.query({ id: data.videoId });
-      video = result;
+      video = { ...result, uploadMetadata: result.uploadMetadata as VideoMetadata | null };
       jobs = result.processingJobs;
       startPollingIfNeeded();
     } catch (e) {

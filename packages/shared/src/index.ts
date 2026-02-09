@@ -40,6 +40,7 @@ export {
   PROJECT_MEMBER_ROLES,
   PROJECT_STATUSES,
   VIDEO_LANGUAGES,
+  HUMAN_GATES,
 } from "./pipeline-types.js";
 
 export type {

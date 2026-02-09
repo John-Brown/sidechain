@@ -135,6 +135,15 @@ export interface VideoMetadata {
   language?: VideoLanguage;
 }
 
+// --- Human gates ---
+// After these pipeline stages complete, a human task must be approved
+// before downstream stages can fire.
+
+export const HUMAN_GATES: Partial<Record<PipelineStage, TaskType>> = {
+  state_annotation: "verify_states",
+  intent_classification: "verify_intents",
+};
+
 // --- Processing job type for API responses ---
 
 export interface ProcessingJobInfo {

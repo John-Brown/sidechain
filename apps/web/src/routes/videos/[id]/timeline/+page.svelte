@@ -9,4 +9,4 @@
   <title>Timeline — Sidechain</title>
 </svelte:head>
 
-<AnnotationViewer videoId={data.videoId} />
+<AnnotationViewer videoId={data.videoId} taskId={data.taskId} />

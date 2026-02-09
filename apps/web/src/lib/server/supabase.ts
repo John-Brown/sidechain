@@ -7,9 +7,9 @@ export function createSupabaseServerClient(cookies: Cookies) {
     cookies: {
       getAll: () =>
         cookies.getAll().map(({ name, value }) => ({ name, value })),
-      setAll: (cookiesToSet) => {
+      setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
         cookiesToSet.forEach(({ name, value, options }) => {
-          cookies.set(name, value, { ...options, path: "/" });
+          cookies.set(name, value, { ...options, path: "/" } as Parameters<Cookies["set"]>[2]);
         });
       },
     },
