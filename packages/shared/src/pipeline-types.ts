@@ -99,6 +99,17 @@ export const USER_ROLES = ["admin", "supervisor", "annotator"] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
 
+// --- Project status ---
+
+export const PROJECT_STATUSES = [
+  "active",
+  "paused",
+  "completed",
+  "archived",
+] as const;
+
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 // --- Project member roles ---
 
 export const PROJECT_MEMBER_ROLES = [

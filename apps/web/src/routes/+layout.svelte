@@ -21,6 +21,7 @@
   interface ProjectItem {
     id: string;
     name: string;
+    role: string;
   }
 
   let projectList = $state<ProjectItem[]>([]);
@@ -45,13 +46,13 @@
   async function loadProjects() {
     try {
       const list = await trpc.projects.list.query();
-      projectList = list.map((p) => ({ id: p.id, name: p.name }));
+      projectList = list.map((p) => ({ id: p.id, name: p.name, role: p.role }));
       if (!project.id && projectList.length > 0) {
-        setActiveProject(projectList[0].id, projectList[0].name);
+        setActiveProject(projectList[0].id, projectList[0].name, projectList[0].role);
       } else if (!project.id && projectList.length === 0) {
         const defaultProject = await trpc.projects.getOrCreateDefault.mutate();
-        setActiveProject(defaultProject.id, defaultProject.name);
-        projectList = [{ id: defaultProject.id, name: defaultProject.name }];
+        setActiveProject(defaultProject.id, defaultProject.name, "admin");
+        projectList = [{ id: defaultProject.id, name: defaultProject.name, role: "admin" }];
       }
     } catch {
       // Auth may not be ready yet — silently ignore
@@ -59,7 +60,7 @@
   }
 
   function selectProject(p: ProjectItem) {
-    setActiveProject(p.id, p.name);
+    setActiveProject(p.id, p.name, p.role);
     projectsOpen = false;
   }
 

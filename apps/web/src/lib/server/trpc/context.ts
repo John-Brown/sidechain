@@ -6,6 +6,7 @@ import { DATABASE_URL } from "$env/static/private";
 export interface UserInfo {
   id: string;
   displayName: string | null;
+  email: string | null;
   role: "admin" | "supervisor" | "annotator";
 }
 
@@ -34,13 +35,16 @@ export async function createContext(event: RequestEvent): Promise<Context> {
     return { db, user: null };
   }
 
+  const profileSelect = {
+    id: profiles.id,
+    displayName: profiles.displayName,
+    email: profiles.email,
+    role: profiles.role,
+  };
+
   // Look up profile
   let [profile] = await db
-    .select({
-      id: profiles.id,
-      displayName: profiles.displayName,
-      role: profiles.role,
-    })
+    .select(profileSelect)
     .from(profiles)
     .where(eq(profiles.id, supabaseUser.id))
     .limit(1);
@@ -56,23 +60,16 @@ export async function createContext(event: RequestEvent): Promise<Context> {
       .values({
         id: supabaseUser.id,
         displayName,
+        email: supabaseUser.email ?? null,
         role: "annotator",
       })
       .onConflictDoNothing()
-      .returning({
-        id: profiles.id,
-        displayName: profiles.displayName,
-        role: profiles.role,
-      });
+      .returning(profileSelect);
 
     // In case of race condition where onConflictDoNothing returned nothing
     if (!profile) {
       [profile] = await db
-        .select({
-          id: profiles.id,
-          displayName: profiles.displayName,
-          role: profiles.role,
-        })
+        .select(profileSelect)
         .from(profiles)
         .where(eq(profiles.id, supabaseUser.id))
         .limit(1);
@@ -83,11 +80,21 @@ export async function createContext(event: RequestEvent): Promise<Context> {
     return { db, user: null };
   }
 
+  // Backfill email if missing (for profiles created before email column existed)
+  if (!profile.email && supabaseUser.email) {
+    await db
+      .update(profiles)
+      .set({ email: supabaseUser.email })
+      .where(eq(profiles.id, profile.id));
+    profile.email = supabaseUser.email;
+  }
+
   return {
     db,
     user: {
       id: profile.id,
       displayName: profile.displayName,
+      email: profile.email,
       role: profile.role,
     },
   };

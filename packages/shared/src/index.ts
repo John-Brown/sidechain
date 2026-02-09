@@ -38,6 +38,7 @@ export {
   TASK_STATUSES,
   USER_ROLES,
   PROJECT_MEMBER_ROLES,
+  PROJECT_STATUSES,
   VIDEO_LANGUAGES,
 } from "./pipeline-types.js";
 
@@ -52,6 +53,7 @@ export type {
   TaskStatus,
   UserRole,
   ProjectMemberRole,
+  ProjectStatus,
   ProcessingJobInfo,
   VideoLanguage,
   VideoMetadata,

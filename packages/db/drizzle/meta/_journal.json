@@ -8,6 +8,13 @@
       "when": 1770528078742,
       "tag": "0000_dashing_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770595629177,
+      "tag": "0001_chunky_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

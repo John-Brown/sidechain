@@ -15,7 +15,9 @@
     id: string;
     name: string;
     description: string | null;
+    status: string;
     createdAt: Date;
+    updatedAt: Date;
     role: string;
   }
 
@@ -25,6 +27,13 @@
   let newName = $state("");
   let newDescription = $state("");
   let error = $state<string | null>(null);
+
+  const statusColors: Record<string, string> = {
+    active: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    paused: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    completed: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    archived: "bg-muted text-muted-foreground",
+  };
 
   async function loadProjects() {
     loading = true;
@@ -49,15 +58,24 @@
       newDescription = "";
       creating = false;
       await loadProjects();
-      selectProject(project.id, project.name);
+      goto(`/projects/${project.id}`);
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to create project";
     }
   }
 
-  function selectProject(id: string, name: string) {
-    setActiveProject(id, name);
+  function quickOpen(e: Event, id: string, name: string, role: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveProject(id, name, role);
     goto("/videos");
+  }
+
+  function formatDate(date: Date): string {
+    return new Date(date).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
   }
 
   onMount(() => {
@@ -74,7 +92,7 @@
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Projects</h1>
       <p class="text-sm text-muted-foreground">
-        Select or create a project to get started.
+        Manage your annotation projects.
       </p>
     </div>
     <button
@@ -134,20 +152,35 @@
   {:else}
     <div class="grid gap-3">
       {#each projects as project (project.id)}
-        <button
-          onclick={() => selectProject(project.id, project.name)}
-          class="flex items-center justify-between rounded-md border p-4 text-left transition-colors hover:bg-muted/50"
+        <a
+          href="/projects/{project.id}"
+          class="flex items-center justify-between rounded-md border p-4 text-left transition-colors hover:bg-muted/50 group"
         >
-          <div>
-            <p class="font-medium">{project.name}</p>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <p class="font-medium truncate">{project.name}</p>
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {statusColors[project.status] ?? 'bg-muted text-muted-foreground'}">
+                {project.status}
+              </span>
+            </div>
             {#if project.description}
-              <p class="text-sm text-muted-foreground mt-1">{project.description}</p>
+              <p class="text-sm text-muted-foreground mt-1 truncate">{project.description}</p>
             {/if}
+            <p class="text-xs text-muted-foreground mt-1">Updated {formatDate(project.updatedAt)}</p>
           </div>
-          <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-            {project.role}
-          </span>
-        </button>
+          <div class="flex items-center gap-3 ml-4">
+            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+              {project.role}
+            </span>
+            <button
+              onclick={(e) => quickOpen(e, project.id, project.name, project.role)}
+              title="Open videos"
+              class="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
+            >
+              <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
+        </a>
       {/each}
     </div>
   {/if}

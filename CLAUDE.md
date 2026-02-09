@@ -10,6 +10,7 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 | 1 | Monorepo skeleton + schema + VAD pipeline | Complete |
 | 2 | All 7 pipeline stages + DAG orchestration + frontend | Complete (4/7 stages verified, 3 gated as in-dev) |
 | 3 | Read-only timeline viewer (multi-track timeline, Canvas + DOM tracks, viewport culling) | Complete |
+| 3.5 | Project management (detail page, members, guidelines, dashboard) | Complete |
 | 4 | Annotation editing + task mode (human-in-the-loop) | **Next** → `plans/phase-4-editing-task-mode.md` |
 
 ## Architecture
@@ -61,6 +62,13 @@ apps/web/src/lib/server/pipeline/     # DAG orchestration + stage trigger
 apps/web/src/lib/trpc.ts              # Browser tRPC client
 apps/web/src/lib/supabase.ts          # Browser Supabase client
 
+# Project management — route: /projects/[id] (tabbed: overview, settings, members, guidelines)
+apps/web/src/lib/components/project/  # Project detail components
+  ProjectOverview.svelte              #   Dashboard stats, pipeline health, recent videos
+  ProjectSettings.svelte              #   Edit name/description/status, delete (admin only)
+  ProjectMembers.svelte               #   Member table, add-by-email, role management
+  ProjectGuidelines.svelte            #   Markdown editor with preview, sanitized rendering
+
 # Timeline viewer (Phase 3+) — route: /videos/[id]/timeline
 apps/web/src/lib/components/viewer/   # Timeline viewer components
   AnnotationViewer.svelte             #   Root: state init, track layout, keyboard/wheel handlers
@@ -83,8 +91,9 @@ workers/ml-pipeline/stages/            # Python stage implementations
 
 All tables defined in `packages/db/src/schema.ts`:
 
-- **profiles** — user identity (references Supabase auth.users)
-- **projects**, **project_members** — organization/access
+- **profiles** — user identity + email (references Supabase auth.users)
+- **projects** — name, description, status (active/paused/completed/archived), guidelines (markdown), timestamps
+- **project_members** — role-based access (admin/supervisor/annotator), composite PK
 - **videos** — uploaded video metadata + S3 key + processing status
 - **processing_jobs** — ML pipeline stage tracking (one job per stage per video)
 - **annotation_sets** — versioned annotation data (JSONB), partial unique index for current version
@@ -170,5 +179,6 @@ Path-scoped rules auto-load when working on matching files:
 ## Reference Docs
 
 - `plans/` — Architecture decisions and phase plans (current: `phase-4-editing-task-mode.md`)
+- `plans/project-management-future-tiers.md` — Tier 2/3 project features (pipeline config, QC, invitations, taxonomy)
 - `reference/` — Algorithm specs, data flow, deployment guidance
 - `spike/` — Phase 0 prototype (standalone HTML, not part of monorepo build)

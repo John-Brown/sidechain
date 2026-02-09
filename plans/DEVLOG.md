@@ -1,5 +1,79 @@
 # Development Log
 
+## 2026-02-08 — Project Management (Tier 1): Detail Page, Members, Guidelines, Dashboard
+
+### Schema changes
+- New `project_status` enum: `active | paused | completed | archived`
+- `projects` table: added `status`, `guidelines` (text), `guidelinesUpdatedAt`, `updatedAt`
+- `profiles` table: added `email` (nullable, backfilled from Supabase auth on next login)
+- `@annotation/shared`: added `PROJECT_STATUSES` const + `ProjectStatus` type
+- Migration: `0001_chunky_lady_deathstrike.sql`
+
+### Backend (tRPC projects router: 3 → 10 procedures)
+- Extracted `requireMembership(db, projectId, userId, requiredRoles?)` helper — reusable auth guard
+- `get` — full project + caller's role (any member)
+- `update` — name/description/status (admin only)
+- `updateGuidelines` — markdown content (admin or supervisor)
+- `delete` — cascade delete with admin check
+- `listMembers` — join profiles for display name + email
+- `addMember` — look up by email, prevent duplicates
+- `updateMemberRole` — with last-admin guard
+- `removeMember` — with last-admin guard, can't remove self
+- `dashboard` — 4-way `Promise.all`: video/job/task stats + recent videos
+- Expanded `list` to return `status` + `updatedAt`
+
+### Profile email population
+- `context.ts` now includes `email` in all profile queries
+- Auto-create includes `email` from Supabase user
+- Backfill on login: if profile.email is null but Supabase user has email, update it
+- Enables member-add-by-email flow
+
+### Frontend
+- New route `/projects/[id]` — tabbed detail page with URL-synced tab state (`?tab=`)
+- `ProjectOverview` — stats grid (videos, ready, running jobs, pending tasks), pipeline health badges, recent videos
+- `ProjectSettings` — edit form (admin only), danger zone delete with two-step confirmation
+- `ProjectMembers` — member table, add-by-email form, inline role dropdown, remove button (all admin-gated)
+- `ProjectGuidelines` — markdown editor with write/preview toggle, rendered read-only for annotators, `marked` + `dompurify`
+- Updated `/projects` list — cards link to detail, status badges, updatedAt, quick-open arrow for direct video navigation
+- Project store gains `role` field, propagated through layout sidebar
+
+### Safety constraints
+- Last-admin protection: can't demote or remove the last admin
+- Self-removal blocked (prevents accidental lockout)
+- Duplicate member detection on add
+- Email lookup fails gracefully if user hasn't signed up
+
+### Dependencies added
+- `marked` (~35KB) — markdown rendering
+- `dompurify` — HTML sanitization
+- `@types/dompurify` — dev types
+
+### Files added (8)
+- `apps/web/src/routes/projects/[id]/+page.server.ts`
+- `apps/web/src/routes/projects/[id]/+page.svelte`
+- `apps/web/src/lib/components/project/ProjectOverview.svelte`
+- `apps/web/src/lib/components/project/ProjectSettings.svelte`
+- `apps/web/src/lib/components/project/ProjectMembers.svelte`
+- `apps/web/src/lib/components/project/ProjectGuidelines.svelte`
+- `packages/db/drizzle/0001_chunky_lady_deathstrike.sql`
+- `packages/db/drizzle/meta/0001_snapshot.json`
+
+### Files modified (7)
+- `packages/db/src/schema.ts` — new enum + 5 columns
+- `packages/shared/src/pipeline-types.ts` — PROJECT_STATUSES
+- `packages/shared/src/index.ts` — exports
+- `apps/web/src/lib/server/trpc/routers/projects.ts` — 7 new procedures
+- `apps/web/src/lib/server/trpc/context.ts` — email handling
+- `apps/web/src/lib/stores/project.svelte.ts` — role in store
+- `apps/web/src/routes/projects/+page.svelte` — card redesign
+
+### Future tiers documented
+- See `plans/project-management-future-tiers.md`
+- Tier 2: pipeline config, QC settings, task assignment, invitations, guidelines versioning
+- Tier 3: taxonomy editor, export presets, templates, archiving, analytics, audit log UI
+
+---
+
 ## 2026-02-07 — Phase 2 QA: Local Dev Setup + Pipeline Fixes
 
 ### What was done

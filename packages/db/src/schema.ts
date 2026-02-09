@@ -96,11 +96,19 @@ export const taskStatusEnum = pgEnum("task_status", [
   "rejected",
 ]);
 
+export const projectStatusEnum = pgEnum("project_status", [
+  "active",
+  "paused",
+  "completed",
+  "archived",
+]);
+
 // --- Tables ---
 
 export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey(),
   displayName: text("display_name").notNull(),
+  email: text("email"),
   role: userRoleEnum("role").notNull().default("annotator"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -114,8 +122,14 @@ export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   description: text("description"),
+  status: projectStatusEnum("status").notNull().default("active"),
+  guidelines: text("guidelines"),
+  guidelinesUpdatedAt: timestamp("guidelines_updated_at", { withTimezone: true }),
   createdBy: uuid("created_by").notNull().references(() => profiles.id),
   createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
