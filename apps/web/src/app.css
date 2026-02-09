@@ -7,11 +7,11 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
-  --text-viewer-xs: 0.5625rem;
+  --text-viewer-xs: 0.625rem;
   --text-viewer-xs--line-height: 1;
-  --text-viewer-sm: 0.625rem;
+  --text-viewer-sm: 0.6875rem;
   --text-viewer-sm--line-height: 1.2;
-  --text-viewer-base: 0.6875rem;
+  --text-viewer-base: 0.75rem;
   --text-viewer-base--line-height: 1.2;
 
   --color-background: hsl(0 0% 100%);

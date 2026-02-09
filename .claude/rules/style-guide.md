@@ -43,14 +43,14 @@ Custom tokens in `app.css` `@theme` for the high-density annotation viewer. Thes
 
 | Token | Class | Size | Line-height | Use |
 |-------|-------|------|-------------|-----|
-| `--text-viewer-xs` | `text-viewer-xs` | 9px (0.5625rem) | 1 | Canvas labels, DOM track block text |
-| `--text-viewer-sm` | `text-viewer-sm` | 10px (0.625rem) | 1.2 | Status/loading messages, zoom label + value |
-| `--text-viewer-base` | `text-viewer-base` | 11px (0.6875rem) | 1.2 | Track labels (TrackLabel, TrackRow) |
+| `--text-viewer-xs` | `text-viewer-xs` | 10px (0.625rem) | 1 | Canvas labels, DOM track block text |
+| `--text-viewer-sm` | `text-viewer-sm` | 11px (0.6875rem) | 1.2 | Status/loading messages, zoom label + value |
+| `--text-viewer-base` | `text-viewer-base` | 12px (0.75rem) | 1.2 | Track labels (TrackLabel, TrackRow) |
 
 ### Rules
 
-- **No arbitrary pixel sizes** — never use `text-[9px]`, `text-[10px]`, `text-[11px]`. Use the viewer tokens.
-- **Canvas font strings** — use `'9px "Inter Variable", sans-serif'`, not `'9px monospace'`.
+- **No arbitrary pixel sizes** — never use `text-[10px]`, `text-[11px]`, `text-[12px]`. Use the viewer tokens.
+- **Canvas font strings** — use `'10px "Inter Variable", sans-serif'`, not `'10px monospace'`.
 
 ## Monospace Usage
 

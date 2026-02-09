@@ -23,6 +23,7 @@ Stable technical docs — algorithm specs, data flow, deployment.
 
 | File | Summary |
 |------|---------|
+| [getting-started.md](../reference/getting-started.md) | Developer setup guide (Sidechain web app) |
 | [01-system-overview.md](../reference/01-system-overview.md) | High-level system architecture |
 | [02-algorithm-reference.md](../reference/02-algorithm-reference.md) | ML algorithm specs per pipeline stage |
 | [03-data-flow.md](../reference/03-data-flow.md) | Data flow through the pipeline |

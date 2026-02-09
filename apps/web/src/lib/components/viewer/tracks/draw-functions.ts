@@ -39,7 +39,7 @@ export function drawRuler(
 
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'top';
-	ctx.font = '9px "Inter Variable", sans-serif';
+	ctx.font = '10px "Inter Variable", sans-serif';
 
 	for (let t = 0; t <= duration; t += tickInterval) {
 		const x = timeToPx(t, zoom);
@@ -129,7 +129,7 @@ export function drawDiarization(
 		SPEAKER_01: palette.speaker1,
 	};
 
-	ctx.font = '9px "Inter Variable", sans-serif';
+	ctx.font = '10px "Inter Variable", sans-serif';
 	ctx.textBaseline = 'middle';
 
 	for (const seg of data) {

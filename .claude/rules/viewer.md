@@ -77,12 +77,12 @@ Viewer-specific density tokens (defined in `app.css` `@theme`):
 
 | Token | Class | Size | Use |
 |-------|-------|------|-----|
-| `--text-viewer-xs` | `text-viewer-xs` | 9px | Canvas labels, DOM block text |
-| `--text-viewer-sm` | `text-viewer-sm` | 10px | Status text, zoom label |
-| `--text-viewer-base` | `text-viewer-base` | 11px | Track labels |
+| `--text-viewer-xs` | `text-viewer-xs` | 10px | Canvas labels, DOM block text |
+| `--text-viewer-sm` | `text-viewer-sm` | 11px | Status text, zoom label |
+| `--text-viewer-base` | `text-viewer-base` | 12px | Track labels |
 
 Rules:
-- **No arbitrary pixel sizes** (`text-[9px]`, etc.) — use viewer tokens instead
+- **No arbitrary pixel sizes** (`text-[10px]`, etc.) — use viewer tokens instead
 - **No `font-mono`** on track labels, time displays, or DOM blocks — use `tabular-nums` for fixed-width digits
 - **`font-mono`** is reserved for inspector panel JSON and code display
 - Canvas `ctx.font` strings use `"Inter Variable", sans-serif`, not `monospace`

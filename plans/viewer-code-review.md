@@ -1,6 +1,7 @@
 # Viewer / Timeline Page — Code Review
 
 **Date**: 2026-02-08
+**Status**: All 20 fixes implemented — commit `f1740ef`
 **Scope**: `apps/web/src/lib/components/viewer/` + supporting routes, tRPC routers, caching layers
 **Methodology**: 5-agent parallel review (state management, rendering/performance, editing, data flow, architecture/UX)
 
