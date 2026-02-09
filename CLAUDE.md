@@ -13,6 +13,7 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 | 3.5 | Project management (detail page, members, guidelines, dashboard) | Complete |
 | 4 | Annotation editing + task mode (human-in-the-loop) | **In progress** → `plans/phase-4-editing-task-mode.md` |
 | 4.1 | User labels track (freeform text annotations, drag-move, view persistence) | Complete |
+| 4.2 | Viewer code review fixes (20 issues: data integrity, proxy safety, a11y, perf) | Complete → `plans/viewer-code-review.md` |
 
 ## Architecture
 
@@ -73,12 +74,14 @@ apps/web/src/lib/components/project/  # Project detail components
 # Timeline viewer (Phase 3+) — route: /videos/[id]/timeline
 apps/web/src/lib/components/viewer/   # Timeline viewer components
   AnnotationViewer.svelte             #   Root: state init, track layout, keyboard/wheel handlers
+  data-loader.ts                      #   Extracted data loading (S3 results, annotation sets, polling)
   context.ts                          #   Three Symbol-keyed contexts (timeline, annotations, session)
   state/                              #   Svelte 5 rune state classes (timeline, annotation-data, session, editor, autosave)
   editing/                            #   Pure functions: drag-resize (incl. move), operations, time-validation
   tracks/                             #   CanvasTrack (VAD/energy), DOMTrack, EditableDOMTrack (drag-resize + move)
+  utils/                              #   Binary search (accessor overloads), focus-trap, push-undo
   components/                         #   CreateAnnotationBar, LabelTextDialog, ClassifyDialog, KeyboardShortcutsHelp, SaveIndicator
-  viewer.css                          #   Dark theme variables + block color schemes
+  viewer.css                          #   Dark/light theme variables + block color schemes + focus-visible
 
 # Shared packages
 packages/db/src/schema.ts             # Full Drizzle schema (all tables)
@@ -138,11 +141,12 @@ See `.env.example` for required vars. Key groups:
 
 ## Pipeline Stages
 
-Defined in `@annotation/shared`: `vad`, `transcription`, `facial_tracking`, `mouth_energy`, `diarization`, `state_annotation`, `intent_classification`
+Defined in `@annotation/shared`: `vad`, `waveform`, `transcription`, `facial_tracking`, `mouth_energy`, `diarization`, `state_annotation`, `intent_classification`
 
 | Stage | Status | Model/Approach | GPU |
 |-------|--------|---------------|-----|
 | vad | Working | Silero VAD v5 (ffmpeg + soundfile audio loading) | No |
+| waveform | Working | ffmpeg audio extraction + numpy peak computation (200 peaks/sec) | No |
 | transcription | Working | faster-whisper large-v3 | A10G |
 | facial_tracking | Working | MediaPipe FaceLandmarker task API | No |
 | mouth_energy | Working | Weighted blend shape energy (10Hz) | No |
@@ -151,7 +155,7 @@ Defined in `@annotation/shared`: `vad`, `transcription`, `facial_tracking`, `mou
 | intent_classification | In Development | Claude API (depends on state_annotation) | No |
 
 DAG orchestration: `apps/web/src/lib/server/pipeline/{dag,trigger}.ts`
-- Root stages (vad, transcription, facial_tracking) fire in parallel
+- Root stages (vad, waveform, transcription, facial_tracking) fire in parallel
 - `triggerReadyStages()` auto-cascades dependents after each completion
 - `IN_DEVELOPMENT_STAGES` set in dag.ts gates incomplete stages
 

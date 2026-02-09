@@ -144,9 +144,13 @@
   }
 
   function drawWaveformTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (session.waveformPeaksL) {
-      drawWaveform(ctx, w, h, vp, session.waveformPeaksL, session.waveformPeaksR, session.waveformSampleRate, palette,
-        session.normalized ? session.waveformMaxPeak : undefined);
+    if (annotations.waveform) {
+      drawWaveform(ctx, w, h, vp,
+        new Float32Array(annotations.waveform.peaks_l),
+        annotations.waveform.peaks_r ? new Float32Array(annotations.waveform.peaks_r) : null,
+        annotations.waveform.sample_rate,
+        palette,
+        session.normalized ? annotations.waveformMax : undefined);
     }
   }
 
@@ -834,12 +838,12 @@
 
           <!-- Waveform -->
           <TrackContent height={64}>
-            {#if session.waveformPeaksL}
+            {#if annotations.waveform}
               <CanvasTrack height={64} draw={drawWaveformTrack} onScrub={handleScrub} />
             {:else}
               <div class="w-full h-full flex items-center justify-center">
                 <span class="text-viewer-sm text-viewer-text-dim">
-                  {session.waveformLoading ? 'Extracting audio...' : ''}
+                  {annotations.loadStatus.waveform === 'loading' ? 'Loading waveform...' : ''}
                 </span>
               </div>
             {/if}

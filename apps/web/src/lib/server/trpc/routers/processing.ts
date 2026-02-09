@@ -270,7 +270,7 @@ export const processingRouter = router({
 
       const jobStatuses = allJobs.map((j) => ({ stage: j.stage, status: j.status }));
 
-      // Fetch results for completed jobs, excluding facial_tracking (too large)
+      // Waveform peaks (~50KB) included here — only exclude facial_tracking (multi-MB)
       const completedJobs = allJobs.filter(
         (j) => j.status === "completed" && j.resultS3Key && j.stage !== "facial_tracking",
       );

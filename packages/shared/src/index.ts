@@ -24,6 +24,7 @@ export type {
   BackchannelResult,
   UserLabel,
   UserLabelResult,
+  WaveformPeaksResult,
   AlgorithmInfo,
   AnnotationMetadata,
   AnnotationData,

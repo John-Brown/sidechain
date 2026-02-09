@@ -8,6 +8,7 @@ export const PIPELINE_STAGES = [
   "diarization",
   "state_annotation",
   "intent_classification",
+  "waveform",
 ] as const;
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];

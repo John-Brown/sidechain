@@ -45,6 +45,7 @@ export const pipelineStageEnum = pgEnum("pipeline_stage", [
   "diarization",
   "state_annotation",
   "intent_classification",
+  "waveform",
 ]);
 
 export const jobStatusEnum = pgEnum("job_status", [

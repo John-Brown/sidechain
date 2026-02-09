@@ -8,6 +8,7 @@ import type {
   IntentClassificationResult,
   BackchannelResult,
   UserLabelResult,
+  WaveformPeaksResult,
   PipelineStage,
 } from '@annotation/shared';
 import type { LoadStatus } from '../types.js';
@@ -22,6 +23,7 @@ export class AnnotationDataState {
   intentClassification = $state<IntentClassificationResult | null>(null);
   backchannel = $state<BackchannelResult | null>(null);
   userLabels = $state<UserLabelResult | null>(null);
+  waveform = $state<WaveformPeaksResult | null>(null);
 
   // Timestamp of the latest human edit from the DB (for draft freshness check)
   latestEditTimestamp: number | null = $state(null);
@@ -29,6 +31,7 @@ export class AnnotationDataState {
   // Precomputed normalization ranges (set when data loads)
   vadMax = $state(1);
   mouthEnergyMax = $state(1);
+  waveformMax = $state(1);
   headPoseMin = $state(-60);
   headPoseMax = $state(60);
 
@@ -40,5 +43,6 @@ export class AnnotationDataState {
     diarization: 'idle',
     state_annotation: 'idle',
     intent_classification: 'idle',
+    waveform: 'idle',
   });
 }

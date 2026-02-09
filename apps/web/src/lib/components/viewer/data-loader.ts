@@ -2,8 +2,8 @@
  * Data loading module for the annotation viewer.
  *
  * Extracts all tRPC data fetching, S3 result loading, annotation set loading,
- * polling, normalization range computation, and waveform extraction from
- * AnnotationViewer.svelte into a standalone factory function.
+ * polling, and normalization range computation from AnnotationViewer.svelte
+ * into a standalone factory function.
  */
 
 import type {
@@ -15,6 +15,7 @@ import type {
   StateAnnotationResult,
   IntentClassificationResult,
   BackchannelResult,
+  WaveformPeaksResult,
   SpeechWord,
   UserLabel,
   UserLabelResult,
@@ -29,8 +30,6 @@ import type { AnnotationDataState } from './state/annotation-data.svelte.js';
 import type { TimelineState } from './state/timeline.svelte.js';
 import type { SessionState } from './state/session.svelte.js';
 import type { LoadStatus } from './types.js';
-import { extractWaveform } from './utils/extract-waveform.js';
-import { getWaveformFromCache, setWaveformInCache } from './utils/waveform-cache.js';
 import { getCachedAnnotation, setCachedAnnotation } from './utils/annotation-cache.js';
 
 interface TRPCClient {
@@ -78,6 +77,10 @@ export function createDataLoader(deps: DataLoaderDeps) {
       }
       annotations.mouthEnergyMax = max || 1;
     }
+
+    if (annotations.waveform) {
+      annotations.waveformMax = annotations.waveform.max_peak || 1;
+    }
   }
 
   function computeHeadPoseRange() {
@@ -104,49 +107,7 @@ export function createDataLoader(deps: DataLoaderDeps) {
     if (results.mouth_energy) annotations.mouthEnergy = results.mouth_energy as MouthEnergyResult;
     if (results.state_annotation) annotations.stateAnnotation = results.state_annotation as StateAnnotationResult;
     if (results.intent_classification) annotations.intentClassification = results.intent_classification as IntentClassificationResult;
-  }
-
-  async function loadWaveform(url: string) {
-    session.waveformLoading = true;
-    try {
-      const cached = await getWaveformFromCache(videoId);
-      if (cached) {
-        console.log('[viewer] Waveform loaded from cache');
-        session.waveformPeaksL = cached.peaksL;
-        session.waveformPeaksR = cached.peaksR;
-        session.waveformSampleRate = cached.sampleRate;
-        session.waveformMaxPeak = cached.maxPeak;
-        return;
-      }
-
-      const waveform = await extractWaveform(url);
-      session.waveformPeaksL = waveform.peaksL;
-      session.waveformPeaksR = waveform.peaksR;
-      session.waveformSampleRate = waveform.sampleRate;
-
-      let maxPeak = 0;
-      for (let i = 0; i < waveform.peaksL.length; i++) {
-        if (waveform.peaksL[i] > maxPeak) maxPeak = waveform.peaksL[i];
-      }
-      if (waveform.peaksR) {
-        for (let i = 0; i < waveform.peaksR.length; i++) {
-          if (waveform.peaksR[i] > maxPeak) maxPeak = waveform.peaksR[i];
-        }
-      }
-      session.waveformMaxPeak = maxPeak || 1;
-
-      setWaveformInCache(videoId, {
-        peaksL: waveform.peaksL,
-        peaksR: waveform.peaksR,
-        sampleRate: waveform.sampleRate,
-        duration: timeline.duration,
-        maxPeak: session.waveformMaxPeak,
-      });
-    } catch {
-      // Waveform is non-critical
-    } finally {
-      session.waveformLoading = false;
-    }
+    if (results.waveform) annotations.waveform = results.waveform as WaveformPeaksResult;
   }
 
   async function loadFacialTracking() {
@@ -361,9 +322,6 @@ export function createDataLoader(deps: DataLoaderDeps) {
     if (videoInfo.durationSecs) {
       timeline.duration = videoInfo.durationSecs;
     }
-
-    // Start waveform extraction (non-blocking)
-    loadWaveform(streamInfo.url);
 
     // Build completedAt map for cache keying
     completedAtMap = {};

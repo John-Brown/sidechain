@@ -1,5 +1,40 @@
 # Development Log
 
+## 2026-02-08 — Server-Side Waveform Peaks Pipeline Stage
+
+### Motivation
+Safari's `AudioContext.decodeAudioData()` cannot decode audio from video containers (MP4/MOV), causing silent waveform extraction failure. Moved waveform computation server-side as a new pipeline stage.
+
+### New pipeline stage: `waveform`
+- Root stage (no dependencies), runs in parallel with vad, transcription, facial_tracking
+- Python stage (`stages/waveform.py`): ffmpeg extracts audio at 16kHz (preserves stereo), numpy computes peaks at 200 peaks/sec via windowed `max(abs)`
+- Modal endpoint `process_waveform`: reuses `vad_image`, no GPU, 300s timeout
+- Output: `waveform_peaks.json` (~50KB) with `peaks_l`, `peaks_r`, `sample_rate`, `max_peak`, `duration`
+
+### Schema + types
+- `WaveformPeaksResult` type in `@annotation/shared`
+- `"waveform"` added to `PIPELINE_STAGES` and `pipelineStageEnum`
+- Migration: `0003_eminent_tyger_tiger.sql` (`ALTER TYPE ADD VALUE 'waveform'`)
+
+### DAG + trigger wiring
+- `STAGE_DEPS.waveform = []`, `STAGE_RESULT_KEYS.waveform = "waveform_peaks.json"`
+- `STAGE_FUNCTIONS.waveform = "process-waveform"` in trigger.ts
+
+### Viewer changes
+- Waveform loads from S3 via `getAllResults` like every other pipeline result
+- `AnnotationDataState.waveform` + `waveformMax` replace session-level waveform fields
+- Deleted client-side extraction: `extract-waveform.ts`, `waveform-cache.ts`, `waveform-cache.test.ts`
+
+### Cleanup
+- Removed legacy `process_vad` endpoint (superseded by `process_vad_stage`) to stay within Modal's 8-endpoint free tier
+
+### Files changed
+- New: `workers/ml-pipeline/stages/waveform.py`, `packages/db/drizzle/0003_eminent_tyger_tiger.sql`
+- Modified: `modal_app.py`, `dag.ts`, `trigger.ts`, `annotation-data.svelte.ts`, `session.svelte.ts`, `data-loader.ts`, `AnnotationViewer.svelte`, `processing.ts`, `+page.svelte`, `dag.test.ts`, shared types + schema
+- Deleted: `extract-waveform.ts`, `waveform-cache.ts`, `waveform-cache.test.ts`
+
+---
+
 ## 2026-02-08 — Phase 4.1: User Labels Track + Editing Polish
 
 ### User labels — new human-only annotation type

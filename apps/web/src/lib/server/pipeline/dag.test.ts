@@ -31,10 +31,10 @@ function makeJobs(
 }
 
 describe("ROOT_STAGES", () => {
-  it("contains exactly vad, transcription, facial_tracking", () => {
-    expect(ROOT_STAGES).toHaveLength(3);
+  it("contains exactly vad, transcription, facial_tracking, waveform", () => {
+    expect(ROOT_STAGES).toHaveLength(4);
     expect(ROOT_STAGES).toEqual(
-      expect.arrayContaining(["vad", "transcription", "facial_tracking"]),
+      expect.arrayContaining(["vad", "transcription", "facial_tracking", "waveform"]),
     );
   });
 });

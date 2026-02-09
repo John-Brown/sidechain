@@ -126,6 +126,7 @@
     vad: [],
     transcription: [],
     facial_tracking: [],
+    waveform: [],
     mouth_energy: ["facial_tracking"],
     diarization: ["vad", "mouth_energy"],
     state_annotation: ["diarization"],

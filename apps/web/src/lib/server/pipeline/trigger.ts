@@ -22,6 +22,7 @@ const STAGE_FUNCTIONS: Record<PipelineStage, string> = {
   vad: "process-vad-stage",
   transcription: "process-transcription",
   facial_tracking: "process-facial-tracking",
+  waveform: "process-waveform",
   mouth_energy: "process-mouth-energy",
   diarization: "process-diarization",
   state_annotation: "process-state-annotation",

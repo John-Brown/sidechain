@@ -2,6 +2,7 @@
 
 Defines web endpoints for all processing stages:
 - VAD (voice activity detection)
+- Waveform peaks (ffmpeg + numpy)
 - Transcription (WhisperX: faster-whisper + wav2vec2 alignment + optional diarization)
 - Facial tracking (MediaPipe Face Mesh)
 - Mouth energy (from facial tracking blend shapes)
@@ -89,22 +90,6 @@ intent_image = (
 # Request / Response models
 # ---------------------------------------------------------------------------
 
-# Legacy VAD models (backward compatibility)
-class VadRequest(BaseModel):
-    job_id: str
-    video_s3_key: str
-    result_s3_key: str
-    callback_url: str | None = None
-    callback_secret: str | None = None
-
-
-class VadResponse(BaseModel):
-    status: str  # "completed" | "failed"
-    result_s3_key: str
-    segment_count: int = 0
-    error: str | None = None
-
-
 # Generic stage models
 class StageRequest(BaseModel):
     job_id: str
@@ -128,7 +113,7 @@ class StageResponse(BaseModel):
 def _send_callback(
     callback_url: str,
     job_id: str,
-    response: VadResponse | StageResponse,
+    response: StageResponse,
     callback_secret: str | None = None,
 ) -> None:
     """POST status back to the callback URL. Best-effort, non-blocking."""
@@ -171,51 +156,6 @@ def _send_callback(
 
 )
 @modal.fastapi_endpoint(method="POST")
-def process_vad(request: VadRequest) -> VadResponse:
-    """Process a video through the Silero VAD pipeline (legacy endpoint)."""
-    from stages.vad import run_vad
-
-    logger.info(
-        "Processing VAD for job_id=%s, s3_key=%s",
-        request.job_id,
-        request.video_s3_key,
-    )
-
-    try:
-        result = run_vad(
-            s3_key=request.video_s3_key,
-            result_s3_key=request.result_s3_key,
-        )
-        response = VadResponse(
-            status="completed",
-            result_s3_key=request.result_s3_key,
-            segment_count=result.metadata.total_segments,
-        )
-    except Exception as e:
-        logger.error("VAD processing failed: %s\n%s", e, traceback.format_exc())
-        response = VadResponse(
-            status="failed",
-            result_s3_key=request.result_s3_key,
-            segment_count=0,
-            error=str(e),
-        )
-
-    if request.callback_url:
-        _send_callback(
-            request.callback_url, request.job_id, response, request.callback_secret
-        )
-
-    return response
-
-
-@app.function(
-    image=vad_image,
-    secrets=[modal.Secret.from_name("aws-credentials")],
-    timeout=600,
-    memory=2048,
-
-)
-@modal.fastapi_endpoint(method="POST")
 def process_vad_stage(request: StageRequest) -> StageResponse:
     """VAD via the generic StageRequest interface."""
     from stages.vad import run_vad
@@ -232,6 +172,40 @@ def process_vad_stage(request: StageRequest) -> StageResponse:
         )
     except Exception as e:
         logger.error("VAD stage failed: %s\n%s", e, traceback.format_exc())
+        response = StageResponse(
+            status="failed", result_s3_key=request.result_s3_key, error=str(e)
+        )
+
+    if request.callback_url:
+        _send_callback(
+            request.callback_url, request.job_id, response, request.callback_secret
+        )
+    return response
+
+
+@app.function(
+    image=vad_image,
+    secrets=[modal.Secret.from_name("aws-credentials")],
+    timeout=300,
+    memory=1024,
+)
+@modal.fastapi_endpoint(method="POST")
+def process_waveform(request: StageRequest) -> StageResponse:
+    """Extract waveform peaks from video audio."""
+    from stages.waveform import run_waveform
+
+    logger.info("Processing waveform for job_id=%s", request.job_id)
+
+    try:
+        run_waveform(
+            s3_key=request.s3_keys_in["video"],
+            result_s3_key=request.result_s3_key,
+        )
+        response = StageResponse(
+            status="completed", result_s3_key=request.result_s3_key
+        )
+    except Exception as e:
+        logger.error("Waveform failed: %s\n%s", e, traceback.format_exc())
         response = StageResponse(
             status="failed", result_s3_key=request.result_s3_key, error=str(e)
         )

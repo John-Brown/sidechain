@@ -211,6 +211,17 @@ export interface UserLabelResult {
   data: UserLabel[];
 }
 
+// --- Waveform Peaks ---
+
+export interface WaveformPeaksResult {
+  metadata: AnnotationMetadata;
+  peaks_l: number[];
+  peaks_r: number[] | null;
+  sample_rate: number;
+  max_peak: number;
+  duration: number;
+}
+
 // --- Shared metadata types ---
 
 export interface AlgorithmInfo {
