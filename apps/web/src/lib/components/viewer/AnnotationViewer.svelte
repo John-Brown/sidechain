@@ -12,6 +12,7 @@
     IntentClassificationResult,
     SpeechWord,
     UserLabel,
+    UserLabelResult,
   } from '@annotation/shared';
   import type { Viewport } from './types.js';
 
@@ -717,6 +718,31 @@
     }
   }
 
+  // --- Load human annotation sets from DB ---
+  async function loadAnnotationSets() {
+    try {
+      const userLabelSet = await trpc.annotations.get.query({
+        videoId: props.videoId,
+        type: 'user_labels',
+      });
+      if (userLabelSet?.data) {
+        const data = userLabelSet.data as UserLabel[];
+        annotations.userLabels = {
+          metadata: (userLabelSet.metadata as UserLabelResult['metadata']) ?? {
+            source_file: '',
+            format_version: '1.0',
+            created_timestamp: new Date().toISOString(),
+            total_secs: timeline.duration,
+            algorithm: { name: 'human', model: 'manual', version: '1.0', processing_time: 0 },
+          },
+          data,
+        };
+      }
+    } catch (e) {
+      console.warn('[viewer] Failed to load annotation sets:', e);
+    }
+  }
+
   // --- Data loading ---
   async function loadViewerData() {
     try {
@@ -764,6 +790,9 @@
 
       // Fetch all completed results (excludes facial_tracking)
       await loadResults();
+
+      // Load human annotation sets from DB (user_labels, etc.)
+      loadAnnotationSets();
 
       // Lazy-load facial tracking separately (non-blocking)
       if (hasFacialTracking) {
