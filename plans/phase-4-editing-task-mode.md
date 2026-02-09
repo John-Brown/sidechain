@@ -646,7 +646,7 @@ Waves 2-3 (frontend editing) and Wave 4 (backend persistence) can overlap — fr
 
 ## 10. Reference Alignment Review
 
-Cross-referenced against `reference/01-system-overview.md`, `reference/02-algorithm-reference.md`, `reference/03-data-flow.md`, and `reference/06-facial-tracking-reference.md`. Findings categorized by priority.
+Cross-referenced against `reference/01-system-overview.md`, `reference/02-algorithm-reference.md`, `reference/03-data-flow.md`, and `reference/07-facial-tracking-reference.md`. Findings categorized by priority.
 
 ### 10.1 Decisions Required (HIGH)
 

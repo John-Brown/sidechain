@@ -178,10 +178,11 @@ Path-scoped rules auto-load when working on matching files:
 | `performance.md` | `viewer/**` | 60fps drag budget, viewport culling mandate, no-DnD-library rule |
 | `ai-first.md` | `viewer/**`, `trpc/**`, `shared/**` | Command layer, semantic targeting, agent API, NL-readiness checklist |
 | `style-guide.md` | `*.svelte`, `*.css`, `viewer/**` | Typography (Inter), type scale, color system, viewer density tokens |
+| `docs.md` | `plans/**`, `reference/**` | Doc lifecycle, naming, INDEX.md maintenance, size limits |
 
 ## Reference Docs
 
-- `plans/` — Architecture decisions and phase plans (current: `phase-4-editing-task-mode.md`)
-- `plans/project-management-future-tiers.md` — Tier 2/3 project features (pipeline config, QC, invitations, taxonomy)
-- `reference/` — Algorithm specs, data flow, deployment guidance
+- **`plans/INDEX.md`** — Agent navigation hub. Start here to find any doc.
+- `reference/` — Stable technical docs (algorithm specs, data flow, deployment)
 - `spike/` — Phase 0 prototype (standalone HTML, not part of monorepo build)
+- `plans/archive/` — Completed phase plans (Phases 0-3)
