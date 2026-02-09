@@ -50,3 +50,30 @@ export function isInLockedRange(
   }
   return false;
 }
+
+/**
+ * Validate that annotations cover the full timeline (for contiguous types like states).
+ * Checks: starts at 0, ends at duration, no internal gaps.
+ */
+export function validateCoverage(
+  items: { time_range: TimeRange }[],
+  totalDuration: number,
+  tolerance = 0.1,
+): ValidationResult {
+  const errors: string[] = [];
+  if (items.length === 0) return { valid: false, errors: ['No annotations'] };
+
+  if (items[0].time_range.start > tolerance) {
+    errors.push(`Starts late: ${items[0].time_range.start.toFixed(2)}s`);
+  }
+  if (items[items.length - 1].time_range.end < totalDuration - tolerance) {
+    errors.push(`Ends early: missing last ${(totalDuration - items[items.length - 1].time_range.end).toFixed(2)}s`);
+  }
+
+  const { gaps } = checkContiguity(items, tolerance);
+  for (const gap of gaps) {
+    errors.push(`Gap at ${gap.start.toFixed(2)}s (${(gap.end - gap.start).toFixed(2)}s)`);
+  }
+
+  return { valid: errors.length === 0, errors };
+}

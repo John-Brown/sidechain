@@ -4,6 +4,7 @@ import {
 	checkOverlap,
 	checkContiguity,
 	isInLockedRange,
+	validateCoverage,
 } from './time-validation';
 
 const mkItem = (start: number, end: number) => ({ time_range: { start, end } });
@@ -166,6 +167,55 @@ describe('time validation', () => {
 
 		it('returns false with no locked ranges', () => {
 			expect(isInLockedRange({ start: 0, end: 100 }, [])).toBe(false);
+		});
+	});
+
+	describe('validateCoverage', () => {
+		it('validates full coverage', () => {
+			const items = [mkItem(0, 5), mkItem(5, 10), mkItem(10, 15)];
+			const result = validateCoverage(items, 15);
+			expect(result.valid).toBe(true);
+			expect(result.errors).toHaveLength(0);
+		});
+
+		it('rejects empty annotations', () => {
+			const result = validateCoverage([], 10);
+			expect(result.valid).toBe(false);
+			expect(result.errors).toContain('No annotations');
+		});
+
+		it('detects late start', () => {
+			const items = [mkItem(1, 5), mkItem(5, 10)];
+			const result = validateCoverage(items, 10);
+			expect(result.valid).toBe(false);
+			expect(result.errors.some((e) => e.includes('Starts late'))).toBe(true);
+		});
+
+		it('detects early end', () => {
+			const items = [mkItem(0, 5), mkItem(5, 8)];
+			const result = validateCoverage(items, 10);
+			expect(result.valid).toBe(false);
+			expect(result.errors.some((e) => e.includes('Ends early'))).toBe(true);
+		});
+
+		it('detects internal gaps', () => {
+			const items = [mkItem(0, 3), mkItem(5, 10)];
+			const result = validateCoverage(items, 10);
+			expect(result.valid).toBe(false);
+			expect(result.errors.some((e) => e.includes('Gap at'))).toBe(true);
+		});
+
+		it('allows small gaps within tolerance', () => {
+			const items = [mkItem(0.05, 5), mkItem(5.05, 10)];
+			const result = validateCoverage(items, 10.05, 0.1);
+			expect(result.valid).toBe(true);
+		});
+
+		it('reports multiple errors', () => {
+			const items = [mkItem(1, 3), mkItem(5, 8)];
+			const result = validateCoverage(items, 10);
+			expect(result.valid).toBe(false);
+			expect(result.errors.length).toBeGreaterThanOrEqual(3);
 		});
 	});
 });

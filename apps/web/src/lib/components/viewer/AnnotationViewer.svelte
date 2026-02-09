@@ -10,9 +10,15 @@
     MouthEnergyResult,
     StateAnnotationResult,
     IntentClassificationResult,
+    BackchannelResult,
     SpeechWord,
     UserLabel,
     UserLabelResult,
+    EditType,
+    AnnotationSetType,
+    StateAnnotation,
+    IntentAnnotation,
+    BackchannelAnnotation,
   } from '@annotation/shared';
   import type { Viewport } from './types.js';
 
@@ -25,6 +31,7 @@
     setAnnotationDataState,
     setSessionState,
     setEditorState,
+    setTaskModeState,
   } from './context.js';
 
   import ViewerHeader from './ViewerHeader.svelte';
@@ -45,12 +52,15 @@
   import { browser } from '$app/environment';
 
   import { deleteAnnotation, splitAnnotation, mergeAnnotations } from './editing/operations.js';
+  import { validateCoverage } from './editing/time-validation.js';
   import type { EditableType } from './state/editor.svelte.js';
   import { AutoSaveState } from './state/autosave.svelte.js';
-  import type { AnnotationSetType } from '@annotation/shared';
+  import { TaskModeState, type TaskInfo } from './state/task-mode.svelte.js';
   import DraftRecoveryBanner from './components/DraftRecoveryBanner.svelte';
   import LabelTextDialog from './components/LabelTextDialog.svelte';
   import CreateAnnotationBar from './components/CreateAnnotationBar.svelte';
+  import TaskPanel from './components/TaskPanel.svelte';
+  import TaskSubmitDialog from './components/TaskSubmitDialog.svelte';
 
   import './viewer.css';
 
@@ -66,20 +76,27 @@
   const annotations = new AnnotationDataState();
   const session = new SessionState(props.videoId);
   const editor = new EditorState();
+  const taskMode = new TaskModeState();
 
   // Provide via context
   setTimelineState(timeline);
   setAnnotationDataState(annotations);
   setSessionState(session);
   setEditorState(editor);
+  setTaskModeState(taskMode);
 
   // Auto-save: wraps tRPC save mutation for annotation persistence
-  const autosave = new AutoSaveState(editor, props.videoId, async (videoId, type, data) => {
+  const autosave = new AutoSaveState(editor, props.videoId, async (videoId, type, data, edits) => {
     await trpc.annotations.save.mutate({
       videoId,
       type: type as AnnotationSetType,
       data,
-      edits: [],
+      edits: edits.map((e) => ({
+        editType: e.editType,
+        targetIndex: e.targetIndex,
+        beforeState: e.beforeState,
+        afterState: e.afterState,
+      })),
     });
   });
 
@@ -216,9 +233,16 @@
     if (idx >= editor.userLabels.length) return;
 
     pushUndoForType('userLabels');
+    const beforeSnapshot = structuredClone($state.snapshot(editor.userLabels));
     const updated = [...editor.userLabels];
     updated[idx] = { ...updated[idx], text };
     editor.userLabels = updated;
+    editor.recordEdit('userLabels', {
+      editType: 'classify',
+      targetIndex: idx,
+      beforeState: beforeSnapshot,
+      afterState: structuredClone($state.snapshot(updated)),
+    });
     editor.lastEditedType = 'userLabels';
     editor.markDirty('userLabels');
     showLabelTextDialog = false;
@@ -309,8 +333,22 @@
     }
   }
 
-  function applyOperation(type: EditableType, newArray: unknown[]) {
+  function applyOperation(
+    type: EditableType,
+    newArray: unknown[],
+    editType: EditType,
+    targetIndex: number | null = null,
+  ) {
+    const beforeState = editor[type];
+    const beforeSnapshot = beforeState ? structuredClone($state.snapshot(beforeState)) : null;
     (editor as unknown as Record<string, unknown>)[type] = newArray;
+    editor.recordEdit(type, {
+      editType,
+      targetIndex,
+      beforeState: beforeSnapshot,
+      afterState: structuredClone($state.snapshot(newArray)),
+    });
+    if (taskMode.active) taskMode.recordEdit();
     editor.lastEditedType = type;
     editor.markDirty(type);
   }
@@ -323,7 +361,7 @@
     if (!arr || idx >= arr.length) return;
 
     pushUndoForType(type);
-    applyOperation(type, deleteAnnotation(arr as unknown[], idx));
+    applyOperation(type, deleteAnnotation(arr as unknown[], idx), 'delete', idx);
     editor.deselect();
   }
 
@@ -340,7 +378,7 @@
     if (playhead <= item.time_range.start + 0.05 || playhead >= item.time_range.end - 0.05) return;
 
     pushUndoForType(type);
-    applyOperation(type, splitAnnotation(arr as { time_range: { start: number; end: number } }[], idx, playhead));
+    applyOperation(type, splitAnnotation(arr as { time_range: { start: number; end: number } }[], idx, playhead), 'split', idx);
   }
 
   function mergeSelected() {
@@ -354,10 +392,10 @@
     const mergeArr = arr as { time_range: { start: number; end: number } }[];
     if (idx + 1 < arr.length) {
       pushUndoForType(type);
-      applyOperation(type, mergeAnnotations(mergeArr, idx, idx + 1));
+      applyOperation(type, mergeAnnotations(mergeArr, idx, idx + 1), 'merge', idx);
     } else if (idx > 0) {
       pushUndoForType(type);
-      applyOperation(type, mergeAnnotations(mergeArr, idx - 1, idx));
+      applyOperation(type, mergeAnnotations(mergeArr, idx - 1, idx), 'merge', idx - 1);
       editor.select(type, idx - 1);
     }
   }
@@ -393,6 +431,8 @@
   let showLabelTextDialog = $state(false);
   let labelTextDialogCurrent = $state('');
   let showShortcutsHelp = $state(false);
+  let showSubmitDialog = $state(false);
+  let coverageErrors = $state<string[]>([]);
 
   // --- Keyboard shortcuts ---
   function handleKeydown(e: KeyboardEvent) {
@@ -426,10 +466,10 @@
       return;
     }
 
-    // Ctrl/Cmd+E — toggle edit mode
+    // Ctrl/Cmd+E — toggle edit mode (disabled in task mode — always editing)
     if (mod && e.code === 'KeyE') {
       e.preventDefault();
-      toggleEditMode();
+      if (!taskMode.active) toggleEditMode();
       return;
     }
 
@@ -478,18 +518,33 @@
       case 'Backspace':
         if (editor.editing && editor.hasSelection) {
           e.preventDefault();
+          if (taskMode.active && !taskMode.isOperationAllowed('delete')) break;
+          if (taskMode.active && editor.selectedArray && editor.selectedIndex !== null) {
+            const sel = editor.selectedArray[editor.selectedIndex];
+            if (sel && taskMode.isTimeLocked(sel.time_range)) break;
+          }
           deleteSelected();
         }
         break;
       case 'KeyS':
         if (editor.editing && editor.hasSelection) {
           e.preventDefault();
+          if (taskMode.active && !taskMode.isOperationAllowed('split')) break;
+          if (taskMode.active && editor.selectedArray && editor.selectedIndex !== null) {
+            const sel = editor.selectedArray[editor.selectedIndex];
+            if (sel && taskMode.isTimeLocked(sel.time_range)) break;
+          }
           splitSelected();
         }
         break;
       case 'KeyM':
         if (editor.editing && editor.hasSelection) {
           e.preventDefault();
+          if (taskMode.active && !taskMode.isOperationAllowed('merge')) break;
+          if (taskMode.active && editor.selectedArray && editor.selectedIndex !== null) {
+            const sel = editor.selectedArray[editor.selectedIndex];
+            if (sel && taskMode.isTimeLocked(sel.time_range)) break;
+          }
           mergeSelected();
         }
         break;
@@ -519,7 +574,8 @@
           e.preventDefault();
           if (editor.hasSelection) {
             editor.deselect();
-          } else {
+          } else if (!taskMode.active) {
+            // In task mode, can't exit edit mode via Escape
             editor.exitEditMode();
           }
         }
@@ -577,6 +633,72 @@
     pendingDraft = null;
   }
 
+  // --- Task mode ---
+  async function initTaskMode() {
+    if (!props.taskId) return;
+    try {
+      const task = await trpc.tasks.get.query({ taskId: props.taskId });
+      if (!task) return;
+
+      const taskInfo: TaskInfo = {
+        id: task.id,
+        videoId: task.videoId,
+        taskType: task.taskType,
+        status: task.status,
+        constraints: task.constraints as TaskInfo['constraints'],
+        reviewNotes: task.reviewNotes,
+        reviewResult: task.reviewResult,
+      };
+
+      taskMode.activate(taskInfo);
+
+      // Auto-enter edit mode
+      if (!editor.editing) {
+        editor.enterEditMode(annotations);
+      }
+
+      // Auto-start if assigned
+      if (task.status === 'assigned') {
+        await trpc.tasks.start.mutate({ taskId: props.taskId });
+      }
+    } catch (e) {
+      console.error('[viewer] Failed to init task mode:', e);
+    }
+  }
+
+  async function handleTaskSubmit() {
+    // Force save current edits
+    await autosave.saveNow();
+
+    // Coverage validation for states
+    if (taskMode.constraints?.editableTypes.includes('state') && editor.states) {
+      const coverage = validateCoverage(editor.states, timeline.duration);
+      if (!coverage.valid) {
+        coverageErrors = coverage.errors;
+        showSubmitDialog = true;
+        return;
+      }
+    }
+
+    coverageErrors = [];
+    showSubmitDialog = true;
+  }
+
+  async function confirmSubmit() {
+    if (!props.taskId) return;
+    try {
+      await trpc.tasks.submit.mutate({
+        taskId: props.taskId,
+        editCount: taskMode.editCount,
+        timeSpentSecs: Math.round(taskMode.elapsedSecs),
+      });
+      taskMode.markSubmitted();
+      showSubmitDialog = false;
+    } catch (e) {
+      console.error('[viewer] Submit failed:', e);
+    }
+  }
+
   // --- ResizeObserver for timeline container ---
   onMount(() => {
     if (timelineContainerEl) {
@@ -594,6 +716,7 @@
         observer.disconnect();
         if (pollTimer) clearInterval(pollTimer);
         autosave.dispose();
+        taskMode.dispose();
       };
     }
   });
@@ -719,24 +842,55 @@
   }
 
   // --- Load human annotation sets from DB ---
+  // DB rows only exist after human edits. If a DB row exists, it takes priority over S3 pipeline data.
   async function loadAnnotationSets() {
+    const editableTypes: AnnotationSetType[] = ['state', 'intent', 'transcription', 'user_labels', 'backchannel'];
+
+    function makeMetadata() {
+      return {
+        source_file: '',
+        format_version: '1.0',
+        created_timestamp: new Date().toISOString(),
+        total_secs: timeline.duration,
+        algorithm: { name: 'human', model: 'manual', version: '1.0', processing_time: 0 },
+      };
+    }
+
     try {
-      const userLabelSet = await trpc.annotations.get.query({
-        videoId: props.videoId,
-        type: 'user_labels',
-      });
-      if (userLabelSet?.data) {
-        const data = userLabelSet.data as UserLabel[];
-        annotations.userLabels = {
-          metadata: (userLabelSet.metadata as UserLabelResult['metadata']) ?? {
-            source_file: '',
-            format_version: '1.0',
-            created_timestamp: new Date().toISOString(),
-            total_secs: timeline.duration,
-            algorithm: { name: 'human', model: 'manual', version: '1.0', processing_time: 0 },
-          },
-          data,
-        };
+      const results = await Promise.all(
+        editableTypes.map((type) =>
+          trpc.annotations.get.query({ videoId: props.videoId, type }).catch(() => null),
+        ),
+      );
+
+      for (let i = 0; i < editableTypes.length; i++) {
+        const annotationSet = results[i];
+        if (!annotationSet?.data) continue;
+
+        // Only load human-edited versions (source = 'human' or 'supervisor_override')
+        const source = annotationSet.source;
+        if (source !== 'human' && source !== 'supervisor_override') continue;
+
+        const meta = (annotationSet.metadata as Record<string, unknown>) ?? makeMetadata();
+        const type = editableTypes[i];
+
+        switch (type) {
+          case 'state':
+            annotations.stateAnnotation = { metadata: meta, data: annotationSet.data as StateAnnotation[] } as StateAnnotationResult;
+            break;
+          case 'intent':
+            annotations.intentClassification = { metadata: meta, data: annotationSet.data as IntentAnnotation[] } as IntentClassificationResult;
+            break;
+          case 'transcription':
+            annotations.transcription = { metadata: meta, data: annotationSet.data as SpeechWord[] } as TranscriptionResult;
+            break;
+          case 'user_labels':
+            annotations.userLabels = { metadata: meta, data: annotationSet.data as UserLabel[] } as UserLabelResult;
+            break;
+          case 'backchannel':
+            annotations.backchannel = { metadata: meta, data: annotationSet.data as BackchannelAnnotation[] } as BackchannelResult;
+            break;
+        }
       }
     } catch (e) {
       console.warn('[viewer] Failed to load annotation sets:', e);
@@ -791,8 +945,8 @@
       // Fetch all completed results (excludes facial_tracking)
       await loadResults();
 
-      // Load human annotation sets from DB (user_labels, etc.)
-      loadAnnotationSets();
+      // Load human annotation sets from DB — overwrites pipeline data with human edits
+      await loadAnnotationSets();
 
       // Lazy-load facial tracking separately (non-blocking)
       if (hasFacialTracking) {
@@ -805,6 +959,11 @@
       );
       if (hasActive) {
         pollTimer = setInterval(pollForUpdates, 5000);
+      }
+
+      // Init task mode after all data is loaded
+      if (props.taskId) {
+        await initTaskMode();
       }
     } catch (e) {
       loadError = e instanceof Error ? e.message : 'Failed to load viewer data';
@@ -937,7 +1096,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="viewer-theme h-screen w-screen flex flex-col overflow-hidden">
-  <ViewerHeader onTogglePlay={togglePlay} onSeek={seekTo} onTogglePip={togglePip} onToggleEditMode={toggleEditMode} {autosave} {showShortcutsHelp} onToggleShortcutsHelp={() => showShortcutsHelp = !showShortcutsHelp} />
+  <ViewerHeader onTogglePlay={togglePlay} onSeek={seekTo} onTogglePip={togglePip} onToggleEditMode={toggleEditMode} onTaskSubmit={handleTaskSubmit} {autosave} taskMode={taskMode.active ? taskMode : null} {showShortcutsHelp} onToggleShortcutsHelp={() => showShortcutsHelp = !showShortcutsHelp} />
 
   {#if loadError}
     <div class="px-4 py-2 bg-red-900/30 text-red-400 text-sm border-b border-red-800/50">
@@ -971,7 +1130,11 @@
         {/if}
       </div>
       <div class="h-48 border-t border-viewer-border shrink-0">
-        <InspectorPanel />
+        {#if taskMode.active}
+          <TaskPanel {taskMode} onSubmit={handleTaskSubmit} />
+        {:else}
+          <InspectorPanel />
+        {/if}
       </div>
     </div>
 
@@ -1013,6 +1176,16 @@
         <div class="relative" style="width: {timelineWidth}px; min-width: 100%;">
           <!-- Playhead (absolute position: x=0 is time=0) -->
           <Playhead />
+
+          <!-- Locked region overlays (task mode) -->
+          {#if taskMode.active}
+            {#each taskMode.lockedTimeRanges as range}
+              <div
+                class="locked-region-overlay absolute top-0 bottom-0 z-20"
+                style="left: {timeline.timeToPx(range.start)}px; width: {timeline.timeToPx(range.end - range.start)}px"
+              ></div>
+            {/each}
+          {/if}
 
           <!-- Ruler -->
           <TrackContent height={32}>
@@ -1143,6 +1316,16 @@
       currentText={labelTextDialogCurrent}
       onConfirm={handleLabelTextConfirm}
       onClose={() => showLabelTextDialog = false}
+    />
+  {/if}
+
+  {#if showSubmitDialog}
+    <TaskSubmitDialog
+      editCount={taskMode.editCount}
+      elapsedSecs={taskMode.elapsedSecs}
+      {coverageErrors}
+      onConfirm={confirmSubmit}
+      onCancel={() => showSubmitDialog = false}
     />
   {/if}
 </div>

@@ -7,7 +7,7 @@
  * Usage: instantiate in AnnotationViewer and pass to SaveIndicator/DraftRecoveryBanner.
  */
 
-import type { EditorState, EditableType } from './editor.svelte.js';
+import type { EditorState, EditableType, EditRecord } from './editor.svelte.js';
 import type { AnnotationSetType } from '@annotation/shared';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -31,7 +31,7 @@ export interface DraftData {
 }
 
 interface SaveFn {
-  (videoId: string, type: AnnotationSetType, data: unknown): Promise<void>;
+  (videoId: string, type: AnnotationSetType, data: unknown, edits: EditRecord[]): Promise<void>;
 }
 
 export class AutoSaveState {
@@ -127,7 +127,8 @@ export class AutoSaveState {
         const data = this.#editor[editorType];
         if (data === null) continue;
 
-        await this.#saveFn(this.#videoId, annotationType, data);
+        const edits = this.#editor.getAndClearEdits(editorType);
+        await this.#saveFn(this.#videoId, annotationType, data, edits);
       }
 
       // Clear dirty flags for saved types

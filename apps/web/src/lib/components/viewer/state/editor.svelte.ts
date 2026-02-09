@@ -4,11 +4,19 @@ import type {
   SpeechWord,
   BackchannelAnnotation,
   UserLabel,
+  EditType,
 } from '@annotation/shared';
 import { History } from './history.svelte.js';
 import type { AnnotationDataState } from './annotation-data.svelte.js';
 
 export type EditableType = 'states' | 'intents' | 'transcription' | 'backchannels' | 'userLabels';
+
+export interface EditRecord {
+  editType: EditType;
+  targetIndex: number | null;
+  beforeState: unknown;
+  afterState: unknown;
+}
 
 export class EditorState {
   editing = $state(false);
@@ -36,6 +44,24 @@ export class EditorState {
   transcriptionHistory = new History<SpeechWord[]>();
   backchannelHistory = new History<BackchannelAnnotation[]>();
   userLabelHistory = new History<UserLabel[]>();
+
+  // Pending edit records per type — accumulated between saves
+  #pendingEdits: Record<string, EditRecord[]> = {};
+
+  /** Record an edit for the audit trail (batched until next save) */
+  recordEdit(type: EditableType, edit: EditRecord): void {
+    if (!this.#pendingEdits[type]) {
+      this.#pendingEdits[type] = [];
+    }
+    this.#pendingEdits[type].push(edit);
+  }
+
+  /** Get and clear pending edits for a type (called by autosave on save) */
+  getAndClearEdits(type: EditableType): EditRecord[] {
+    const edits = this.#pendingEdits[type] ?? [];
+    delete this.#pendingEdits[type];
+    return edits;
+  }
 
   get hasChanges(): boolean {
     return Object.values(this.#dirtyFlags).some(Boolean);
@@ -174,8 +200,10 @@ export class EditorState {
     this.transcription = annotationData.transcription?.data
       ? structuredClone($state.snapshot(annotationData.transcription.data))
       : null;
-    // Backchannels aren't in AnnotationDataState (not a pipeline stage) — start empty
-    this.backchannels = null;
+    // Backchannels: human-only type (loaded from DB), initialize from annotationData if present
+    this.backchannels = annotationData.backchannel?.data
+      ? structuredClone($state.snapshot(annotationData.backchannel.data))
+      : null;
     // User labels: human-only type, initialize from annotationDataState if present, else empty array
     this.userLabels = annotationData.userLabels?.data
       ? structuredClone($state.snapshot(annotationData.userLabels.data))
@@ -191,6 +219,7 @@ export class EditorState {
     this.backchannelHistory.clear();
     this.userLabelHistory.clear();
     this.#dirtyFlags = {};
+    this.#pendingEdits = {};
   }
 
   exitEditMode(): void {
@@ -209,6 +238,7 @@ export class EditorState {
     this.backchannelHistory.clear();
     this.userLabelHistory.clear();
     this.#dirtyFlags = {};
+    this.#pendingEdits = {};
   }
 
   markDirty(type: string): void {

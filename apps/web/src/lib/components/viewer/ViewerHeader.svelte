@@ -5,22 +5,38 @@
   import SaveIndicator from './components/SaveIndicator.svelte';
   import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp.svelte';
   import type { AutoSaveState } from './state/autosave.svelte.js';
+  import type { TaskModeState } from './state/task-mode.svelte.js';
 
   interface Props {
     onTogglePlay: () => void;
     onSeek: (time: number) => void;
     onTogglePip: () => void;
     onToggleEditMode: () => void;
+    onTaskSubmit?: () => void;
     autosave: AutoSaveState;
+    taskMode: TaskModeState | null;
     showShortcutsHelp: boolean;
     onToggleShortcutsHelp: () => void;
   }
 
-  let { onTogglePlay, onSeek, onTogglePip, onToggleEditMode, autosave, showShortcutsHelp, onToggleShortcutsHelp }: Props = $props();
+  let { onTogglePlay, onSeek, onTogglePip, onToggleEditMode, onTaskSubmit, autosave, taskMode = null, showShortcutsHelp, onToggleShortcutsHelp }: Props = $props();
 
   const timeline = getTimelineState();
   const session = getSessionState();
   const editor = getEditorState();
+
+  const taskTypeLabels: Record<string, string> = {
+    tag_session_bounds: 'Session Bounds',
+    verify_states: 'Verify States',
+    verify_intents: 'Verify Intents',
+    tag_backchannels: 'Backchannels',
+  };
+
+  function formatElapsed(secs: number): string {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
 
   function handleZoomInput(e: Event) {
     const target = e.target as HTMLInputElement;
@@ -65,13 +81,26 @@
   <!-- Edit mode controls -->
   <div class="w-px h-6 bg-viewer-border"></div>
 
-  <button
-    onclick={onToggleEditMode}
-    class="px-2 py-1 rounded text-viewer-sm transition-colors {editor.editing ? 'bg-amber-500/20 text-amber-400' : 'text-viewer-text-dim hover:text-viewer-text'}"
-    title="Toggle edit mode ({navigator?.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+E)"
-  >
-    {editor.editing ? 'Editing' : 'Edit'}
-  </button>
+  {#if taskMode?.active}
+    <!-- Task mode: show task badge instead of edit toggle -->
+    <span class="px-2 py-1 rounded text-viewer-sm bg-indigo-500/20 text-indigo-400">
+      {taskTypeLabels[taskMode.task?.taskType ?? ''] ?? 'Task'}
+    </span>
+    <span class="text-viewer-sm tabular-nums text-viewer-text-dim">
+      {formatElapsed(taskMode.elapsedSecs)}
+    </span>
+    <span class="text-viewer-sm text-viewer-text-dim">
+      Edits: <span class="tabular-nums text-viewer-text">{taskMode.editCount}</span>
+    </span>
+  {:else}
+    <button
+      onclick={onToggleEditMode}
+      class="px-2 py-1 rounded text-viewer-sm transition-colors {editor.editing ? 'bg-amber-500/20 text-amber-400' : 'text-viewer-text-dim hover:text-viewer-text'}"
+      title="Toggle edit mode ({navigator?.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+E)"
+    >
+      {editor.editing ? 'Editing' : 'Edit'}
+    </button>
+  {/if}
 
   {#if editor.editing}
     <button
@@ -93,7 +122,15 @@
 
     <div class="w-px h-6 bg-viewer-border"></div>
 
-    {#if editor.hasChanges && autosave.status !== 'saving'}
+    {#if taskMode?.active}
+      <button
+        onclick={onTaskSubmit}
+        disabled={taskMode.submitted}
+        class="px-2.5 py-1 rounded text-viewer-sm font-medium transition-colors {taskMode.submitted ? 'bg-green-900/30 text-green-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-500'}"
+      >
+        {taskMode.submitted ? 'Submitted' : 'Submit for Review'}
+      </button>
+    {:else if editor.hasChanges && autosave.status !== 'saving'}
       <button
         onclick={() => autosave.saveNow()}
         class="px-2.5 py-1 rounded text-viewer-sm font-medium bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 transition-colors"

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getTimelineState, getEditorState } from '../context.js';
+  import { getTimelineState, getEditorState, getTaskModeState } from '../context.js';
   import type { EditableType } from '../state/editor.svelte.js';
   import type {
     StateAnnotation,
@@ -12,25 +12,46 @@
 
   const timeline = getTimelineState();
   const editor = getEditorState();
+  const taskMode = getTaskModeState();
+
+  /** Check if a create button should show based on task constraints */
+  function isCreateAllowed(annotationType: string): boolean {
+    if (!taskMode.active) return true;
+    if (!taskMode.isOperationAllowed('create')) return false;
+    return taskMode.constraints?.editableTypes?.includes(annotationType as any) ?? false;
+  }
 
   const DEFAULT_DURATION = 1; // seconds
+
+  function createAndRecord(type: EditableType, newItem: StateAnnotation | IntentAnnotation | BackchannelAnnotation | UserLabel) {
+    const arr = editor[type] as { time_range: { start: number; end: number } }[] | null;
+    if (!arr) return;
+
+    pushUndo(type);
+    const beforeSnapshot = structuredClone($state.snapshot(arr));
+    const newArr = createAnnotation(arr as typeof arr & { time_range: { start: number; end: number } }[], newItem as typeof arr[0]);
+    (editor as unknown as Record<string, unknown>)[type] = newArr;
+    editor.recordEdit(type, {
+      editType: 'create',
+      targetIndex: null,
+      beforeState: beforeSnapshot,
+      afterState: structuredClone($state.snapshot(newArr)),
+    });
+    editor.lastEditedType = type;
+    editor.markDirty(type);
+  }
 
   function createState() {
     if (!editor.states) return;
     const range = makeRange();
     if (!canCreate(editor.states, range)) return;
 
-    const newItem: StateAnnotation = {
+    createAndRecord('states', {
       time_range: range,
       category: 'expression.state.speaking',
       note: '',
       parameters: {},
-    };
-
-    pushUndo('states');
-    editor.states = createAnnotation(editor.states, newItem);
-    editor.lastEditedType = 'states';
-    editor.markDirty('states');
+    });
   }
 
   function createIntent() {
@@ -38,7 +59,7 @@
     const range = makeRange();
     if (!canCreate(editor.intents, range)) return;
 
-    const newItem: IntentAnnotation = {
+    createAndRecord('intents', {
       time_range: range,
       intent_classification: {
         intent: 'engage',
@@ -47,12 +68,7 @@
         confidence: 1.0,
         reasoning: 'Manually created',
       },
-    };
-
-    pushUndo('intents');
-    editor.intents = createAnnotation(editor.intents, newItem);
-    editor.lastEditedType = 'intents';
-    editor.markDirty('intents');
+    });
   }
 
   function createBackchannel() {
@@ -62,19 +78,14 @@
     const range = makeRange();
     if (!canCreate(editor.backchannels, range)) return;
 
-    const newItem: BackchannelAnnotation = {
+    createAndRecord('backchannels', {
       time_range: range,
       backchannel: {
         type: 'acknowledgment',
         speaker: 'SPEAKER_00',
         note: '',
       },
-    };
-
-    pushUndo('backchannels');
-    editor.backchannels = createAnnotation(editor.backchannels, newItem);
-    editor.lastEditedType = 'backchannels';
-    editor.markDirty('backchannels');
+    });
   }
 
   function createUserLabel() {
@@ -84,15 +95,10 @@
     const range = makeRange();
     if (!canCreate(editor.userLabels, range)) return;
 
-    const newItem: UserLabel = {
+    createAndRecord('userLabels', {
       time_range: range,
       text: 'Label',
-    };
-
-    pushUndo('userLabels');
-    editor.userLabels = createAnnotation(editor.userLabels, newItem);
-    editor.lastEditedType = 'userLabels';
-    editor.markDirty('userLabels');
+    });
   }
 
   function makeRange() {
@@ -141,22 +147,26 @@
 {#if editor.editing}
   <div class="create-bar">
     <span class="create-bar-label">Add at playhead:</span>
-    {#if editor.states !== null}
+    {#if editor.states !== null && isCreateAllowed('state')}
       <button class="create-bar-btn block-speaking" onclick={createState} title="Create state annotation (N)">
         State
       </button>
     {/if}
-    {#if editor.intents !== null}
+    {#if editor.intents !== null && isCreateAllowed('intent')}
       <button class="create-bar-btn block-intent-engage" onclick={createIntent} title="Create intent annotation">
         Intent
       </button>
     {/if}
-    <button class="create-bar-btn" onclick={createBackchannel} title="Create backchannel annotation">
-      Backchannel
-    </button>
-    <button class="create-bar-btn block-user-label" onclick={createUserLabel} title="Create label at playhead">
-      Label
-    </button>
+    {#if isCreateAllowed('backchannel')}
+      <button class="create-bar-btn" onclick={createBackchannel} title="Create backchannel annotation">
+        Backchannel
+      </button>
+    {/if}
+    {#if isCreateAllowed('user_labels')}
+      <button class="create-bar-btn block-user-label" onclick={createUserLabel} title="Create label at playhead">
+        Label
+      </button>
+    {/if}
   </div>
 {/if}
 

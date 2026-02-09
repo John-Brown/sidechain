@@ -1,5 +1,5 @@
 <script lang="ts" generics="T extends { time_range: { start: number; end: number } }">
-  import { getTimelineState, getEditorState } from '../context.js';
+  import { getTimelineState, getEditorState, getTaskModeState } from '../context.js';
   import { binarySearchStart, binarySearchEnd } from '../utils/binary-search.js';
   import type { EditableType } from '../state/editor.svelte.js';
   import {
@@ -9,6 +9,19 @@
     computeFinalRange,
     validateResize,
   } from '../editing/drag-resize.js';
+  import type { AnnotationSetType } from '@annotation/shared';
+
+  /** Map editor field name to annotation_set type for task constraint checking */
+  function editableTypeToAnnotationType(type: EditableType): AnnotationSetType {
+    const map: Record<EditableType, AnnotationSetType> = {
+      states: 'state',
+      intents: 'intent',
+      transcription: 'transcription',
+      backchannels: 'backchannel',
+      userLabels: 'user_labels',
+    };
+    return map[type];
+  }
 
   interface Props {
     data: T[];
@@ -38,6 +51,7 @@
 
   const timeline = getTimelineState();
   const editor = getEditorState();
+  const taskMode = getTaskModeState();
 
   // --- Drag state (non-reactive, managed imperatively during drag) ---
   let dragState: DragState | null = null;
@@ -99,6 +113,12 @@
     e.preventDefault();
     e.stopPropagation();
 
+    // Task mode: block drag on locked regions or non-editable types
+    if (taskMode.active) {
+      if (!taskMode.isTypeEditable(editableTypeToAnnotationType(editableType))) return;
+      if (taskMode.isTimeLocked(item.time_range)) return;
+    }
+
     const el = (e.currentTarget as HTMLElement).closest('[data-block-index]') as HTMLElement;
     if (!el) return;
 
@@ -126,6 +146,12 @@
   ) {
     // Don't initiate move if handle captured it
     if (dragState) return;
+
+    // Task mode: block drag on locked regions or non-editable types
+    if (taskMode.active) {
+      if (!taskMode.isTypeEditable(editableTypeToAnnotationType(editableType))) return;
+      if (taskMode.isTimeLocked(item.time_range)) return;
+    }
 
     e.preventDefault();
 
@@ -212,14 +238,27 @@
         history.push(structuredClone($state.snapshot(currentArray)));
       }
 
+      // Snapshot before state for audit trail
+      const beforeSnapshot = currentArray ? structuredClone($state.snapshot(currentArray)) : null;
+
       // Commit: update the item's time_range in the editor's data
       const item = data[dragState.index];
       item.time_range.start = newRange.start;
       item.time_range.end = newRange.end;
 
       // Trigger reactivity by reassigning the array
-      // Cast through unknown because generic T can't narrow to the specific annotation type
-      (editor as unknown as Record<string, unknown>)[editableType] = [...data];
+      const newArray = [...data];
+      (editor as unknown as Record<string, unknown>)[editableType] = newArray;
+
+      // Record edit for audit trail
+      editor.recordEdit(editableType, {
+        editType: 'resize',
+        targetIndex: dragState.index,
+        beforeState: beforeSnapshot,
+        afterState: structuredClone($state.snapshot(newArray)),
+      });
+      if (taskMode.active) taskMode.recordEdit();
+
       editor.lastEditedType = editableType;
       editor.markDirty(editableType);
     } else {

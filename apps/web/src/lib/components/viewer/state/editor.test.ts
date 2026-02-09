@@ -277,4 +277,86 @@ describe('EditorState', () => {
 			expect(editor.canUndo).toBe(true);
 		});
 	});
+
+	describe('edit tracking (recordEdit / getAndClearEdits)', () => {
+		it('records and retrieves edits for a type', () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+
+			editor.recordEdit('states', {
+				editType: 'create',
+				targetIndex: null,
+				beforeState: null,
+				afterState: [mkState(0, 10)],
+			});
+			editor.recordEdit('states', {
+				editType: 'resize',
+				targetIndex: 0,
+				beforeState: [mkState(0, 10)],
+				afterState: [mkState(0, 8)],
+			});
+
+			const edits = editor.getAndClearEdits('states');
+			expect(edits).toHaveLength(2);
+			expect(edits[0].editType).toBe('create');
+			expect(edits[1].editType).toBe('resize');
+		});
+
+		it('clears edits after getAndClearEdits', () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+
+			editor.recordEdit('states', {
+				editType: 'delete',
+				targetIndex: 0,
+				beforeState: null,
+				afterState: null,
+			});
+
+			editor.getAndClearEdits('states');
+			const second = editor.getAndClearEdits('states');
+			expect(second).toHaveLength(0);
+		});
+
+		it('returns empty array for types with no edits', () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+
+			const edits = editor.getAndClearEdits('intents');
+			expect(edits).toHaveLength(0);
+		});
+
+		it('tracks edits per type independently', () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+
+			editor.recordEdit('states', { editType: 'create', targetIndex: null, beforeState: null, afterState: null });
+			editor.recordEdit('intents', { editType: 'delete', targetIndex: 0, beforeState: null, afterState: null });
+
+			expect(editor.getAndClearEdits('states')).toHaveLength(1);
+			expect(editor.getAndClearEdits('intents')).toHaveLength(1);
+		});
+
+		it('resets pending edits on enterEditMode', () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+
+			editor.recordEdit('states', { editType: 'create', targetIndex: null, beforeState: null, afterState: null });
+
+			editor.enterEditMode(setupAnnotationData());
+			expect(editor.getAndClearEdits('states')).toHaveLength(0);
+		});
+
+		it('resets pending edits on exitEditMode', () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+
+			editor.recordEdit('states', { editType: 'create', targetIndex: null, beforeState: null, afterState: null });
+
+			editor.exitEditMode();
+			// After re-entering, edits should be cleared
+			editor.enterEditMode(setupAnnotationData());
+			expect(editor.getAndClearEdits('states')).toHaveLength(0);
+		});
+	});
 });
