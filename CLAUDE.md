@@ -11,7 +11,8 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 | 2 | All 7 pipeline stages + DAG orchestration + frontend | Complete (4/7 stages verified, 3 gated as in-dev) |
 | 3 | Read-only timeline viewer (multi-track timeline, Canvas + DOM tracks, viewport culling) | Complete |
 | 3.5 | Project management (detail page, members, guidelines, dashboard) | Complete |
-| 4 | Annotation editing + task mode (human-in-the-loop) | **Next** → `plans/phase-4-editing-task-mode.md` |
+| 4 | Annotation editing + task mode (human-in-the-loop) | **In progress** → `plans/phase-4-editing-task-mode.md` |
+| 4.1 | User labels track (freeform text annotations, drag-move, view persistence) | Complete |
 
 ## Architecture
 
@@ -73,8 +74,10 @@ apps/web/src/lib/components/project/  # Project detail components
 apps/web/src/lib/components/viewer/   # Timeline viewer components
   AnnotationViewer.svelte             #   Root: state init, track layout, keyboard/wheel handlers
   context.ts                          #   Three Symbol-keyed contexts (timeline, annotations, session)
-  state/                              #   Svelte 5 rune state classes (timeline, annotation-data, session)
-  tracks/                             #   CanvasTrack (VAD/energy), DOMTrack (transcription/states/intents)
+  state/                              #   Svelte 5 rune state classes (timeline, annotation-data, session, editor, autosave)
+  editing/                            #   Pure functions: drag-resize (incl. move), operations, time-validation
+  tracks/                             #   CanvasTrack (VAD/energy), DOMTrack, EditableDOMTrack (drag-resize + move)
+  components/                         #   CreateAnnotationBar, LabelTextDialog, ClassifyDialog, KeyboardShortcutsHelp, SaveIndicator
   viewer.css                          #   Dark theme variables + block color schemes
 
 # Shared packages

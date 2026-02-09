@@ -26,7 +26,7 @@
 
 - **Stages**: vad, transcription, facial_tracking, mouth_energy, diarization, state_annotation, intent_classification
 - **Job status**: pending, running, completed, failed, cancelled
-- **Annotation set types**: state, intent, backchannel, session_bounds, transcription
+- **Annotation set types**: state, intent, backchannel, session_bounds, transcription, user_labels
 - **Edit types**: create, resize, delete, split, merge, classify, bulk
 - **Task types**: tag_session_bounds, verify_states, verify_intents, tag_backchannels
 - **Task status**: pending, assigned, in_progress, submitted, under_review, approved, rejected

@@ -19,19 +19,27 @@ Reference plan: `plans/phase-4-editing-task-mode.md`
 
 | Editable (DOM, editorState) | Read-Only (Canvas, annotationDataState) |
 |-----------------------------|----------------------------------------|
-| states, intents, transcription, backchannels | VAD, energy, diarization, mouth energy, facial tracking |
+| states, intents, transcription, backchannels, userLabels | VAD, energy, diarization, mouth energy, facial tracking |
 
 ## Undo/Redo
 
 Snapshot-based via `structuredClone`. Push on `pointerup` (drag commit), create, delete, split, merge, classify — NOT during drag. Max 50 snapshots (~5MB). Generic `createHistory<T>()` in `state/history.svelte.ts`.
 
-## Drag-to-Resize (60fps)
+## Drag-to-Resize + Drag-to-Move (60fps)
 
-1. `pointerdown` on handle → `setPointerCapture`, record original time_range
+**Resize** (left/right handles):
+1. `pointerdown` on handle → `stopPropagation` + `setPointerCapture`, record original time_range
 2. `pointermove` → `requestAnimationFrame` → update ONLY inline `style.transform`/`style.width` — NO store mutation, NO reactivity
 3. `pointerup` → compute final time, validate, commit to editorState, push undo snapshot
 
-During drag: zero Svelte reactivity. One DOM mutation per frame on `will-change: transform` element.
+**Move** (block body):
+1. `pointerdown` on block → `setPointerCapture`, record original time_range, `dragStarted = false`
+2. `pointermove` → check 3px threshold before committing to drag (distinguishes click from move)
+3. After threshold: `requestAnimationFrame` → shift `style.transform` (width stays constant)
+4. `pointerup` → if threshold not met, treat as click (not drag). Otherwise compute final range, validate, commit.
+
+During any drag: zero Svelte reactivity. One DOM mutation per frame on `will-change: transform` element.
+Cursor: `grab` on blocks, `grabbing` while dragging, `col-resize` on handles.
 
 ## Validation Rules
 
@@ -55,6 +63,18 @@ All in `editing/operations.ts`. Signature: `(items: T[], index: number, ...args)
 - On load: check for draft newer than DB version, offer restore
 - Save indicator states: `idle` → `saving` → `saved` (2s) → `idle`. On error: `error` with retry.
 
+## User Labels
+
+Human-only annotation type — no pipeline stage, no AI provenance. `UserLabel { time_range, text }`.
+
+- **Create**: CreateAnnotationBar "Label" button → 1s default at playhead, text = "Label"
+- **Rename**: Double-click or C key → LabelTextDialog (text input)
+- **View mode**: Read-only DOMTrack renders from `annotationData.userLabels` when data exists
+- **Edit mode**: EditableDOMTrack with full drag-resize + drag-move + undo/redo
+- **Exit edit**: Writes back to `annotationData.userLabels` so labels persist in view mode
+- **AutoSave**: Maps `userLabels` → `'user_labels'` annotation set type
+- **CSS**: `.block-user-label` (violet)
+
 ## Field Mutability
 
 | Type | Mutable | Immutable (AI provenance) |
@@ -62,6 +82,7 @@ All in `editing/operations.ts`. Signature: `(items: T[], index: number, ...args)
 | StateAnnotation | time_range, category | note, parameters |
 | IntentAnnotation | time_range, intent, intensity, valence | confidence, reasoning |
 | SpeechWord | time_range, speaker | word, confidence, speech_segment |
+| UserLabel | time_range, text | — (fully human-created) |
 
 ## Task Mode
 

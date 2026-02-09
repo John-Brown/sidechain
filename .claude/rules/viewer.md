@@ -12,8 +12,9 @@ AnnotationViewer.svelte creates and provides three state objects via Symbol-keye
 | Context | Class | Key Fields | Set In |
 |---------|-------|-----------|--------|
 | `getTimelineState()` | `TimelineState` | currentTime, duration, playing, zoom, scrollLeft, containerWidth, scrubbing | AnnotationViewer |
-| `getAnnotationDataState()` | `AnnotationDataState` | vad, transcription, diarization, mouthEnergy, stateAnnotation, intentClassification, loadStatus | AnnotationViewer |
+| `getAnnotationDataState()` | `AnnotationDataState` | vad, transcription, diarization, mouthEnergy, stateAnnotation, intentClassification, userLabels, loadStatus | AnnotationViewer |
 | `getSessionState()` | `SessionState` | videoId, videoSrc, filename, selectedAnnotation, pipActive, pipSupported, waveform* | AnnotationViewer |
+| `getEditorState()` | `EditorState` | editing, states, intents, transcription, backchannels, userLabels, selectedType, selectedIndex, *History | AnnotationViewer |
 
 To add new viewer-wide state: create class in `state/`, add Symbol+getter/setter in `context.ts`, instantiate in AnnotationViewer.
 
@@ -28,7 +29,9 @@ All time conversions go through `TimelineState`:
 
 **CanvasTrack** — continuous data (VAD, energy, diarization, mouth energy). Draw callback receives `(ctx, width, height, viewport)`. Uses RAF loop when playing/scrubbing. Handles DPR scaling.
 
-**DOMTrack** — discrete blocks (transcription, states, intents). Generic `<T>` with `getStart`/`getEnd`/`blockClass`/`blockLabel` props. Viewport-culled via binary search (`utils/binary-search.ts`). Blocks are absolutely-positioned `<button>` elements with `will-change: transform`.
+**DOMTrack** — discrete blocks (transcription, states, intents, user labels in view mode). Generic `<T>` with `getStart`/`getEnd`/`blockClass`/`blockLabel` props. Viewport-culled via binary search (`utils/binary-search.ts`). Blocks are absolutely-positioned `<button>` elements with `will-change: transform`.
+
+**EditableDOMTrack** — editable version of DOMTrack (states, intents, transcription, backchannels, user labels in edit mode). Adds drag-resize (left/right handles) and drag-move (block body, 3px threshold). Selection via click. Undo snapshot on commit. See `.claude/rules/editing.md` for drag protocol.
 
 ## Viewport Culling
 
@@ -62,7 +65,7 @@ Browser PiP API floats the video and collapses the left panel to give timeline f
 
 Custom properties in `viewer.css` (`.viewer-theme`): `--viewer-bg`, `--viewer-surface`, `--viewer-surface-2`, `--viewer-border`, `--viewer-text`, `--viewer-text-dim`, `--viewer-accent`, `--viewer-playhead`. Light/dark variants via `.dark .viewer-theme`.
 
-Block colors: `.block-speaker-0` (cyan), `.block-speaker-1` (pink), `.block-speaking` (green), `.block-listening` (slate), `.block-intent-*` (one per intent type). Each has light default + `.dark` override.
+Block colors: `.block-speaker-0` (cyan), `.block-speaker-1` (pink), `.block-speaking` (green), `.block-listening` (slate), `.block-intent-*` (one per intent type), `.block-user-label` (violet). Each has light default + `.dark` override.
 
 Canvas draw functions receive a `ViewerPalette` object (from `viewer-palette.ts`) — theme-aware colors for fills, strokes, labels. Palette is `$derived` from the theme state in AnnotationViewer.
 
