@@ -22,6 +22,8 @@ export type {
   BackchannelType,
   BackchannelAnnotation,
   BackchannelResult,
+  UserLabel,
+  UserLabelResult,
   AlgorithmInfo,
   AnnotationMetadata,
   AnnotationData,

@@ -6,6 +6,7 @@ import type {
   MouthEnergyResult,
   StateAnnotationResult,
   IntentClassificationResult,
+  UserLabelResult,
   PipelineStage,
 } from '@annotation/shared';
 import type { LoadStatus } from '../types.js';
@@ -18,6 +19,7 @@ export class AnnotationDataState {
   mouthEnergy = $state<MouthEnergyResult | null>(null);
   stateAnnotation = $state<StateAnnotationResult | null>(null);
   intentClassification = $state<IntentClassificationResult | null>(null);
+  userLabels = $state<UserLabelResult | null>(null);
 
   // Precomputed normalization ranges (set when data loads)
   vadMax = $state(1);

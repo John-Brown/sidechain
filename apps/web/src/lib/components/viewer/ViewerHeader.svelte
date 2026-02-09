@@ -91,6 +91,18 @@
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.69 3L21 13"/></svg>
     </button>
 
+    <div class="w-px h-6 bg-viewer-border"></div>
+
+    {#if editor.hasChanges && autosave.status !== 'saving'}
+      <button
+        onclick={() => autosave.saveNow()}
+        class="px-2.5 py-1 rounded text-viewer-sm font-medium bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 transition-colors"
+        title="Save changes ({navigator?.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+S)"
+      >
+        Save
+      </button>
+    {/if}
+
     <SaveIndicator {autosave} onForceSave={() => autosave.saveNow()} />
   {/if}
 

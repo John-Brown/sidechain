@@ -5,6 +5,7 @@
     StateAnnotation,
     IntentAnnotation,
     BackchannelAnnotation,
+    UserLabel,
   } from '@annotation/shared';
   import { createAnnotation } from '../editing/operations.js';
   import { validateTimeRange, checkOverlap } from '../editing/time-validation.js';
@@ -76,6 +77,24 @@
     editor.markDirty('backchannels');
   }
 
+  function createUserLabel() {
+    if (!editor.userLabels) {
+      editor.userLabels = [];
+    }
+    const range = makeRange();
+    if (!canCreate(editor.userLabels, range)) return;
+
+    const newItem: UserLabel = {
+      time_range: range,
+      text: 'Label',
+    };
+
+    pushUndo('userLabels');
+    editor.userLabels = createAnnotation(editor.userLabels, newItem);
+    editor.lastEditedType = 'userLabels';
+    editor.markDirty('userLabels');
+  }
+
   function makeRange() {
     const start = timeline.currentTime;
     const end = Math.min(start + DEFAULT_DURATION, timeline.duration);
@@ -98,18 +117,22 @@
   function pushUndo(type: EditableType) {
     const currentArray = editor[type];
     if (!currentArray) return;
+    // $state.snapshot() unwraps Svelte 5 proxies before structuredClone
     switch (type) {
       case 'states':
-        editor.stateHistory.push(structuredClone(editor.states!));
+        editor.stateHistory.push(structuredClone($state.snapshot(editor.states!)));
         break;
       case 'intents':
-        editor.intentHistory.push(structuredClone(editor.intents!));
+        editor.intentHistory.push(structuredClone($state.snapshot(editor.intents!)));
         break;
       case 'transcription':
-        editor.transcriptionHistory.push(structuredClone(editor.transcription!));
+        editor.transcriptionHistory.push(structuredClone($state.snapshot(editor.transcription!)));
         break;
       case 'backchannels':
-        editor.backchannelHistory.push(structuredClone(editor.backchannels!));
+        editor.backchannelHistory.push(structuredClone($state.snapshot(editor.backchannels!)));
+        break;
+      case 'userLabels':
+        editor.userLabelHistory.push(structuredClone($state.snapshot(editor.userLabels!)));
         break;
     }
   }
@@ -130,6 +153,9 @@
     {/if}
     <button class="create-bar-btn" onclick={createBackchannel} title="Create backchannel annotation">
       Backchannel
+    </button>
+    <button class="create-bar-btn block-user-label" onclick={createUserLabel} title="Create label at playhead">
+      Label
     </button>
   </div>
 {/if}

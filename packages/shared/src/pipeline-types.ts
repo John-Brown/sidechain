@@ -44,6 +44,7 @@ export const ANNOTATION_SET_TYPES = [
   "backchannel",
   "session_bounds",
   "transcription",
+  "user_labels",
 ] as const;
 
 export type AnnotationSetType = (typeof ANNOTATION_SET_TYPES)[number];

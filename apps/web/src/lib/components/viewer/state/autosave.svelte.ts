@@ -18,6 +18,7 @@ const EDITABLE_TO_ANNOTATION_TYPE: Record<EditableType, AnnotationSetType> = {
   intents: 'intent',
   transcription: 'transcription',
   backchannels: 'backchannel',
+  userLabels: 'user_labels',
 };
 
 export interface DraftData {
@@ -25,6 +26,7 @@ export interface DraftData {
   intents: unknown[] | null;
   transcription: unknown[] | null;
   backchannels: unknown[] | null;
+  userLabels: unknown[] | null;
   savedAt: number;
 }
 
@@ -78,6 +80,7 @@ export class AutoSaveState {
       intents: this.#editor.intents ? [...this.#editor.intents] : null,
       transcription: this.#editor.transcription ? [...this.#editor.transcription] : null,
       backchannels: this.#editor.backchannels ? [...this.#editor.backchannels] : null,
+      userLabels: this.#editor.userLabels ? [...this.#editor.userLabels] : null,
       savedAt: Date.now(),
     };
 

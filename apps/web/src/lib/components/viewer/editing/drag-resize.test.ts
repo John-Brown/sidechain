@@ -6,7 +6,7 @@ import {
 	type DragState,
 } from './drag-resize';
 
-const mkDrag = (edge: 'left' | 'right', overrides?: Partial<DragState>): DragState => ({
+const mkDrag = (edge: 'left' | 'right' | 'move', overrides?: Partial<DragState>): DragState => ({
 	edge,
 	index: 1,
 	startX: 200,
@@ -65,6 +65,22 @@ describe('computeDragPreview', () => {
 			const result = computeDragPreview(drag, 500, zoom); // +300px, way past originalWidthPx
 			expect(result.width).toBe(minWidth);
 			expect(result.translateX).toBe(100 + (100 - minWidth)); // clamped delta
+		});
+	});
+
+	describe('move', () => {
+		it('shifts translateX while keeping width constant', () => {
+			const drag = mkDrag('move');
+			const result = computeDragPreview(drag, 250, zoom); // +50px
+			expect(result.translateX).toBe(150); // 100 + 50
+			expect(result.width).toBe(100); // unchanged
+		});
+
+		it('shifts left when dragging left', () => {
+			const drag = mkDrag('move');
+			const result = computeDragPreview(drag, 170, zoom); // -30px
+			expect(result.translateX).toBe(70); // 100 - 30
+			expect(result.width).toBe(100); // unchanged
 		});
 	});
 
@@ -145,6 +161,37 @@ describe('computeFinalRange', () => {
 		const result = computeFinalRange(drag, 200, zoom, duration);
 		expect(result.start).toBe(5);
 		expect(result.end).toBe(10);
+	});
+
+	describe('move', () => {
+		it('shifts both start and end by same delta', () => {
+			const drag = mkDrag('move');
+			const result = computeFinalRange(drag, 260, zoom, duration); // +60px = +3s
+			expect(result.start).toBeCloseTo(8); // 5 + 3
+			expect(result.end).toBeCloseTo(13); // 10 + 3
+		});
+
+		it('preserves duration when moving', () => {
+			const drag = mkDrag('move');
+			const result = computeFinalRange(drag, 260, zoom, duration);
+			expect(result.end - result.start).toBeCloseTo(5); // original duration preserved
+		});
+
+		it('clamps to start=0 and preserves duration', () => {
+			const drag = mkDrag('move');
+			// -200px = -10s → start = 5-10 = -5 → clamp to 0, end = 5
+			const result = computeFinalRange(drag, 0, zoom, duration);
+			expect(result.start).toBe(0);
+			expect(result.end).toBe(5); // duration preserved
+		});
+
+		it('clamps to end=duration and preserves duration', () => {
+			const drag = mkDrag('move', { originalRange: { start: 55, end: 59 } });
+			// +200px = +10s → end = 69 → clamp to 60, start = 56
+			const result = computeFinalRange(drag, 400, zoom, duration);
+			expect(result.end).toBe(60);
+			expect(result.start).toBe(56); // 60 - 4 (original duration)
+		});
 	});
 });
 

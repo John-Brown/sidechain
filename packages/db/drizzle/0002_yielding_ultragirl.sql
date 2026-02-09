@@ -1,0 +1,1 @@
+ALTER TYPE "public"."annotation_set_type" ADD VALUE 'user_labels';

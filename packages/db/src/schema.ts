@@ -61,6 +61,7 @@ export const annotationSetTypeEnum = pgEnum("annotation_set_type", [
   "backchannel",
   "session_bounds",
   "transcription",
+  "user_labels",
 ]);
 
 export const annotationSourceEnum = pgEnum("annotation_source", [

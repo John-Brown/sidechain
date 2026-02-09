@@ -93,6 +93,12 @@
   color: rgba(5, 150, 105, 0.85);
 }
 
+.block-user-label {
+  background-color: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.4);
+  color: rgba(139, 92, 246, 0.85);
+}
+
 /* Dark overrides for block variants */
 .dark .block-speaker-0 {
   background-color: rgba(34, 211, 238, 0.3);
@@ -152,6 +158,12 @@
   background-color: rgba(52, 211, 153, 0.3);
   border-color: rgba(52, 211, 153, 0.6);
   color: rgba(52, 211, 153, 0.9);
+}
+
+.dark .block-user-label {
+  background-color: rgba(167, 139, 250, 0.3);
+  border-color: rgba(167, 139, 250, 0.6);
+  color: rgba(167, 139, 250, 0.9);
 }
 
 /* Edit mode — header amber tint when editing */

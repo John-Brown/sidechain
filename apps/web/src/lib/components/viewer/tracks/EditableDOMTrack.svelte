@@ -43,6 +43,9 @@
   let dragState: DragState | null = null;
   let rafId = 0;
   let dragEl: HTMLElement | null = null;
+  /** Track if we've exceeded the move threshold (3px) to distinguish click from drag */
+  let dragStarted = false;
+  const MOVE_THRESHOLD = 3;
 
   // Selection reads from shared editor state
   const isSelectedTrack = $derived(editor.selectedType === editableType);
@@ -101,6 +104,7 @@
 
     el.setPointerCapture(e.pointerId);
     dragEl = el;
+    dragStarted = true; // Handle drags start immediately (no threshold)
 
     const start = getStart(item);
     const end = getEnd(item);
@@ -115,8 +119,43 @@
     };
   }
 
+  function handleBlockPointerDown(
+    e: PointerEvent,
+    index: number,
+    item: T,
+  ) {
+    // Don't initiate move if handle captured it
+    if (dragState) return;
+
+    e.preventDefault();
+
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    dragEl = el;
+    dragStarted = false; // Wait for threshold before committing to drag
+
+    const start = getStart(item);
+    const end = getEnd(item);
+
+    dragState = {
+      edge: 'move',
+      index,
+      startX: e.clientX,
+      originalRange: { start, end },
+      originalLeftPx: timeline.timeToPx(start),
+      originalWidthPx: timeline.timeToPx(end - start),
+    };
+  }
+
   function handleBlockPointerMove(e: PointerEvent) {
     if (!dragState || !dragEl) return;
+
+    // For move drags, require threshold before committing
+    if (!dragStarted) {
+      const delta = Math.abs(e.clientX - dragState.startX);
+      if (delta < MOVE_THRESHOLD) return;
+      dragStarted = true;
+    }
 
     cancelAnimationFrame(rafId);
     const clientX = e.clientX;
@@ -137,6 +176,14 @@
 
     cancelAnimationFrame(rafId);
     const el = dragEl;
+
+    // If move threshold wasn't met, treat as click (not drag)
+    if (!dragStarted) {
+      el.releasePointerCapture(e.pointerId);
+      dragState = null;
+      dragEl = null;
+      return;
+    }
 
     const newRange = computeFinalRange(
       dragState,
@@ -162,7 +209,7 @@
       const history = historyForType() as { push(snapshot: unknown): void } | undefined;
       const currentArray = editor[editableType];
       if (history && currentArray) {
-        history.push(structuredClone(currentArray));
+        history.push(structuredClone($state.snapshot(currentArray)));
       }
 
       // Commit: update the item's time_range in the editor's data
@@ -213,6 +260,8 @@
         return editor.transcriptionHistory;
       case 'backchannels':
         return editor.backchannelHistory;
+      case 'userLabels':
+        return editor.userLabelHistory;
     }
   }
 </script>
@@ -231,6 +280,7 @@
       ondblclick={(e) => handleBlockDblClick(e, block.item, block.index)}
       oncontextmenu={(e) => handleBlockContextMenu(e, block.item, block.index)}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBlockClick(e as unknown as MouseEvent, block.item, block.index); }}}
+      onpointerdown={(e) => handleBlockPointerDown(e, block.index, block.item)}
       onpointermove={handleBlockPointerMove}
       onpointerup={handleBlockPointerUp}
     >
@@ -263,8 +313,12 @@
 <style>
   .editable-block {
     contain: layout style;
-    cursor: pointer;
+    cursor: grab;
     transition: box-shadow 0.1s;
+  }
+
+  .editable-block:active {
+    cursor: grabbing;
   }
 
   .editable-block-selected {

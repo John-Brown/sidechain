@@ -1,7 +1,7 @@
 import type { TimeRange } from '@annotation/shared';
 import { validateTimeRange, checkOverlap } from './time-validation.js';
 
-export type DragEdge = 'left' | 'right';
+export type DragEdge = 'left' | 'right' | 'move';
 
 export interface DragState {
   edge: DragEdge;
@@ -32,7 +32,13 @@ export function computeDragPreview(
 ): DragPreview {
   const deltaPx = clientX - drag.startX;
 
-  if (drag.edge === 'left') {
+  if (drag.edge === 'move') {
+    // Moving entire block: translateX shifts, width stays constant
+    return {
+      translateX: drag.originalLeftPx + deltaPx,
+      width: drag.originalWidthPx,
+    };
+  } else if (drag.edge === 'left') {
     // Moving start edge: translateX changes, width adjusts inversely
     const clampedDelta = Math.min(deltaPx, drag.originalWidthPx - minWidthPx(zoom));
     return {
@@ -65,22 +71,39 @@ export function computeFinalRange(
   let start = drag.originalRange.start;
   let end = drag.originalRange.end;
 
-  if (drag.edge === 'left') {
+  if (drag.edge === 'move') {
+    // Shift both edges by same delta, preserving duration
+    start = drag.originalRange.start + deltaTime;
+    end = drag.originalRange.end + deltaTime;
+  } else if (drag.edge === 'left') {
     start = drag.originalRange.start + deltaTime;
   } else {
     end = drag.originalRange.end + deltaTime;
   }
 
-  // Clamp to timeline bounds
-  start = Math.max(0, Math.min(start, duration));
-  end = Math.max(0, Math.min(end, duration));
+  if (drag.edge === 'move') {
+    // For move, keep duration constant and clamp to timeline bounds
+    const dur = drag.originalRange.end - drag.originalRange.start;
+    if (start < 0) {
+      start = 0;
+      end = dur;
+    }
+    if (end > duration) {
+      end = duration;
+      start = duration - dur;
+    }
+  } else {
+    // Clamp to timeline bounds
+    start = Math.max(0, Math.min(start, duration));
+    end = Math.max(0, Math.min(end, duration));
 
-  // Enforce minimum duration (50ms)
-  if (end - start < 0.05) {
-    if (drag.edge === 'left') {
-      start = end - 0.05;
-    } else {
-      end = start + 0.05;
+    // Enforce minimum duration (50ms)
+    if (end - start < 0.05) {
+      if (drag.edge === 'left') {
+        start = end - 0.05;
+      } else {
+        end = start + 0.05;
+      }
     }
   }
 

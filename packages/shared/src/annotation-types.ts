@@ -199,6 +199,18 @@ export interface BackchannelResult {
   data: BackchannelAnnotation[];
 }
 
+// --- User Labels ---
+
+export interface UserLabel {
+  time_range: TimeRange;
+  text: string;
+}
+
+export interface UserLabelResult {
+  metadata: AnnotationMetadata;
+  data: UserLabel[];
+}
+
 // --- Shared metadata types ---
 
 export interface AlgorithmInfo {
@@ -224,4 +236,5 @@ export type AnnotationData =
   | { type: "intent"; data: IntentAnnotation[] }
   | { type: "backchannel"; data: BackchannelAnnotation[] }
   | { type: "transcription"; data: SpeechWord[] }
-  | { type: "session_bounds"; data: TimeRange[] };
+  | { type: "session_bounds"; data: TimeRange[] }
+  | { type: "user_labels"; data: UserLabel[] };

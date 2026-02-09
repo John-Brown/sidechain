@@ -3,11 +3,12 @@ import type {
   IntentAnnotation,
   SpeechWord,
   BackchannelAnnotation,
+  UserLabel,
 } from '@annotation/shared';
 import { History } from './history.svelte.js';
 import type { AnnotationDataState } from './annotation-data.svelte.js';
 
-export type EditableType = 'states' | 'intents' | 'transcription' | 'backchannels';
+export type EditableType = 'states' | 'intents' | 'transcription' | 'backchannels' | 'userLabels';
 
 export class EditorState {
   editing = $state(false);
@@ -17,6 +18,7 @@ export class EditorState {
   intents: IntentAnnotation[] | null = $state(null);
   transcription: SpeechWord[] | null = $state(null);
   backchannels: BackchannelAnnotation[] | null = $state(null);
+  userLabels: UserLabel[] | null = $state(null);
 
   // Tracks which annotation type was last edited (for keyboard undo/redo)
   lastEditedType: EditableType | null = $state(null);
@@ -33,6 +35,7 @@ export class EditorState {
   intentHistory = new History<IntentAnnotation[]>();
   transcriptionHistory = new History<SpeechWord[]>();
   backchannelHistory = new History<BackchannelAnnotation[]>();
+  userLabelHistory = new History<UserLabel[]>();
 
   get hasChanges(): boolean {
     return Object.values(this.#dirtyFlags).some(Boolean);
@@ -66,6 +69,7 @@ export class EditorState {
       case 'intents': return this.intentHistory.canUndo;
       case 'transcription': return this.transcriptionHistory.canUndo;
       case 'backchannels': return this.backchannelHistory.canUndo;
+      case 'userLabels': return this.userLabelHistory.canUndo;
     }
   }
 
@@ -75,6 +79,7 @@ export class EditorState {
       case 'intents': return this.intentHistory.canRedo;
       case 'transcription': return this.transcriptionHistory.canRedo;
       case 'backchannels': return this.backchannelHistory.canRedo;
+      case 'userLabels': return this.userLabelHistory.canRedo;
     }
   }
 
@@ -106,6 +111,13 @@ export class EditorState {
         const snap = this.backchannelHistory.undo(this.backchannels);
         if (!snap) return false;
         this.backchannels = snap;
+        return true;
+      }
+      case 'userLabels': {
+        if (!this.userLabels) return false;
+        const snap = this.userLabelHistory.undo(this.userLabels);
+        if (!snap) return false;
+        this.userLabels = snap;
         return true;
       }
     }
@@ -141,21 +153,33 @@ export class EditorState {
         this.backchannels = snap;
         return true;
       }
+      case 'userLabels': {
+        if (!this.userLabels) return false;
+        const snap = this.userLabelHistory.redo(this.userLabels);
+        if (!snap) return false;
+        this.userLabels = snap;
+        return true;
+      }
     }
   }
 
   enterEditMode(annotationData: AnnotationDataState): void {
+    // Use $state.snapshot() to unwrap Svelte 5 proxies before cloning
     this.states = annotationData.stateAnnotation?.data
-      ? structuredClone(annotationData.stateAnnotation.data)
+      ? structuredClone($state.snapshot(annotationData.stateAnnotation.data))
       : null;
     this.intents = annotationData.intentClassification?.data
-      ? structuredClone(annotationData.intentClassification.data)
+      ? structuredClone($state.snapshot(annotationData.intentClassification.data))
       : null;
     this.transcription = annotationData.transcription?.data
-      ? structuredClone(annotationData.transcription.data)
+      ? structuredClone($state.snapshot(annotationData.transcription.data))
       : null;
     // Backchannels aren't in AnnotationDataState (not a pipeline stage) — start empty
     this.backchannels = null;
+    // User labels: human-only type, initialize from annotationDataState if present, else empty array
+    this.userLabels = annotationData.userLabels?.data
+      ? structuredClone($state.snapshot(annotationData.userLabels.data))
+      : [];
 
     this.editing = true;
     this.lastEditedType = null;
@@ -165,6 +189,7 @@ export class EditorState {
     this.intentHistory.clear();
     this.transcriptionHistory.clear();
     this.backchannelHistory.clear();
+    this.userLabelHistory.clear();
     this.#dirtyFlags = {};
   }
 
@@ -173,6 +198,7 @@ export class EditorState {
     this.intents = null;
     this.transcription = null;
     this.backchannels = null;
+    this.userLabels = null;
     this.editing = false;
     this.lastEditedType = null;
     this.selectedType = null;
@@ -181,6 +207,7 @@ export class EditorState {
     this.intentHistory.clear();
     this.transcriptionHistory.clear();
     this.backchannelHistory.clear();
+    this.userLabelHistory.clear();
     this.#dirtyFlags = {};
   }
 

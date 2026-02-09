@@ -11,6 +11,7 @@
     StateAnnotationResult,
     IntentClassificationResult,
     SpeechWord,
+    UserLabel,
   } from '@annotation/shared';
   import type { Viewport } from './types.js';
 
@@ -31,6 +32,7 @@
   import Playhead from './Playhead.svelte';
   import CanvasTrack from './tracks/CanvasTrack.svelte';
   import DOMTrack from './tracks/DOMTrack.svelte';
+  import EditableDOMTrack from './tracks/EditableDOMTrack.svelte';
   import TrackLabel from './tracks/TrackLabel.svelte';
   import TrackContent from './tracks/TrackContent.svelte';
   import { drawRuler, drawVad, drawMouthEnergy, drawWaveform, drawHeadPose } from './tracks/draw-functions.js';
@@ -46,6 +48,8 @@
   import { AutoSaveState } from './state/autosave.svelte.js';
   import type { AnnotationSetType } from '@annotation/shared';
   import DraftRecoveryBanner from './components/DraftRecoveryBanner.svelte';
+  import LabelTextDialog from './components/LabelTextDialog.svelte';
+  import CreateAnnotationBar from './components/CreateAnnotationBar.svelte';
 
   import './viewer.css';
 
@@ -125,6 +129,11 @@
   const hasTranscription = $derived(annotations.loadStatus.transcription === 'loaded' && !!annotations.transcription?.data);
   const showHeadPose = $derived(isTrackVisible(annotations.loadStatus.facial_tracking));
   const hasHeadPose = $derived(annotations.loadStatus.facial_tracking === 'loaded' && !!annotations.facialTracking?.data);
+  // User labels: show in view mode if data exists, or always in edit mode
+  const hasUserLabels = $derived(
+    (editor.editing && editor.userLabels !== null) ||
+    (!editor.editing && !!annotations.userLabels?.data?.length)
+  );
 
   // Total timeline width in pixels
   const timelineWidth = $derived(timeline.timeToPx(timeline.duration));
@@ -183,6 +192,37 @@
     session.selectedAnnotation = item;
   }
 
+  // --- User label helpers ---
+  function userLabelBlockClass(): string {
+    return 'block-user-label';
+  }
+
+  function userLabelBlockLabel(item: UserLabel): string {
+    return item.text;
+  }
+
+  function handleLabelDoubleClick(_item: UserLabel, index: number) {
+    const labels = editor.userLabels;
+    if (labels && index < labels.length) {
+      labelTextDialogCurrent = labels[index].text;
+      showLabelTextDialog = true;
+    }
+  }
+
+  function handleLabelTextConfirm(text: string) {
+    if (!editor.userLabels || editor.selectedIndex === null) return;
+    const idx = editor.selectedIndex;
+    if (idx >= editor.userLabels.length) return;
+
+    pushUndoForType('userLabels');
+    const updated = [...editor.userLabels];
+    updated[idx] = { ...updated[idx], text };
+    editor.userLabels = updated;
+    editor.lastEditedType = 'userLabels';
+    editor.markDirty('userLabels');
+    showLabelTextDialog = false;
+  }
+
   // --- Scrub to seek ---
   function handleScrub(time: number) {
     timeline.currentTime = time;
@@ -225,6 +265,21 @@
   // --- Edit mode ---
   function toggleEditMode() {
     if (editor.editing) {
+      // Write edited user labels back to annotationData so they persist in view mode
+      if (editor.userLabels && editor.userLabels.length > 0) {
+        annotations.userLabels = {
+          metadata: annotations.userLabels?.metadata ?? {
+            source_file: '',
+            format_version: '1.0',
+            created_timestamp: new Date().toISOString(),
+            total_secs: timeline.duration,
+            algorithm: { name: 'human', model: 'manual', version: '1.0', processing_time: 0 },
+          },
+          data: structuredClone($state.snapshot(editor.userLabels)),
+        };
+      } else if (editor.userLabels && editor.userLabels.length === 0) {
+        annotations.userLabels = null;
+      }
       editor.exitEditMode();
     } else {
       editor.enterEditMode(annotations);
@@ -233,18 +288,22 @@
 
   // --- Editing operation helpers ---
   function pushUndoForType(type: EditableType) {
+    // $state.snapshot() unwraps Svelte 5 proxies before structuredClone
     switch (type) {
       case 'states':
-        if (editor.states) editor.stateHistory.push(structuredClone(editor.states));
+        if (editor.states) editor.stateHistory.push(structuredClone($state.snapshot(editor.states)));
         break;
       case 'intents':
-        if (editor.intents) editor.intentHistory.push(structuredClone(editor.intents));
+        if (editor.intents) editor.intentHistory.push(structuredClone($state.snapshot(editor.intents)));
         break;
       case 'transcription':
-        if (editor.transcription) editor.transcriptionHistory.push(structuredClone(editor.transcription));
+        if (editor.transcription) editor.transcriptionHistory.push(structuredClone($state.snapshot(editor.transcription)));
         break;
       case 'backchannels':
-        if (editor.backchannels) editor.backchannelHistory.push(structuredClone(editor.backchannels));
+        if (editor.backchannels) editor.backchannelHistory.push(structuredClone($state.snapshot(editor.backchannels)));
+        break;
+      case 'userLabels':
+        if (editor.userLabels) editor.userLabelHistory.push(structuredClone($state.snapshot(editor.userLabels)));
         break;
     }
   }
@@ -307,7 +366,7 @@
 
     // If nothing is selected, select the first/last in the first available type
     if (!editor.hasSelection || editor.selectedType === null || editor.selectedIndex === null) {
-      const types: EditableType[] = ['states', 'intents', 'transcription', 'backchannels'];
+      const types: EditableType[] = ['states', 'intents', 'transcription', 'backchannels', 'userLabels'];
       for (const type of types) {
         const arr = editor[type];
         if (arr && arr.length > 0) {
@@ -330,6 +389,8 @@
 
   // Dialog state
   let showClassifyDialog = $state(false);
+  let showLabelTextDialog = $state(false);
+  let labelTextDialogCurrent = $state('');
   let showShortcutsHelp = $state(false);
 
   // --- Keyboard shortcuts ---
@@ -434,7 +495,16 @@
       case 'KeyC':
         if (editor.editing && editor.hasSelection) {
           e.preventDefault();
-          showClassifyDialog = true;
+          if (editor.selectedType === 'userLabels') {
+            const labels = editor.userLabels;
+            const idx = editor.selectedIndex;
+            if (labels && idx !== null && idx < labels.length) {
+              labelTextDialogCurrent = labels[idx].text;
+              showLabelTextDialog = true;
+            }
+          } else {
+            showClassifyDialog = true;
+          }
         }
         break;
       case 'Tab':
@@ -497,6 +567,7 @@
     if (pendingDraft.intents) editor.intents = pendingDraft.intents as typeof editor.intents;
     if (pendingDraft.transcription) editor.transcription = pendingDraft.transcription as typeof editor.transcription;
     if (pendingDraft.backchannels) editor.backchannels = pendingDraft.backchannels as typeof editor.backchannels;
+    if (pendingDraft.userLabels) editor.userLabels = pendingDraft.userLabels as typeof editor.userLabels;
     pendingDraft = null;
   }
 
@@ -853,6 +924,8 @@
     />
   {/if}
 
+  <CreateAnnotationBar />
+
   <div class="flex-1 flex overflow-hidden">
     <!-- Left panel: Video + Inspector -->
     <div
@@ -894,6 +967,9 @@
         {/if}
         {#if showTranscription}
           <TrackLabel label="Transcription" />
+        {/if}
+        {#if hasUserLabels}
+          <TrackLabel label="User Labels" />
         {/if}
         <!-- TODO: Diarization, States, Intents labels (in-development) -->
       </div>
@@ -1002,9 +1078,42 @@
             </TrackContent>
           {/if}
 
+          <!-- User Labels -->
+          {#if hasUserLabels}
+            <TrackContent>
+              {#if editor.editing && editor.userLabels}
+                <EditableDOMTrack
+                  data={editor.userLabels}
+                  editableType="userLabels"
+                  getStart={getTimeRangeStart}
+                  getEnd={getTimeRangeEnd}
+                  blockClass={userLabelBlockClass}
+                  blockLabel={userLabelBlockLabel}
+                  onBlockDoubleClick={handleLabelDoubleClick}
+                />
+              {:else if annotations.userLabels?.data}
+                <DOMTrack
+                  data={annotations.userLabels.data}
+                  getStart={getTimeRangeStart}
+                  getEnd={getTimeRangeEnd}
+                  blockClass={userLabelBlockClass}
+                  blockLabel={userLabelBlockLabel}
+                />
+              {/if}
+            </TrackContent>
+          {/if}
+
           <!-- TODO: Diarization, States, Intents tracks (in-development) -->
         </div>
       </div>
     </div>
   </div>
+
+  {#if showLabelTextDialog}
+    <LabelTextDialog
+      currentText={labelTextDialogCurrent}
+      onConfirm={handleLabelTextConfirm}
+      onClose={() => showLabelTextDialog = false}
+    />
+  {/if}
 </div>
