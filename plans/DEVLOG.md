@@ -1,5 +1,59 @@
 # Development Log
 
+## 2026-02-08 — Phase 4.1: User Labels Track + Editing Polish
+
+### User labels — new human-only annotation type
+- `UserLabel { time_range, text }` + `UserLabelResult` in `@annotation/shared`
+- `user_labels` added to `annotationSetTypeEnum`, migration `0002_yielding_ultragirl.sql`
+- Full editor integration: `userLabels` field + `userLabelHistory` in EditorState, all undo/redo/enter/exit switch cases
+- EditableDOMTrack: violet `.block-user-label` blocks with drag-resize + drag-move
+- `LabelTextDialog.svelte` — text input on double-click or C key, dark theme aware
+- `CreateAnnotationBar.svelte` — "Label" button creates at playhead with 1s duration
+- View mode persistence: on exiting edit mode, labels write back to `annotationData.userLabels`; read-only DOMTrack renders them
+
+### Drag-to-move (all editable blocks)
+- Extended `DragEdge` union: `'left' | 'right' | 'move'`
+- Block body `pointerdown` initiates move drag (3px threshold distinguishes click from drag)
+- Move preserves duration, clamps to timeline bounds
+- Cursor: `grab` on blocks, `grabbing` while dragging, `col-resize` on handles
+- 6 new tests for move in `drag-resize.test.ts`
+
+### UI improvements
+- `KeyboardShortcutsHelp.svelte` — redesigned as two-column overlay with individual `<kbd>` pills, edit-only amber badges
+- `ViewerHeader.svelte` — explicit "Save" button when changes are dirty (in addition to Cmd+S and 30s auto-save)
+
+### Svelte 5 proxy fix (pre-existing bug surfaced)
+- `structuredClone` on `$state` proxies throws `DataCloneError`
+- Fixed in 4 locations: `enterEditMode`, `pushUndo` (CreateAnnotationBar, AnnotationViewer, EditableDOMTrack)
+- Pattern: always `structuredClone($state.snapshot(value))`, never `structuredClone(value)` on reactive state
+
+### Test results
+- 191 passing across 12 suites (was 185 before move tests)
+
+### Files added (3)
+- `apps/web/src/lib/components/viewer/components/LabelTextDialog.svelte`
+- `packages/db/drizzle/0002_yielding_ultragirl.sql`
+- `packages/db/drizzle/meta/0002_snapshot.json`
+
+### Files modified (16)
+- `packages/shared/src/annotation-types.ts` — UserLabel, UserLabelResult
+- `packages/shared/src/pipeline-types.ts` — user_labels enum
+- `packages/shared/src/index.ts` — exports
+- `packages/db/src/schema.ts` — user_labels enum value
+- `apps/web/src/lib/components/viewer/state/editor.svelte.ts` — userLabels + history
+- `apps/web/src/lib/components/viewer/state/annotation-data.svelte.ts` — userLabels property
+- `apps/web/src/lib/components/viewer/state/autosave.svelte.ts` — userLabels mapping
+- `apps/web/src/lib/components/viewer/editing/drag-resize.ts` — move edge type
+- `apps/web/src/lib/components/viewer/editing/drag-resize.test.ts` — move tests
+- `apps/web/src/lib/components/viewer/tracks/EditableDOMTrack.svelte` — move + userLabels history
+- `apps/web/src/lib/components/viewer/AnnotationViewer.svelte` — user labels track, view mode, CreateAnnotationBar
+- `apps/web/src/lib/components/viewer/ViewerHeader.svelte` — Save button
+- `apps/web/src/lib/components/viewer/components/CreateAnnotationBar.svelte` — Label button
+- `apps/web/src/lib/components/viewer/components/KeyboardShortcutsHelp.svelte` — two-column redesign
+- `apps/web/src/lib/components/viewer/viewer.css` — block-user-label color
+
+---
+
 ## 2026-02-08 — Project Management (Tier 1): Detail Page, Members, Guidelines, Dashboard
 
 ### Schema changes
