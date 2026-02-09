@@ -17,6 +17,7 @@
 	let containerEl: HTMLDivElement;
 	let canvasWidth = $state(0);
 	let rafId = 0;
+	let cachedCtx: CanvasRenderingContext2D | null = null;
 
 	function redraw() {
 		if (!canvasEl) return;
@@ -25,7 +26,7 @@
 		const h = height;
 		canvasEl.width = w * dpr;
 		canvasEl.height = h * dpr;
-		const ctx = canvasEl.getContext('2d')!;
+		const ctx = cachedCtx ?? canvasEl.getContext('2d')!;
 		ctx.scale(dpr, dpr);
 		ctx.clearRect(0, 0, w, h);
 		draw(ctx, w, h, { scrollLeft: timeline.clampedScrollLeft, zoom: timeline.zoom, duration: timeline.duration, containerWidth: timeline.containerWidth });
@@ -56,8 +57,9 @@
 		};
 	});
 
-	// ResizeObserver
+	// Cache canvas context and set up ResizeObserver
 	onMount(() => {
+		cachedCtx = canvasEl.getContext('2d');
 		const observer = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				canvasWidth = entry.contentRect.width;

@@ -172,6 +172,61 @@ describe('annotation operations', () => {
 		});
 	});
 
+	describe('edge cases: empty arrays and out-of-bounds', () => {
+		it('deleteAnnotation on empty array returns empty', () => {
+			const result = deleteAnnotation([], 0);
+			expect(result).toEqual([]);
+		});
+
+		it('resizeAnnotation on empty array produces item with new range', () => {
+			// items[0] is undefined → structuredClone(undefined) → undefined
+			// Spread of undefined is a no-op, so result is { time_range: newRange }
+			const result = resizeAnnotation([] as { time_range: { start: number; end: number } }[], 0, { start: 1, end: 2 });
+			expect(result).toHaveLength(1);
+			expect(result[0].time_range).toEqual({ start: 1, end: 2 });
+		});
+
+		it('deleteAnnotation with out-of-bounds index returns same-length array', () => {
+			// filter with i !== 99 removes nothing
+			const result = deleteAnnotation(items, 99);
+			expect(result).toHaveLength(3);
+			expect(result).toEqual(items);
+		});
+
+		it('splitAnnotation at item start time produces zero-duration first half', () => {
+			// Split at exactly the start of the item
+			const result = splitAnnotation(items, 1, 5);
+			expect(result).toHaveLength(4);
+			expect(result[1].time_range).toEqual({ start: 5, end: 5 });
+			expect(result[2].time_range).toEqual({ start: 5, end: 10 });
+		});
+
+		it('splitAnnotation at item end time produces zero-duration second half', () => {
+			// Split at exactly the end of the item
+			const result = splitAnnotation(items, 1, 10);
+			expect(result).toHaveLength(4);
+			expect(result[1].time_range).toEqual({ start: 5, end: 10 });
+			expect(result[2].time_range).toEqual({ start: 10, end: 10 });
+		});
+
+		it('createAnnotation into empty array returns single-element array', () => {
+			const result = createAnnotation([], mkItem(3, 5, 'x'));
+			expect(result).toHaveLength(1);
+			expect(result[0].label).toBe('x');
+		});
+
+		it('mergeAnnotations with same index produces single-element merge', () => {
+			const result = mergeAnnotations(items, 1, 1);
+			expect(result).toHaveLength(3);
+			expect(result[1].time_range).toEqual({ start: 5, end: 10 });
+		});
+
+		it('classifyAnnotation preserves array length', () => {
+			const result = classifyAnnotation(items, 0, { label: 'new' });
+			expect(result).toHaveLength(items.length);
+		});
+	});
+
 	describe('classify', () => {
 		it('updates fields on annotation at index', () => {
 			const result = classifyAnnotation(items, 1, { label: 'updated' });

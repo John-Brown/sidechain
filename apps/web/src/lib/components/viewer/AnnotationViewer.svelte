@@ -3,22 +3,10 @@
   import { createSupabaseBrowserClient } from '$lib/supabase';
   import { createTRPCClientInstance } from '$lib/trpc';
   import type {
-    VadResult,
-    TranscriptionResult,
-    DiarizationResult,
-    FacialTrackingResult,
-    MouthEnergyResult,
-    StateAnnotationResult,
-    IntentClassificationResult,
-    BackchannelResult,
     SpeechWord,
     UserLabel,
-    UserLabelResult,
     EditType,
     AnnotationSetType,
-    StateAnnotation,
-    IntentAnnotation,
-    BackchannelAnnotation,
   } from '@annotation/shared';
   import type { Viewport } from './types.js';
 
@@ -44,9 +32,6 @@
   import TrackLabel from './tracks/TrackLabel.svelte';
   import TrackContent from './tracks/TrackContent.svelte';
   import { drawRuler, drawVad, drawMouthEnergy, drawWaveform, drawHeadPose } from './tracks/draw-functions.js';
-  import { extractWaveform } from './utils/extract-waveform.js';
-  import { getWaveformFromCache, setWaveformInCache } from './utils/waveform-cache.js';
-  import { getCachedAnnotation, setCachedAnnotation } from './utils/annotation-cache.js';
   import { getTheme } from '$lib/stores/theme.svelte';
   import { PALETTE_DARK, PALETTE_LIGHT } from './viewer-palette.js';
   import { browser } from '$app/environment';
@@ -56,6 +41,8 @@
   import type { EditableType } from './state/editor.svelte.js';
   import { AutoSaveState } from './state/autosave.svelte.js';
   import { TaskModeState, type TaskInfo } from './state/task-mode.svelte.js';
+  import { pushUndoForType } from './utils/push-undo.svelte.js';
+  import { createDataLoader } from './data-loader.js';
   import DraftRecoveryBanner from './components/DraftRecoveryBanner.svelte';
   import LabelTextDialog from './components/LabelTextDialog.svelte';
   import CreateAnnotationBar from './components/CreateAnnotationBar.svelte';
@@ -106,12 +93,7 @@
   // Theme-aware palette for canvas draw functions
   const theme = getTheme();
   let prefersDark = $state(browser ? window.matchMedia('(prefers-color-scheme: dark)').matches : true);
-
-  if (browser) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      prefersDark = e.matches;
-    });
-  }
+  // matchMedia listener is set up in onMount with cleanup
 
   const isDark = $derived(
     theme.value === 'dark' || (theme.value === 'system' && prefersDark)
@@ -125,14 +107,14 @@
     return data.session?.access_token ?? null;
   });
 
+  // Data loader (extracted from inline functions)
+  const dataLoader = createDataLoader({ trpc, annotations, timeline, session, videoId: props.videoId });
+
   // Component refs
   let videoPlayer = $state<VideoPlayer>();
   let timelineContainerEl: HTMLDivElement;
   let labelColumnEl: HTMLDivElement;
   let loadError = $state<string | null>(null);
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  // Maps stage → completedAt ISO string for cache keying
-  let completedAtMap: Record<string, string> = {};
 
   // Track visibility: show when loading, loaded, OR error (so user can see failures)
   function isTrackVisible(status: string): boolean {
@@ -232,7 +214,7 @@
     const idx = editor.selectedIndex;
     if (idx >= editor.userLabels.length) return;
 
-    pushUndoForType('userLabels');
+    pushUndoForType(editor, 'userLabels');
     const beforeSnapshot = structuredClone($state.snapshot(editor.userLabels));
     const updated = [...editor.userLabels];
     updated[idx] = { ...updated[idx], text };
@@ -288,8 +270,13 @@
   }
 
   // --- Edit mode ---
-  function toggleEditMode() {
+  async function toggleEditMode() {
     if (editor.editing) {
+      // Save pending changes before exiting
+      if (editor.hasChanges) {
+        await autosave.saveNow();
+      }
+
       // Write edited user labels back to annotationData so they persist in view mode
       if (editor.userLabels && editor.userLabels.length > 0) {
         annotations.userLabels = {
@@ -312,27 +299,6 @@
   }
 
   // --- Editing operation helpers ---
-  function pushUndoForType(type: EditableType) {
-    // $state.snapshot() unwraps Svelte 5 proxies before structuredClone
-    switch (type) {
-      case 'states':
-        if (editor.states) editor.stateHistory.push(structuredClone($state.snapshot(editor.states)));
-        break;
-      case 'intents':
-        if (editor.intents) editor.intentHistory.push(structuredClone($state.snapshot(editor.intents)));
-        break;
-      case 'transcription':
-        if (editor.transcription) editor.transcriptionHistory.push(structuredClone($state.snapshot(editor.transcription)));
-        break;
-      case 'backchannels':
-        if (editor.backchannels) editor.backchannelHistory.push(structuredClone($state.snapshot(editor.backchannels)));
-        break;
-      case 'userLabels':
-        if (editor.userLabels) editor.userLabelHistory.push(structuredClone($state.snapshot(editor.userLabels)));
-        break;
-    }
-  }
-
   function applyOperation(
     type: EditableType,
     newArray: unknown[],
@@ -360,7 +326,7 @@
     const arr = editor[type];
     if (!arr || idx >= arr.length) return;
 
-    pushUndoForType(type);
+    pushUndoForType(editor, type);
     applyOperation(type, deleteAnnotation(arr as unknown[], idx), 'delete', idx);
     editor.deselect();
   }
@@ -377,7 +343,7 @@
     // Validate split point is within the annotation
     if (playhead <= item.time_range.start + 0.05 || playhead >= item.time_range.end - 0.05) return;
 
-    pushUndoForType(type);
+    pushUndoForType(editor, type);
     applyOperation(type, splitAnnotation(arr as { time_range: { start: number; end: number } }[], idx, playhead), 'split', idx);
   }
 
@@ -391,10 +357,10 @@
     // Try merging with next, then with previous
     const mergeArr = arr as { time_range: { start: number; end: number } }[];
     if (idx + 1 < arr.length) {
-      pushUndoForType(type);
+      pushUndoForType(editor, type);
       applyOperation(type, mergeAnnotations(mergeArr, idx, idx + 1), 'merge', idx);
     } else if (idx > 0) {
-      pushUndoForType(type);
+      pushUndoForType(editor, type);
       applyOperation(type, mergeAnnotations(mergeArr, idx - 1, idx), 'merge', idx - 1);
       editor.select(type, idx - 1);
     }
@@ -608,9 +574,11 @@
   });
 
   // --- Auto-save: watch dirty state and trigger draft backup + debounced server save ---
+  // Track dirtyVersion (monotonic counter) instead of hasChanges boolean, so each
+  // markDirty() call re-triggers the effect even when hasChanges was already true.
   $effect(() => {
-    const dirty = editor.hasChanges;
-    if (dirty) {
+    const _version = editor.dirtyVersion;
+    if (editor.hasChanges) {
       autosave.saveDraft();
       autosave.scheduleSave();
     }
@@ -699,267 +667,59 @@
     }
   }
 
-  // --- ResizeObserver for timeline container ---
+  // --- onMount: observers, listeners, data loading, cleanup ---
   onMount(() => {
+    // ResizeObserver for timeline container
+    let observer: ResizeObserver | undefined;
     if (timelineContainerEl) {
-      const observer = new ResizeObserver((entries) => {
+      observer = new ResizeObserver((entries) => {
         for (const entry of entries) {
           timeline.containerWidth = entry.contentRect.width;
         }
       });
       observer.observe(timelineContainerEl);
 
-      // Load data
-      loadViewerData();
-
-      return () => {
-        observer.disconnect();
-        if (pollTimer) clearInterval(pollTimer);
-        autosave.dispose();
-        taskMode.dispose();
-      };
+      // #3: Imperative wheel handler (passive: false so preventDefault works)
+      timelineContainerEl.addEventListener('wheel', handleWheel, { passive: false });
     }
+
+    // #4: matchMedia listener with cleanup
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    function handleMediaChange(e: MediaQueryListEvent) {
+      prefersDark = e.matches;
+    }
+    mediaQuery.addEventListener('change', handleMediaChange);
+
+    // #15: beforeunload — save on page close
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (editor.editing && editor.hasChanges) {
+        autosave.saveNow(); // fire-and-forget
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Load data
+    loadViewerData();
+
+    return () => {
+      observer?.disconnect();
+      if (timelineContainerEl) {
+        timelineContainerEl.removeEventListener('wheel', handleWheel);
+      }
+      mediaQuery.removeEventListener('change', handleMediaChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      dataLoader.dispose();
+      autosave.dispose();
+      taskMode.dispose();
+    };
   });
 
-  // --- Normalization range computation ---
-  function computeDataRanges() {
-    if (annotations.vad?.frames) {
-      let max = 0;
-      for (const frame of annotations.vad.frames) {
-        if (frame.speech_probability > max) max = frame.speech_probability;
-      }
-      annotations.vadMax = max || 1;
-    }
-
-    if (annotations.mouthEnergy?.data) {
-      let max = 0;
-      for (const seg of annotations.mouthEnergy.data) {
-        if (seg.mouth_energy.mouth_energy > max) max = seg.mouth_energy.mouth_energy;
-      }
-      annotations.mouthEnergyMax = max || 1;
-    }
-  }
-
-  function computeHeadPoseRange() {
-    if (!annotations.facialTracking?.data) return;
-    let min = Infinity, max = -Infinity;
-    for (const frame of annotations.facialTracking.data) {
-      if (!frame.facial_tracking.tracking.face_detected) continue;
-      for (const angle of frame.facial_tracking.tracking.head_pose.rotation) {
-        if (angle < min) min = angle;
-        if (angle > max) max = angle;
-      }
-    }
-    if (min !== Infinity) {
-      const padding = (max - min) * 0.1 || 1;
-      annotations.headPoseMin = min - padding;
-      annotations.headPoseMax = max + padding;
-    }
-  }
-
-  // --- Waveform extraction (with IndexedDB cache) ---
-  async function loadWaveform(url: string) {
-    session.waveformLoading = true;
-    try {
-      // Check cache first
-      const cached = await getWaveformFromCache(props.videoId);
-      if (cached) {
-        console.log('[viewer] Waveform loaded from cache');
-        session.waveformPeaksL = cached.peaksL;
-        session.waveformPeaksR = cached.peaksR;
-        session.waveformSampleRate = cached.sampleRate;
-        session.waveformMaxPeak = cached.maxPeak;
-        return;
-      }
-
-      // Cache miss — extract from video
-      const waveform = await extractWaveform(url);
-      session.waveformPeaksL = waveform.peaksL;
-      session.waveformPeaksR = waveform.peaksR;
-      session.waveformSampleRate = waveform.sampleRate;
-
-      // Compute peak max for normalization
-      let maxPeak = 0;
-      for (let i = 0; i < waveform.peaksL.length; i++) {
-        if (waveform.peaksL[i] > maxPeak) maxPeak = waveform.peaksL[i];
-      }
-      if (waveform.peaksR) {
-        for (let i = 0; i < waveform.peaksR.length; i++) {
-          if (waveform.peaksR[i] > maxPeak) maxPeak = waveform.peaksR[i];
-        }
-      }
-      session.waveformMaxPeak = maxPeak || 1;
-
-      // Store in cache (fire-and-forget)
-      setWaveformInCache(props.videoId, {
-        peaksL: waveform.peaksL,
-        peaksR: waveform.peaksR,
-        sampleRate: waveform.sampleRate,
-        duration: timeline.duration,
-        maxPeak: session.waveformMaxPeak,
-      });
-    } catch {
-      // Waveform is non-critical — fail silently
-    } finally {
-      session.waveformLoading = false;
-    }
-  }
-
-  // --- Facial tracking (lazy-loaded separately — too large for getAllResults) ---
-  async function loadFacialTracking() {
-    const status = { ...annotations.loadStatus };
-    status.facial_tracking = 'loading';
-    annotations.loadStatus = status;
-    try {
-      // Check annotation cache first
-      const completedAt = completedAtMap['facial_tracking'];
-      if (completedAt) {
-        const cached = await getCachedAnnotation<FacialTrackingResult>(props.videoId, 'facial_tracking', completedAt);
-        if (cached) {
-          console.log('[viewer] facial_tracking loaded from cache');
-          annotations.facialTracking = cached;
-          annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'loaded' };
-          computeHeadPoseRange();
-          return;
-        }
-      }
-
-      const data = await trpc.processing.getResults.query({
-        videoId: props.videoId,
-        stage: 'facial_tracking',
-      });
-      annotations.facialTracking = data as FacialTrackingResult;
-      annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'loaded' };
-      computeHeadPoseRange();
-
-      // Cache for next load (fire-and-forget)
-      if (completedAt) {
-        setCachedAnnotation(props.videoId, 'facial_tracking', completedAt, data);
-      }
-    } catch {
-      annotations.loadStatus = { ...annotations.loadStatus, facial_tracking: 'error' };
-    }
-  }
-
-  // --- Load human annotation sets from DB ---
-  // DB rows only exist after human edits. If a DB row exists, it takes priority over S3 pipeline data.
-  async function loadAnnotationSets() {
-    const editableTypes: AnnotationSetType[] = ['state', 'intent', 'transcription', 'user_labels', 'backchannel'];
-
-    function makeMetadata() {
-      return {
-        source_file: '',
-        format_version: '1.0',
-        created_timestamp: new Date().toISOString(),
-        total_secs: timeline.duration,
-        algorithm: { name: 'human', model: 'manual', version: '1.0', processing_time: 0 },
-      };
-    }
-
-    try {
-      const results = await Promise.all(
-        editableTypes.map((type) =>
-          trpc.annotations.get.query({ videoId: props.videoId, type }).catch(() => null),
-        ),
-      );
-
-      for (let i = 0; i < editableTypes.length; i++) {
-        const annotationSet = results[i];
-        if (!annotationSet?.data) continue;
-
-        // Only load human-edited versions (source = 'human' or 'supervisor_override')
-        const source = annotationSet.source;
-        if (source !== 'human' && source !== 'supervisor_override') continue;
-
-        const meta = (annotationSet.metadata as Record<string, unknown>) ?? makeMetadata();
-        const type = editableTypes[i];
-
-        switch (type) {
-          case 'state':
-            annotations.stateAnnotation = { metadata: meta, data: annotationSet.data as StateAnnotation[] } as StateAnnotationResult;
-            break;
-          case 'intent':
-            annotations.intentClassification = { metadata: meta, data: annotationSet.data as IntentAnnotation[] } as IntentClassificationResult;
-            break;
-          case 'transcription':
-            annotations.transcription = { metadata: meta, data: annotationSet.data as SpeechWord[] } as TranscriptionResult;
-            break;
-          case 'user_labels':
-            annotations.userLabels = { metadata: meta, data: annotationSet.data as UserLabel[] } as UserLabelResult;
-            break;
-          case 'backchannel':
-            annotations.backchannel = { metadata: meta, data: annotationSet.data as BackchannelAnnotation[] } as BackchannelResult;
-            break;
-        }
-      }
-    } catch (e) {
-      console.warn('[viewer] Failed to load annotation sets:', e);
-    }
-  }
-
-  // --- Data loading ---
+  // --- Data loading (delegated to data-loader.ts) ---
   async function loadViewerData() {
     try {
-      // Fetch video info and stream URL in parallel
-      const [videoInfo, streamInfo] = await Promise.all([
-        trpc.videos.get.query({ id: props.videoId }),
-        trpc.videos.getStreamUrl.query({ id: props.videoId }),
-      ]);
-
-      session.filename = videoInfo.filename;
-      session.videoSrc = streamInfo.url;
-      if (videoInfo.durationSecs) {
-        timeline.duration = videoInfo.durationSecs;
-      }
-
-      // Start waveform extraction (non-blocking)
-      loadWaveform(streamInfo.url);
-
-      // Build completedAt map for cache keying
-      completedAtMap = {};
-      for (const job of videoInfo.processingJobs) {
-        if (job.status === 'completed' && job.completedAt) {
-          completedAtMap[job.stage] = job.completedAt instanceof Date
-            ? job.completedAt.toISOString()
-            : String(job.completedAt);
-        }
-      }
-
-      // Set initial load statuses from existing jobs
-      let hasFacialTracking = false;
-      console.log('[viewer] Processing jobs:', videoInfo.processingJobs.map((j: { stage: string; status: string }) => `${j.stage}:${j.status}`));
-      for (const job of videoInfo.processingJobs) {
-        const status = annotations.loadStatus;
-        if (job.status === 'completed') {
-          status[job.stage] = 'loading';
-          if (job.stage === 'facial_tracking') hasFacialTracking = true;
-        } else if (job.status === 'failed') {
-          status[job.stage] = 'error';
-        } else if (job.status === 'running' || job.status === 'pending') {
-          status[job.stage] = 'loading';
-        }
-        annotations.loadStatus = { ...status };
-      }
-      console.log('[viewer] Load statuses after job scan:', { ...annotations.loadStatus });
-
-      // Fetch all completed results (excludes facial_tracking)
-      await loadResults();
-
-      // Load human annotation sets from DB — overwrites pipeline data with human edits
-      await loadAnnotationSets();
-
-      // Lazy-load facial tracking separately (non-blocking)
-      if (hasFacialTracking) {
-        loadFacialTracking();
-      }
-
-      // Poll if any stages still running
-      const hasActive = videoInfo.processingJobs.some(
-        (j) => j.status === 'running' || j.status === 'pending'
-      );
-      if (hasActive) {
-        pollTimer = setInterval(pollForUpdates, 5000);
-      }
+      await dataLoader.loadViewerData();
 
       // Init task mode after all data is loaded
       if (props.taskId) {
@@ -969,133 +729,11 @@
       loadError = e instanceof Error ? e.message : 'Failed to load viewer data';
     }
   }
-
-  async function loadResults() {
-    try {
-      // Try loading all non-facial-tracking stages from annotation cache
-      const stagesWithCache = Object.entries(completedAtMap).filter(([stage]) => stage !== 'facial_tracking');
-      const cachedResults: Record<string, unknown> = {};
-      let allCached = stagesWithCache.length > 0;
-
-      for (const [stage, completedAt] of stagesWithCache) {
-        const cached = await getCachedAnnotation(props.videoId, stage, completedAt);
-        if (cached) {
-          cachedResults[stage] = cached;
-        } else {
-          allCached = false;
-        }
-      }
-
-      if (allCached && stagesWithCache.length > 0) {
-        // All completed stages were in cache — skip tRPC call entirely
-        console.log('[viewer] All annotation results loaded from cache:', Object.keys(cachedResults));
-        assignResults(cachedResults);
-        const status = { ...annotations.loadStatus };
-        for (const stage of Object.keys(cachedResults)) {
-          if (stage in status) {
-            (status as Record<string, string>)[stage] = 'loaded';
-          }
-        }
-        annotations.loadStatus = status;
-        computeDataRanges();
-        return;
-      }
-
-      // Cache miss on at least one stage — fetch from server
-      const { results, jobStatuses } = await trpc.processing.getAllResults.query({
-        videoId: props.videoId,
-      });
-
-      console.log('[viewer] getAllResults:', {
-        resultKeys: Object.keys(results),
-        jobStatuses: jobStatuses.map((j: { stage: string; status: string }) => `${j.stage}:${j.status}`),
-      });
-
-      // Update load statuses
-      const status = { ...annotations.loadStatus };
-      for (const { stage, status: jobStatus } of jobStatuses) {
-        // Skip facial_tracking — loaded separately
-        if (stage === 'facial_tracking') continue;
-        if (jobStatus === 'completed' && stage in results) {
-          status[stage] = 'loaded';
-        } else if (jobStatus === 'completed') {
-          console.warn(`[viewer] Stage ${stage} completed but no result data — marking as error`);
-          status[stage] = 'error';
-        } else if (jobStatus === 'failed') {
-          status[stage] = 'error';
-        } else if (jobStatus === 'running' || jobStatus === 'pending') {
-          status[stage] = 'loading';
-        }
-      }
-      annotations.loadStatus = status;
-      console.log('[viewer] Final load statuses:', { ...status });
-
-      assignResults(results);
-      computeDataRanges();
-
-      // Cache fetched results for next load (fire-and-forget)
-      for (const [stage, data] of Object.entries(results)) {
-        const completedAt = completedAtMap[stage];
-        if (completedAt && data) {
-          setCachedAnnotation(props.videoId, stage, completedAt, data);
-        }
-      }
-    } catch (e) {
-      console.error('[viewer] loadResults failed:', e);
-    }
-  }
-
-  function assignResults(results: Record<string, unknown>) {
-    if (results.vad) annotations.vad = results.vad as VadResult;
-    if (results.transcription) annotations.transcription = results.transcription as TranscriptionResult;
-    if (results.diarization) annotations.diarization = results.diarization as DiarizationResult;
-    if (results.mouth_energy) annotations.mouthEnergy = results.mouth_energy as MouthEnergyResult;
-    if (results.state_annotation) annotations.stateAnnotation = results.state_annotation as StateAnnotationResult;
-    if (results.intent_classification) annotations.intentClassification = results.intent_classification as IntentClassificationResult;
-  }
-
-  async function pollForUpdates() {
-    try {
-      const jobs = await trpc.processing.getJobStatus.query({ videoId: props.videoId });
-
-      const hasActive = jobs.some(
-        (j) => j.status === 'running' || j.status === 'pending'
-      );
-
-      // Check for newly completed stages
-      const status = { ...annotations.loadStatus };
-      let hasNewCompletions = false;
-      for (const job of jobs) {
-        if (job.status === 'completed' && status[job.stage] !== 'loaded') {
-          hasNewCompletions = true;
-          status[job.stage] = 'loading';
-        } else if (job.status === 'failed') {
-          status[job.stage] = 'error';
-        }
-      }
-      annotations.loadStatus = status;
-
-      if (hasNewCompletions) {
-        await loadResults();
-        // Check if facial_tracking just completed
-        if (status.facial_tracking === 'loading' && !annotations.facialTracking) {
-          loadFacialTracking();
-        }
-      }
-
-      if (!hasActive && pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    } catch {
-      // Silently ignore poll errors
-    }
-  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="viewer-theme h-screen w-screen flex flex-col overflow-hidden">
+<div class="viewer-theme h-screen w-screen flex flex-col overflow-hidden" role="region" aria-label="Timeline">
   <ViewerHeader onTogglePlay={togglePlay} onSeek={seekTo} onTogglePip={togglePip} onToggleEditMode={toggleEditMode} onTaskSubmit={handleTaskSubmit} {autosave} taskMode={taskMode.active ? taskMode : null} {showShortcutsHelp} onToggleShortcutsHelp={() => showShortcutsHelp = !showShortcutsHelp} />
 
   {#if loadError}
@@ -1107,6 +745,7 @@
   {#if pendingDraft}
     <DraftRecoveryBanner
       draft={pendingDraft}
+      isStale={annotations.latestEditTimestamp !== null && pendingDraft.savedAt < annotations.latestEditTimestamp}
       onRestore={restoreDraft}
       onDiscard={discardDraft}
     />
@@ -1145,6 +784,7 @@
         bind:this={labelColumnEl}
         class="shrink-0 overflow-hidden bg-viewer-surface"
         style="width: 120px"
+        aria-label="Track labels"
       >
         <TrackLabel label="Time" height={32} />
         <TrackLabel label="Waveform" height={64} />
@@ -1171,7 +811,7 @@
         bind:this={timelineContainerEl}
         class="flex-1 overflow-x-auto overflow-y-auto viewer-timeline bg-viewer-bg"
         onscroll={handleTimelineScroll}
-        onwheel={handleWheel}
+        aria-label="Annotation tracks"
       >
         <div class="relative" style="width: {timelineWidth}px; min-width: 100%;">
           <!-- Playhead (absolute position: x=0 is time=0) -->

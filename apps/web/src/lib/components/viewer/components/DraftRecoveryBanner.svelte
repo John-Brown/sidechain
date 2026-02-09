@@ -3,11 +3,12 @@
 
   interface Props {
     draft: DraftData;
+    isStale?: boolean;
     onRestore: () => void;
     onDiscard: () => void;
   }
 
-  let { draft, onRestore, onDiscard }: Props = $props();
+  let { draft, isStale = false, onRestore, onDiscard }: Props = $props();
 
   const timeAgo = $derived(getTimeAgo(new Date(draft.savedAt)));
 
@@ -23,17 +24,25 @@
   }
 </script>
 
-<div class="flex items-center gap-3 px-4 py-2 bg-amber-900/20 border-b border-amber-700/30">
-  <span class="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
-  <span class="text-sm text-amber-200">
-    Unsaved draft found ({timeAgo})
+<div
+  class="flex items-center gap-3 px-4 py-2 border-b"
+  style="background: var(--viewer-warning-bg); border-color: var(--viewer-warning-border); color: var(--viewer-warning-text);"
+>
+  <span class="inline-block w-2 h-2 rounded-full shrink-0" style="background: var(--viewer-warning-border);"></span>
+  <span class="text-sm">
+    {#if isStale}
+      Server data is newer — draft may be outdated ({timeAgo})
+    {:else}
+      Unsaved draft found ({timeAgo})
+    {/if}
   </span>
   <div class="flex-1"></div>
   <button
     onclick={onRestore}
-    class="px-3 py-1 text-sm rounded bg-amber-600/30 text-amber-200 hover:bg-amber-600/50 transition-colors"
+    class="px-3 py-1 text-sm rounded transition-colors"
+    style="background: var(--viewer-warning-btn-bg); color: var(--viewer-warning-btn-text);"
   >
-    Restore draft
+    {isStale ? 'Restore Anyway' : 'Restore draft'}
   </button>
   <button
     onclick={onDiscard}

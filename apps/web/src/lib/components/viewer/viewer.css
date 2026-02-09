@@ -9,6 +9,13 @@
   --viewer-accent: #6366f1;
   --viewer-playhead: #ef4444;
 
+  /* Warning / draft recovery banner */
+  --viewer-warning-bg: #fffbeb;       /* amber-50 */
+  --viewer-warning-border: #fcd34d;   /* amber-300 */
+  --viewer-warning-text: #92400e;     /* amber-800 */
+  --viewer-warning-btn-bg: #f59e0b;   /* amber-500 */
+  --viewer-warning-btn-text: #ffffff;
+
   background-color: var(--viewer-bg);
   color: var(--viewer-text);
 }
@@ -22,6 +29,20 @@
   --viewer-text-dim: #8b90a0;
   --viewer-accent: #6366f1;
   --viewer-playhead: #ef4444;
+
+  /* Warning / draft recovery banner */
+  --viewer-warning-bg: #451a03;       /* amber-950 */
+  --viewer-warning-border: #b45309;   /* amber-700 */
+  --viewer-warning-text: #fde68a;     /* amber-200 */
+  --viewer-warning-btn-bg: #b45309;   /* amber-700 */
+  --viewer-warning-btn-text: #fffbeb; /* amber-50 */
+}
+
+/* Focus-visible ring for interactive elements */
+.viewer-theme button:focus-visible,
+.viewer-theme [role="button"]:focus-visible {
+  outline: 2px solid var(--viewer-accent);
+  outline-offset: 2px;
 }
 
 /* Utility classes referencing CSS vars */

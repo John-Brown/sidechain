@@ -110,6 +110,96 @@ describe('binarySearchEnd', () => {
 	});
 });
 
+// --- Accessor-based overload tests ---
+// Objects with non-standard property names (no time_range / time)
+interface CustomItem {
+	begin: number;
+	finish: number;
+	label: string;
+}
+const custom = (begin: number, finish: number, label: string): CustomItem => ({ begin, finish, label });
+
+// [0,2) [2,4) [4,6) [6,8) [8,10) — same timing as segments but different shape
+const customItems: CustomItem[] = [
+	custom(0, 2, 'a'),
+	custom(2, 4, 'b'),
+	custom(4, 6, 'c'),
+	custom(6, 8, 'd'),
+	custom(8, 10, 'e'),
+];
+const getFinish = (item: CustomItem) => item.finish;
+const getBegin = (item: CustomItem) => item.begin;
+
+describe('binarySearchStart (accessor overload)', () => {
+	it('returns 0 for empty array', () => {
+		expect(binarySearchStart([] as CustomItem[], 5, getFinish)).toBe(0);
+	});
+
+	it('returns 0 when target is before all items', () => {
+		expect(binarySearchStart(customItems, -1, getFinish)).toBe(0);
+	});
+
+	it('returns correct start index for mid-range target', () => {
+		// Same as segments test: time=5 → first item whose finish >= 5 is [4,6) at index 2 → max(0, 2-1) = 1
+		expect(binarySearchStart(customItems, 5, getFinish)).toBe(1);
+	});
+
+	it('returns index with -1 padding', () => {
+		// time=7 → first item whose finish >= 7 is [6,8) at index 3 → 3-1 = 2
+		expect(binarySearchStart(customItems, 7, getFinish)).toBe(2);
+	});
+
+	it('handles target past all items', () => {
+		expect(binarySearchStart(customItems, 20, getFinish)).toBe(3);
+	});
+});
+
+describe('binarySearchEnd (accessor overload)', () => {
+	it('returns -1 for empty array', () => {
+		expect(binarySearchEnd([] as CustomItem[], 5, getBegin)).toBe(-1);
+	});
+
+	it('returns correct end index for mid-range target', () => {
+		// time=5 → last item whose begin <= 5 is [4,6) at index 2 → min(4, 2+1) = 3
+		expect(binarySearchEnd(customItems, 5, getBegin)).toBe(3);
+	});
+
+	it('returns last index when target is past all items', () => {
+		expect(binarySearchEnd(customItems, 20, getBegin)).toBe(4);
+	});
+
+	it('handles exact boundary hit', () => {
+		// time=4 → last item whose begin <= 4 is [4,6) at index 2 → min(4, 2+1) = 3
+		expect(binarySearchEnd(customItems, 4, getBegin)).toBe(3);
+	});
+});
+
+describe('accessor overload viewport culling', () => {
+	it('returns a range that covers the visible viewport', () => {
+		const startIdx = binarySearchStart(customItems, 3, getFinish);
+		const endIdx = binarySearchEnd(customItems, 7, getBegin);
+
+		// Should cover at least [2,4) [4,6) [6,8)
+		expect(startIdx).toBeLessThanOrEqual(1);
+		expect(endIdx).toBeGreaterThanOrEqual(3);
+
+		const visible = customItems.slice(startIdx, endIdx + 1);
+		expect(visible.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it('produces same results as TimeItem-based calls for equivalent data', () => {
+		for (const time of [0, 1.5, 3, 5, 7, 9, 11]) {
+			const startOld = binarySearchStart(segments, time);
+			const startNew = binarySearchStart(customItems, time, getFinish);
+			expect(startNew).toBe(startOld);
+
+			const endOld = binarySearchEnd(segments, time);
+			const endNew = binarySearchEnd(customItems, time, getBegin);
+			expect(endNew).toBe(endOld);
+		}
+	});
+});
+
 describe('binarySearchStart + binarySearchEnd (viewport culling)', () => {
 	it('returns a range that covers the visible viewport with padding', () => {
 		// Viewport: [3, 7]

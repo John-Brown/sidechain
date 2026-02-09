@@ -23,6 +23,9 @@ export class AnnotationDataState {
   backchannel = $state<BackchannelResult | null>(null);
   userLabels = $state<UserLabelResult | null>(null);
 
+  // Timestamp of the latest human edit from the DB (for draft freshness check)
+  latestEditTimestamp: number | null = $state(null);
+
   // Precomputed normalization ranges (set when data loads)
   vadMax = $state(1);
   mouthEnergyMax = $state(1);

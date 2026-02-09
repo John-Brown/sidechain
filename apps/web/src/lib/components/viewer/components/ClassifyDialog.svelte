@@ -7,6 +7,7 @@
     IntentValence,
   } from '@annotation/shared';
   import type { EditableType } from '../state/editor.svelte.js';
+  import { createDialogA11y } from '../utils/focus-trap';
 
   type ClassifyResult =
     | { type: 'states'; category: StateCategory }
@@ -78,14 +79,7 @@
   let dialogEl: HTMLDivElement;
 
   onMount(() => {
-    function handleKeydown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    }
-    document.addEventListener('keydown', handleKeydown);
-    return () => document.removeEventListener('keydown', handleKeydown);
+    return createDialogA11y(dialogEl, onClose);
   });
 
   function handleBackdropClick(e: MouseEvent) {
@@ -110,7 +104,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="classify-backdrop" onclick={handleBackdropClick} role="presentation">
-  <div bind:this={dialogEl} class="classify-dialog" role="dialog" aria-label="Classify annotation">
+  <div bind:this={dialogEl} class="classify-dialog" role="dialog" aria-label="Classify annotation" aria-modal="true">
     <div class="classify-header">
       <h3 class="classify-title">
         {editableType === 'states' ? 'Classify State' : 'Classify Intent'}

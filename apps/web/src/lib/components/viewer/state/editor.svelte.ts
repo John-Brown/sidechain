@@ -38,6 +38,9 @@ export class EditorState {
   // Dirty tracking per annotation type
   #dirtyFlags = $state<Record<string, boolean>>({});
 
+  // Monotonic counter — increments on every markDirty call so $effect can re-trigger
+  dirtyVersion = $state(0);
+
   // History instances per editable type
   stateHistory = new History<StateAnnotation[]>();
   intentHistory = new History<IntentAnnotation[]>();
@@ -243,6 +246,7 @@ export class EditorState {
 
   markDirty(type: string): void {
     this.#dirtyFlags = { ...this.#dirtyFlags, [type]: true };
+    this.dirtyVersion++;
   }
 
   isDirty(type: string): boolean {
@@ -258,6 +262,7 @@ export class EditorState {
   /** Clear all dirty flags (called after successful save) */
   clearDirty(): void {
     this.#dirtyFlags = {};
+    // Don't reset dirtyVersion — it's monotonic so future markDirty calls still trigger effects
   }
 
   select(type: EditableType, index: number): void {

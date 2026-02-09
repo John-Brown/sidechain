@@ -1,5 +1,5 @@
 import type { TimeRange } from '@annotation/shared';
-import { validateTimeRange, checkOverlap } from './time-validation.js';
+import { validateTimeRange, checkOverlap, checkMoveOverlap } from './time-validation.js';
 
 export type DragEdge = 'left' | 'right' | 'move';
 
@@ -111,19 +111,29 @@ export function computeFinalRange(
 }
 
 /**
- * Validate whether a resize result can be committed.
+ * Validate whether a resize/move result can be committed.
  * Returns true if valid, false if the drag should snap back.
+ *
+ * When edge is 'move', uses checkMoveOverlap (O(n) scan of all items) instead of
+ * checkOverlap (neighbor-only), since moves can jump far past adjacent items.
+ *
+ * NOTE: Callers in EditableDOMTrack should pass dragState.edge as the edge parameter.
  */
 export function validateResize(
   newRange: TimeRange,
   index: number,
   items: { time_range: TimeRange }[],
   duration: number,
+  edge: DragEdge = 'right',
 ): boolean {
   const rangeResult = validateTimeRange(newRange, duration);
   if (!rangeResult.valid) return false;
 
-  if (checkOverlap(items, index, newRange)) return false;
+  if (edge === 'move') {
+    if (checkMoveOverlap(items, index, newRange.start, newRange.end).overlaps) return false;
+  } else {
+    if (checkOverlap(items, index, newRange)) return false;
+  }
 
   return true;
 }

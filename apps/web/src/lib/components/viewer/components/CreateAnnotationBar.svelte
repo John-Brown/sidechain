@@ -9,6 +9,7 @@
   } from '@annotation/shared';
   import { createAnnotation } from '../editing/operations.js';
   import { validateTimeRange, checkOverlap } from '../editing/time-validation.js';
+  import { pushUndoForType } from '../utils/push-undo.svelte.js';
 
   const timeline = getTimelineState();
   const editor = getEditorState();
@@ -27,7 +28,7 @@
     const arr = editor[type] as { time_range: { start: number; end: number } }[] | null;
     if (!arr) return;
 
-    pushUndo(type);
+    pushUndoForType(editor, type);
     const beforeSnapshot = structuredClone($state.snapshot(arr));
     const newArr = createAnnotation(arr as typeof arr & { time_range: { start: number; end: number } }[], newItem as typeof arr[0]);
     (editor as unknown as Record<string, unknown>)[type] = newArr;
@@ -120,28 +121,6 @@
     return true;
   }
 
-  function pushUndo(type: EditableType) {
-    const currentArray = editor[type];
-    if (!currentArray) return;
-    // $state.snapshot() unwraps Svelte 5 proxies before structuredClone
-    switch (type) {
-      case 'states':
-        editor.stateHistory.push(structuredClone($state.snapshot(editor.states!)));
-        break;
-      case 'intents':
-        editor.intentHistory.push(structuredClone($state.snapshot(editor.intents!)));
-        break;
-      case 'transcription':
-        editor.transcriptionHistory.push(structuredClone($state.snapshot(editor.transcription!)));
-        break;
-      case 'backchannels':
-        editor.backchannelHistory.push(structuredClone($state.snapshot(editor.backchannels!)));
-        break;
-      case 'userLabels':
-        editor.userLabelHistory.push(structuredClone($state.snapshot(editor.userLabels!)));
-        break;
-    }
-  }
 </script>
 
 {#if editor.editing}

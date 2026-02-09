@@ -20,14 +20,8 @@
   const visibleBlocks = $derived.by(() => {
     if (!data || data.length === 0) return [];
 
-    // Create a time_range-compatible wrapper for binary search
-    const wrapped = data.map((item, i) => ({
-      index: i,
-      time_range: { start: getStart(item), end: getEnd(item) }
-    }));
-
-    const startIdx = binarySearchStart(wrapped, timeline.viewStartTime);
-    const endIdx = binarySearchEnd(wrapped, timeline.viewEndTime);
+    const startIdx = binarySearchStart(data, timeline.viewStartTime, getEnd);
+    const endIdx = binarySearchEnd(data, timeline.viewEndTime, getStart);
 
     const result: Array<{ item: T; left: number; width: number; label: string; cssClass: string; index: number }> = [];
     for (let i = startIdx; i <= endIdx && i < data.length; i++) {

@@ -2,6 +2,10 @@ import type { TimeRange } from '@annotation/shared';
 
 type HasTimeRange = { time_range: TimeRange };
 
+/**
+ * Replace the time_range of the item at `index`.
+ * Items must be plain (non-proxied) data. Use $state.snapshot() before passing Svelte 5 reactive state.
+ */
 export function resizeAnnotation<T extends HasTimeRange>(
   items: T[],
   index: number,
@@ -12,10 +16,18 @@ export function resizeAnnotation<T extends HasTimeRange>(
   return result;
 }
 
+/**
+ * Remove the item at `index`, returning a new array.
+ * Items must be plain (non-proxied) data. Use $state.snapshot() before passing Svelte 5 reactive state.
+ */
 export function deleteAnnotation<T>(items: T[], index: number): T[] {
   return items.filter((_, i) => i !== index);
 }
 
+/**
+ * Split item at `index` into two at `splitTime`, preserving total coverage.
+ * Items must be plain (non-proxied) data. Use $state.snapshot() before passing Svelte 5 reactive state.
+ */
 export function splitAnnotation<T extends HasTimeRange>(
   items: T[],
   index: number,
@@ -29,6 +41,10 @@ export function splitAnnotation<T extends HasTimeRange>(
   return result;
 }
 
+/**
+ * Merge items at `indexA` and `indexB` (and everything between) into one.
+ * Items must be plain (non-proxied) data. Use $state.snapshot() before passing Svelte 5 reactive state.
+ */
 export function mergeAnnotations<T extends HasTimeRange>(
   items: T[],
   indexA: number,
@@ -48,6 +64,10 @@ export function mergeAnnotations<T extends HasTimeRange>(
   return result;
 }
 
+/**
+ * Insert `newItem` in sorted order by start time.
+ * Items must be plain (non-proxied) data. Use $state.snapshot() before passing Svelte 5 reactive state.
+ */
 export function createAnnotation<T extends HasTimeRange>(
   items: T[],
   newItem: T,
@@ -64,6 +84,10 @@ export function createAnnotation<T extends HasTimeRange>(
   return result;
 }
 
+/**
+ * Shallow-merge `fields` into the item at `index` (e.g. update category, intent).
+ * Items must be plain (non-proxied) data. Use $state.snapshot() before passing Svelte 5 reactive state.
+ */
 export function classifyAnnotation<T>(
   items: T[],
   index: number,

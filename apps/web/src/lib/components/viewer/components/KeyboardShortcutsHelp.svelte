@@ -1,11 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { createFocusTrap } from '../utils/focus-trap';
 
   interface Props {
     onClose: () => void;
   }
 
   let { onClose }: Props = $props();
+
+  let dialogEl: HTMLDivElement;
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac');
   const mod = isMac ? '\u2318' : 'Ctrl';
@@ -67,6 +70,8 @@
   ];
 
   onMount(() => {
+    const cleanupTrap = createFocusTrap(dialogEl);
+
     function handleKeydown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -75,7 +80,10 @@
       }
     }
     document.addEventListener('keydown', handleKeydown, true);
-    return () => document.removeEventListener('keydown', handleKeydown, true);
+    return () => {
+      cleanupTrap();
+      document.removeEventListener('keydown', handleKeydown, true);
+    };
   });
 
   function handleBackdropClick(e: MouseEvent) {
@@ -102,8 +110,8 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="sk-backdrop" onclick={handleBackdropClick} role="presentation">
-  <div class="sk-dialog" role="dialog" aria-label="Keyboard shortcuts">
+<div class="sk-backdrop" onclick={handleBackdropClick} role="presentation" bind:this={dialogEl}>
+  <div class="sk-dialog" role="dialog" aria-label="Keyboard shortcuts" aria-modal="true">
     <div class="sk-header">
       <h3 class="sk-title">Keyboard Shortcuts</h3>
       <button class="sk-close" onclick={onClose} aria-label="Close">

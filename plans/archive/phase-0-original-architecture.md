@@ -338,9 +338,9 @@ Build a standalone HTML page with:
 
 ## Critical Reference Files
 
-- `reference/05-typescript-cloud-port.md` -- Component portability analysis, architecture options, cost model
+- `reference/06-typescript-cloud-port.md` -- Component portability analysis, architecture options, cost model
 - `reference/05-cloud-deployment-guidance.md` -- Platform coupling, migration phases, infrastructure breakdown
 - `reference/02-algorithm-reference.md` -- Algorithm specs, I/O formats, model parameters (defines TypeScript types)
 - `reference/03-data-flow.md` -- Unified JSON schema, time alignment conventions, dependency graph
-- `reference/06-facial-tracking-reference.md` -- MediaPipe replacement strategy, blend shape mapping, mouth energy pipeline
+- `reference/07-facial-tracking-reference.md` -- MediaPipe replacement strategy, blend shape mapping, mouth energy pipeline
 - `reference/01-system-overview.md` -- 7-stage pipeline, human-AI collaboration model, Task Mode design

@@ -26,6 +26,33 @@ export function checkOverlap(
   return false;
 }
 
+export interface MoveOverlapResult {
+  overlaps: boolean;
+  overlapIndex?: number;
+}
+
+/**
+ * Check all items (except the moved one) for overlap with a proposed new range.
+ * Unlike checkOverlap which only checks immediate neighbors (sufficient for resize),
+ * move operations can jump far, so an O(n) scan is necessary. n is small in practice.
+ */
+export function checkMoveOverlap(
+  items: { time_range: TimeRange }[],
+  movedIndex: number,
+  newStart: number,
+  newEnd: number,
+): MoveOverlapResult {
+  for (let i = 0; i < items.length; i++) {
+    if (i === movedIndex) continue;
+    const item = items[i].time_range;
+    // Half-open interval overlap: [newStart, newEnd) overlaps [item.start, item.end)
+    if (newStart < item.end && newEnd > item.start) {
+      return { overlaps: true, overlapIndex: i };
+    }
+  }
+  return { overlaps: false };
+}
+
 export function checkContiguity(
   items: { time_range: TimeRange }[],
   tolerance = 0.1,

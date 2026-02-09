@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { createDialogA11y } from '../utils/focus-trap';
+
   interface Props {
     editCount: number;
     elapsedSecs: number;
@@ -9,7 +12,13 @@
 
   let { editCount, elapsedSecs, coverageErrors, onConfirm, onCancel }: Props = $props();
 
+  let dialogEl: HTMLDivElement;
+
   const hasCoverageErrors = $derived(coverageErrors.length > 0);
+
+  onMount(() => {
+    return createDialogA11y(dialogEl, onCancel);
+  });
 
   function formatElapsed(secs: number): string {
     const m = Math.floor(secs / 60);
@@ -20,6 +29,7 @@
 
 <!-- Backdrop -->
 <div
+  bind:this={dialogEl}
   class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
   role="dialog"
   aria-modal="true"

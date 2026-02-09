@@ -45,6 +45,7 @@ export class AutoSaveState {
   #debounceTimer: ReturnType<typeof setTimeout> | null = null;
   #savedStatusTimer: ReturnType<typeof setTimeout> | null = null;
   #disposed = false;
+  #saving = false;
 
   constructor(editor: EditorState, videoId: string, saveFn: SaveFn) {
     this.#editor = editor;
@@ -104,6 +105,7 @@ export class AutoSaveState {
 
   /** Force an immediate save of all dirty types */
   async saveNow(): Promise<void> {
+    if (this.#saving) return;
     if (this.#disposed) return;
     if (!this.#editor.editing || !this.#editor.hasChanges) return;
 
@@ -116,6 +118,7 @@ export class AutoSaveState {
     const dirtyTypes = this.#editor.getDirtyTypes() as EditableType[];
     if (dirtyTypes.length === 0) return;
 
+    this.#saving = true;
     this.status = 'saving';
     this.lastError = null;
 
@@ -157,6 +160,8 @@ export class AutoSaveState {
       console.error('[autosave] Save failed:', err);
       this.status = 'error';
       this.lastError = err instanceof Error ? err.message : 'Save failed';
+    } finally {
+      this.#saving = false;
     }
   }
 

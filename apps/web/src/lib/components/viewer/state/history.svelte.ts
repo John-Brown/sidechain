@@ -39,14 +39,14 @@ export class History<T> {
   undo(currentState: T): T | undefined {
     const snapshot = this.#undoStack.pop();
     if (snapshot === undefined) return undefined;
-    this.#redoStack.push(structuredClone(currentState));
+    this.#redoStack.push(structuredClone($state.snapshot(currentState) as T));
     return structuredClone(snapshot);
   }
 
   redo(currentState: T): T | undefined {
     const snapshot = this.#redoStack.pop();
     if (snapshot === undefined) return undefined;
-    this.#undoStack.push(structuredClone(currentState));
+    this.#undoStack.push(structuredClone($state.snapshot(currentState) as T));
     return structuredClone(snapshot);
   }
 

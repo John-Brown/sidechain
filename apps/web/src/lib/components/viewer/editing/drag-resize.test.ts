@@ -228,4 +228,73 @@ describe('validateResize', () => {
 		// Resize index=1 to exactly touch neighbors
 		expect(validateResize({ start: 5, end: 10 }, 1, segments, duration)).toBe(true);
 	});
+
+	describe('with edge parameter', () => {
+		// Sparse items with gaps: [0,2) [5,8) [15,20)
+		const sparse = [mkItem(0, 2), mkItem(5, 8), mkItem(15, 20)];
+
+		it('uses neighbor check for left edge (default behavior)', () => {
+			expect(validateResize({ start: 5, end: 8 }, 1, sparse, duration, 'left')).toBe(true);
+		});
+
+		it('uses neighbor check for right edge (default behavior)', () => {
+			expect(validateResize({ start: 5, end: 8 }, 1, sparse, duration, 'right')).toBe(true);
+		});
+
+		it('uses full scan for move edge', () => {
+			// Move index=1 from [5,8) to [16,19) — overlaps index=2 [15,20)
+			expect(validateResize({ start: 16, end: 19 }, 1, sparse, duration, 'move')).toBe(false);
+		});
+
+		it('move to valid gap passes', () => {
+			// Move index=1 from [5,8) to [9,12) — no overlap
+			expect(validateResize({ start: 9, end: 12 }, 1, sparse, duration, 'move')).toBe(true);
+		});
+
+		it('move far past neighbors detects distant overlap', () => {
+			// Move index=0 from [0,2) to [17,19) — neighbors at index 1 are [5,8)
+			// Neighbor-only check would compare index -1 (none) and index 1 [5,8) → no overlap.
+			// But the full scan catches that [17,19) overlaps index=2 [15,20).
+			expect(validateResize({ start: 17, end: 19 }, 0, sparse, duration, 'move')).toBe(false);
+		});
+	});
+});
+
+describe('computeFinalRange edge cases', () => {
+	it('at boundary time=0 (item already at start of timeline)', () => {
+		const drag = mkDrag('left', { originalRange: { start: 0, end: 3 } });
+		// Drag left by 20px = -1s, start would be -1 → clamped to 0
+		const result = computeFinalRange(drag, 180, zoom, 60);
+		expect(result.start).toBe(0);
+	});
+
+	it('at boundary time=duration (item already at end of timeline)', () => {
+		const drag = mkDrag('right', { originalRange: { start: 57, end: 60 } });
+		// Drag right by 40px = +2s, end would be 62 → clamped to 60
+		const result = computeFinalRange(drag, 240, zoom, 60);
+		expect(result.end).toBe(60);
+	});
+
+	it('move clamping to [0, duration] preserves original block duration', () => {
+		const drag = mkDrag('move', { originalRange: { start: 1, end: 4 } });
+		// Drag left by 60px = -3s → start=-2 → clamped to 0, end=3
+		const result = computeFinalRange(drag, 140, zoom, 60);
+		expect(result.start).toBe(0);
+		expect(result.end).toBe(3); // 4 - 1 = 3s duration preserved
+	});
+
+	it('move right clamping preserves original block duration', () => {
+		const drag = mkDrag('move', { originalRange: { start: 57, end: 59 } });
+		// Drag right by 60px = +3s → end=62 → clamped to 60, start=58
+		const result = computeFinalRange(drag, 260, zoom, 60);
+		expect(result.end).toBe(60);
+		expect(result.start).toBe(58); // 59 - 57 = 2s duration preserved
+	});
+
+	it('minimum duration enforcement on left edge at time 0', () => {
+		const drag = mkDrag('left', { originalRange: { start: 0.02, end: 0.06 } });
+		// Drag right far: +100px = +5s → start=5.02, end=0.06 → min enforced
+		const result = computeFinalRange(drag, 300, zoom, 60);
+		expect(result.end - result.start).toBeCloseTo(0.05);
+	});
 });

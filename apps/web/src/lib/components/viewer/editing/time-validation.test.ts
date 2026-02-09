@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	validateTimeRange,
 	checkOverlap,
+	checkMoveOverlap,
 	checkContiguity,
 	isInLockedRange,
 	validateCoverage,
@@ -167,6 +168,57 @@ describe('time validation', () => {
 
 		it('returns false with no locked ranges', () => {
 			expect(isInLockedRange({ start: 0, end: 100 }, [])).toBe(false);
+		});
+	});
+
+	describe('checkMoveOverlap', () => {
+		// Sparse items with gaps: [0,2) [5,8) [10,13) [18,20)
+		const sparse = [mkItem(0, 2), mkItem(5, 8), mkItem(10, 13), mkItem(18, 20)];
+
+		it('detects overlap when moving far past neighbors', () => {
+			// Move index=0 from [0,2) to [11,13) — overlaps index=2 [10,13)
+			const result = checkMoveOverlap(sparse, 0, 11, 13);
+			expect(result.overlaps).toBe(true);
+			expect(result.overlapIndex).toBe(2);
+		});
+
+		it('detects overlap when move would create out-of-order items', () => {
+			// Move index=3 from [18,20) backward to [6,8) — overlaps index=1 [5,8)
+			const result = checkMoveOverlap(sparse, 3, 6, 8);
+			expect(result.overlaps).toBe(true);
+			expect(result.overlapIndex).toBe(1);
+		});
+
+		it('returns no overlap for valid move to empty space', () => {
+			// Move index=0 from [0,2) to [3,5) — fits in gap between items 0 and 1
+			const result = checkMoveOverlap(sparse, 0, 3, 5);
+			expect(result.overlaps).toBe(false);
+			expect(result.overlapIndex).toBeUndefined();
+		});
+
+		it('returns no overlap when moved to end of timeline', () => {
+			// Move index=1 from [5,8) to [25,28) — past all items
+			const result = checkMoveOverlap(sparse, 1, 25, 28);
+			expect(result.overlaps).toBe(false);
+		});
+
+		it('detects partial overlap (new range straddles existing item start)', () => {
+			// Move index=0 to [9,12) — partially overlaps index=2 [10,13)
+			const result = checkMoveOverlap(sparse, 0, 9, 12);
+			expect(result.overlaps).toBe(true);
+			expect(result.overlapIndex).toBe(2);
+		});
+
+		it('allows exact boundary adjacency (half-open intervals)', () => {
+			// Move index=0 to [8,10) — ends exactly where index=2 starts → no overlap
+			const result = checkMoveOverlap(sparse, 0, 8, 10);
+			expect(result.overlaps).toBe(false);
+		});
+
+		it('handles single-item array', () => {
+			const single = [mkItem(5, 10)];
+			const result = checkMoveOverlap(single, 0, 20, 25);
+			expect(result.overlaps).toBe(false);
 		});
 	});
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { createFocusTrap } from '../utils/focus-trap';
 
   interface Props {
     currentText: string;
@@ -11,12 +12,16 @@
 
   let text = $state('');
   let inputEl: HTMLInputElement;
+  let dialogEl: HTMLDivElement;
 
   $effect(() => {
     text = currentText;
   });
 
   onMount(() => {
+    const cleanupTrap = createFocusTrap(dialogEl);
+
+    // Focus and select the input specifically (overrides focus trap's default first-focusable)
     inputEl?.focus();
     inputEl?.select();
 
@@ -28,7 +33,10 @@
       }
     }
     document.addEventListener('keydown', handleKeydown, true);
-    return () => document.removeEventListener('keydown', handleKeydown, true);
+    return () => {
+      cleanupTrap();
+      document.removeEventListener('keydown', handleKeydown, true);
+    };
   });
 
   function handleBackdropClick(e: MouseEvent) {
@@ -53,8 +61,8 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="lt-backdrop" onclick={handleBackdropClick} role="presentation">
-  <div class="lt-dialog" role="dialog" aria-label="Edit label text">
+<div class="lt-backdrop" onclick={handleBackdropClick} role="presentation" bind:this={dialogEl}>
+  <div class="lt-dialog" role="dialog" aria-label="Edit label text" aria-modal="true">
     <div class="lt-header">
       <h3 class="lt-title">Edit Label</h3>
       <button class="lt-close" onclick={onClose} aria-label="Close">
