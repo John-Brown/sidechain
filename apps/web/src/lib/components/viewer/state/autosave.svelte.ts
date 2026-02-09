@@ -153,6 +153,7 @@ export class AutoSaveState {
         }
       }, 2000);
     } catch (err) {
+      console.error('[autosave] Save failed:', err);
       this.status = 'error';
       this.lastError = err instanceof Error ? err.message : 'Save failed';
     }

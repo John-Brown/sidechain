@@ -22,7 +22,7 @@
 {:else if autosave.status === 'error'}
   <span class="flex items-center gap-1.5 text-viewer-sm text-red-400">
     <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-400"></span>
-    Save failed
+    {autosave.lastError ?? 'Save failed'}
     {#if onForceSave}
       <button
         onclick={onForceSave}
