@@ -483,6 +483,13 @@
         e.preventDefault();
         if (annotations.facialTracking?.metadata?.mesh_topology) {
           session.meshOverlayVisible = !session.meshOverlayVisible;
+          if (!session.meshOverlayVisible) session.meshVideoHidden = false;
+        }
+        break;
+      case 'KeyV':
+        if (session.meshOverlayVisible) {
+          e.preventDefault();
+          session.meshVideoHidden = !session.meshVideoHidden;
         }
         break;
       case 'Delete':

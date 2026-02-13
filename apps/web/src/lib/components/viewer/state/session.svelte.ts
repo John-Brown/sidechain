@@ -13,6 +13,8 @@ export class SessionState {
 
   // Mesh overlay
   meshOverlayVisible = $state(false);
+  meshOverlayOpacity = $state(0.7);
+  meshVideoHidden = $state(false);
 
   constructor(videoId: string) {
     this.videoId = videoId;

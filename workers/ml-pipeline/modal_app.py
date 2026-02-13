@@ -31,6 +31,11 @@ app = modal.App("annotation-pipeline")
 # Common packages needed by all images (fastapi required for @fastapi_endpoint)
 _common = ["boto3", "pydantic", "fastapi[standard]"]
 
+def _download_depth_model():
+    """Pre-download Depth Anything V2 weights into the image layer."""
+    from transformers import pipeline as hf_pipeline
+    hf_pipeline(task="depth-estimation", model="depth-anything/Depth-Anything-V2-Base-hf")
+
 # VAD: needs torch + ffmpeg + soundfile for audio extraction
 vad_image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -53,11 +58,13 @@ transcription_image = (
     .add_local_python_source("stages", copy=True)
 )
 
-# Facial tracking: MediaPipe + OpenCV (CPU-heavy)
-cpu_heavy_image = (
+# Facial tracking: MediaPipe + OpenCV + Depth Anything V2 (GPU)
+facial_tracking_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libgl1-mesa-glx", "libglib2.0-0")
-    .pip_install(*_common, "mediapipe", "opencv-python-headless", "numpy")
+    .pip_install(*_common, "mediapipe", "opencv-python-headless", "numpy",
+                 "torch", "transformers", "Pillow")
+    .run_function(_download_depth_model)
     .add_local_python_source("stages", copy=True)
 )
 
@@ -259,16 +266,16 @@ def process_transcription(request: StageRequest) -> StageResponse:
 
 
 @app.function(
-    image=cpu_heavy_image,
+    image=facial_tracking_image,
     secrets=[modal.Secret.from_name("aws-credentials")],
+    gpu="T4",
     timeout=1800,
-    memory=4096,
-    cpu=4,
+    memory=8192,
 
 )
 @modal.fastapi_endpoint(method="POST")
 def process_facial_tracking(request: StageRequest) -> StageResponse:
-    """Run MediaPipe Face Mesh on every video frame."""
+    """Run MediaPipe Face Mesh (3D landmarks) + Depth Anything V2 on video frames."""
     from stages.facial_tracking import run_facial_tracking
 
     logger.info("Processing facial tracking for job_id=%s", request.job_id)

@@ -53,7 +53,9 @@
 		const depth = interpolateDepth(ft.mesh_keyframes, time);
 
 		ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+		ctx.globalAlpha = session.meshOverlayOpacity;
 		drawMeshWireframe(ctx, landmarks, depth, ft.metadata.mesh_topology, palette);
+		ctx.globalAlpha = 1;
 	}
 
 	function onRvfc(_now: DOMHighResTimeStamp, metadata: { mediaTime: number }) {
@@ -83,10 +85,10 @@
 		}
 	});
 
-	// Re-render when palette changes (theme switch)
+	// Re-render when palette or opacity changes
 	$effect(() => {
-		// Touch palette to subscribe
 		void palette;
+		void session.meshOverlayOpacity;
 		if (!timeline.playing) {
 			renderFrame(timeline.currentTime);
 		}

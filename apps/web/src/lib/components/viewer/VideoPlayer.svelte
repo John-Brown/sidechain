@@ -127,7 +127,8 @@
       {src}
       crossorigin="anonymous"
       tabindex="-1"
-      class="max-w-full max-h-full block"
+      class="max-w-full max-h-full block transition-opacity duration-150"
+      style:opacity={session.meshVideoHidden ? 0.25 : 1}
       onloadedmetadata={handleLoadedMetadata}
       ontimeupdate={handleTimeUpdate}
       onplay={handlePlay}

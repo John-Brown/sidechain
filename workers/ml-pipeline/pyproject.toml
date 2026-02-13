@@ -16,6 +16,8 @@ dependencies = [
     "pyannote.audio>=3.1",
     "anthropic>=0.30",
     "numpy>=1.26",
+    "transformers>=4.40",
+    "Pillow>=10.0",
 ]
 
 [build-system]

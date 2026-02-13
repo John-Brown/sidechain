@@ -103,7 +103,7 @@ export function drawMeshWireframe(
 		}
 
 		// Draw each bucket with its depth color
-		ctx.lineWidth = 0.5;
+		ctx.lineWidth = 1.5;
 		for (let b = 0; b < 8; b++) {
 			if (buckets[b].length === 0) continue;
 			ctx.strokeStyle = palette.meshDepth[b];
@@ -116,7 +116,7 @@ export function drawMeshWireframe(
 		}
 	} else {
 		// Flat wireframe fallback
-		ctx.lineWidth = 0.5;
+		ctx.lineWidth = 1.5;
 		ctx.strokeStyle = palette.meshWireframe;
 		ctx.beginPath();
 		for (const [i, j] of tessellation) {
@@ -127,7 +127,7 @@ export function drawMeshWireframe(
 	}
 
 	// Contour edges — slightly thicker
-	ctx.lineWidth = 1.0;
+	ctx.lineWidth = 2.0;
 	ctx.strokeStyle = palette.meshWireframe;
 	ctx.beginPath();
 	for (const [i, j] of contours) {
@@ -137,7 +137,7 @@ export function drawMeshWireframe(
 	ctx.stroke();
 
 	// Iris edges
-	ctx.lineWidth = 1.0;
+	ctx.lineWidth = 2.0;
 	ctx.strokeStyle = palette.meshIris;
 	ctx.beginPath();
 	for (const [i, j] of irises) {
