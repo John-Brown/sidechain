@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-This guide helps you get started with the Curator processing pipeline and visualization app.
+This guide helps you get started with the Sidechain processing pipeline and visualization app.
 
 ## Table of Contents
 
@@ -8,7 +8,7 @@ This guide helps you get started with the Curator processing pipeline and visual
 2. [Installation](#installation)
 3. [Processing Your First Video](#processing-your-first-video)
 4. [Understanding the Output](#understanding-the-output)
-5. [Using the Curator App](#using-the-curator-app)
+5. [Using the Sidechain App](#using-the-sidechain-app)
 6. [Common Workflows](#common-workflows)
 7. [Troubleshooting](#troubleshooting)
 
@@ -19,7 +19,7 @@ This guide helps you get started with the Curator processing pipeline and visual
 ### System Requirements
 
 **Operating System**:
-- **macOS 15+** (required for Curator App and FaceKit)
+- **macOS 15+** (required for Sidechain App and FaceKit)
 - **Linux** (for processing pipeline only, no visualization)
 
 **Hardware**:
@@ -31,7 +31,7 @@ This guide helps you get started with the Curator processing pipeline and visual
 ### Software Dependencies
 
 **Python**:
-- Python 3.12+ (required for apple-interlinked)
+- Python 3.12+
 - pip for package management
 
 **System Tools**:
@@ -40,7 +40,7 @@ This guide helps you get started with the Curator processing pipeline and visual
 
 **macOS Specific**:
 - Xcode Command Line Tools
-- Swift 6.2+ (for building Curator App)
+- Swift 6.2+ (for building Sidechain App)
 
 ---
 
@@ -49,8 +49,8 @@ This guide helps you get started with the Curator processing pipeline and visual
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url> Curator
-cd Curator
+git clone <repository-url> Sidechain
+cd Sidechain
 ```
 
 ### 2. Set Up Python Environment
@@ -90,8 +90,8 @@ python3 src/processing/setup_models.py
 3. Generate access token: https://huggingface.co/settings/tokens
 4. Save token to file:
    ```bash
-   mkdir -p ~/Library/Application\ Support/Curator
-   echo "your_token_here" > ~/Library/Application\ Support/Curator/huggingfacetoken.txt
+   mkdir -p ~/Library/Application\ Support/Sidechain
+   echo "your_token_here" > ~/Library/Application\ Support/Sidechain/huggingfacetoken.txt
    ```
 
 ### 5. Set Up FaceKitRunner (macOS only)
@@ -106,12 +106,12 @@ chmod +x bin/FaceKitRunner-macOS/FaceKitRunner-macOS
 
 ### 6. Configure LLM API (for Intent Classification)
 
-Curator uses apple-interlinked for API access via Floodgate:
+Sidechain uses Anthropic SDK for API access:
 
 ```bash
-# The Floodgate endpoint is configured internally:
-# https://floodgate.g.apple.com/api/openai/v1
-# Authentication is handled by apple-interlinked
+# The Anthropic API endpoint is configured internally:
+# https://api.anthropic.com
+# Authentication is handled by the Anthropic SDK
 ```
 
 No manual API key configuration is needed for internal use.
@@ -254,9 +254,9 @@ Typical file sizes for a 10-minute video:
 
 ---
 
-## Using the Curator App
+## Using the Sidechain App
 
-The Curator App is a native macOS application for visualizing and validating annotations.
+The Sidechain App is a native macOS application for visualizing and validating annotations.
 
 ### Building the App
 
@@ -275,12 +275,12 @@ cd src/visualization
 swift run --disable-sandbox
 
 # With debug logging
-swift run --disable-sandbox Curator --debug
+swift run --disable-sandbox Sidechain --debug
 ```
 
 ### Loading Video and Annotations
 
-1. **Launch Curator App**
+1. **Launch Sidechain App**
 2. **Load Video**: File > Open Video
 3. **Load Annotations**: File > Load Annotations Directory
 4. **Select Directory**: Choose `video_annotations/` folder
@@ -381,8 +381,8 @@ ffmpeg -version
 
 ```bash
 # Save token to the expected file location
-mkdir -p ~/Library/Application\ Support/Curator
-echo "your_token_here" > ~/Library/Application\ Support/Curator/huggingfacetoken.txt
+mkdir -p ~/Library/Application\ Support/Sidechain
+echo "your_token_here" > ~/Library/Application\ Support/Sidechain/huggingfacetoken.txt
 
 # Or set environment variable (fallback)
 export HUGGING_FACE_TOKEN="your_token_here"
@@ -432,8 +432,8 @@ pip install torch>=2.8.0,<2.9.0 torchaudio>=2.8.0,<2.9.0
 # Verbose processing output
 python3 src/processing/processor.py video.mov --process-raw --verbose
 
-# Curator app with debug logging
-cd src/visualization && swift run --disable-sandbox Curator --debug
+# Sidechain app with debug logging
+cd src/visualization && swift run --disable-sandbox Sidechain --debug
 ```
 
 ---
@@ -463,7 +463,7 @@ python3 src/processing/processor.py VIDEO --process-raw \
 python3 src/processing/process_directory.py --dir DIR --skip-existing --verbose
 ```
 
-### Curator App Commands
+### Sidechain App Commands
 
 ```bash
 # Build
@@ -473,7 +473,7 @@ cd src/visualization && swift build --disable-sandbox
 cd src/visualization && swift run --disable-sandbox
 
 # With debug
-cd src/visualization && swift run --disable-sandbox Curator --debug
+cd src/visualization && swift run --disable-sandbox Sidechain --debug
 
 # Release build
 cd src/visualization && swift build --disable-sandbox -c release

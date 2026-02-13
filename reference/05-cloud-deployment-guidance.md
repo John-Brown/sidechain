@@ -1,6 +1,6 @@
 # Cloud Deployment & Language Migration Guidance
 
-High-level architectural guidance for deploying the Curator processing pipeline to cloud infrastructure and evaluating language migration options.
+High-level architectural guidance for deploying the Sidechain processing pipeline to cloud infrastructure and evaluating language migration options.
 
 ## Table of Contents
 
@@ -33,8 +33,8 @@ High-level architectural guidance for deploying the Curator processing pipeline 
 |-----------|-----------|----------|------------|
 | Facial Tracking | FaceKitRunner (ARKit binary) | Hard | Replace with MediaPipe/OpenFace |
 | Per-Speaker Transcription | MLX Whisper (Apple Silicon) | Medium | Swap to `faster-whisper` or standard Whisper (subprocess call, easy) |
-| Intent Classification | apple-interlinked (internal PyPI) | Medium | Refactor to use OpenAI/Anthropic SDKs directly |
-| Curator App | SwiftUI | Hard | Web UI replacement needed |
+| Intent Classification | Anthropic SDK (direct API) | Medium | Refactor to use OpenAI/Anthropic SDKs directly |
+| Sidechain App | SwiftUI | Hard | Web UI replacement needed |
 
 ### Key Insight
 
@@ -48,7 +48,7 @@ About **70-80% of the pipeline runs on Linux today** if you:
 
 1. Skip facial tracking (`--no-raw-facial-tracking --no-raw-mouth-energy`)
 2. Use standard Whisper instead of MLX Whisper (already the default for non-stereo)
-3. Replace apple-interlinked with direct API calls for intent classification
+3. Use direct Anthropic/OpenAI API calls for intent classification
 
 This means a "cloud-lite" deployment is achievable without any code changes — just flag configuration. The question is whether you need the remaining 20-30%.
 
@@ -188,7 +188,7 @@ You're not moving away from Python — you're putting a cloud-native layer aroun
 
 ## Recommended Architecture
 
-### Cloud-Native Curator
+### Cloud-Native Sidechain
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -232,7 +232,7 @@ You're not moving away from Python — you're putting a cloud-native layer aroun
 
 **Annotation Storage**: JSON files in object storage work fine. Or migrate to a database if you need query capabilities across sessions.
 
-**Web UI**: The SwiftUI Curator app is excellent for desktop use but doesn't scale to cloud. A web-based annotation UI (React + canvas-based timeline) would be needed. This is a significant effort — the timeline rendering, speech block editing, and task mode logic are complex.
+**Web UI**: The SwiftUI Sidechain app is excellent for desktop use but doesn't scale to cloud. A web-based annotation UI (React + canvas-based timeline) would be needed. This is a significant effort — the timeline rendering, speech block editing, and task mode logic are complex.
 
 ### Cloud Transcription APIs as Alternative
 
@@ -265,11 +265,11 @@ AssemblyAI or Deepgram could replace both Whisper AND pyannote diarization in a 
 - Presigned URL-based video upload
 - Progress tracking via polling or WebSocket
 
-### Phase 2: Replace apple-interlinked (1 week)
+### Phase 2: Replace Legacy Internal Dependencies (1 week)
 
 - Direct OpenAI/Anthropic SDK calls for intent classification
-- Remove apple-interlinked dependency
-- Makes the pipeline installable without Apple's internal PyPI
+- Remove legacy internal dependencies
+- All dependencies must be publicly available
 
 ### Phase 3: FaceKitRunner Replacement (4-8 weeks, if needed)
 
@@ -303,7 +303,7 @@ AssemblyAI or Deepgram could replace both Whisper AND pyannote diarization in a 
 
 3. **Cost model**: Local GPU inference is cheaper at scale but requires infrastructure management. Cloud APIs are simpler but cost per minute adds up. The breakeven depends on volume.
 
-4. **Per-speaker transcription in cloud**: MLX Whisper is Apple-only, but the `StereoTranscriber` calls it via subprocess. Swapping to `faster-whisper` (CUDA-optimized) would be straightforward — same CLI pattern, different binary.
+4. **Per-speaker transcription in cloud**: MLX Whisper is Apple Silicon-only, but the `StereoTranscriber` calls it via subprocess. Swapping to `faster-whisper` (CUDA-optimized) would be straightforward — same CLI pattern, different binary.
 
 5. **Multi-tenancy**: Current pipeline assumes single-user, local filesystem. Cloud deployment needs auth, isolation, and potentially per-tenant resource limits.
 

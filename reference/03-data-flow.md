@@ -1,6 +1,6 @@
 # Data Flow and Integration
 
-This document explains how data flows through the Curator system, how algorithms connect, and how to work with the unified annotation format.
+This document explains how data flows through the Sidechain system, how algorithms connect, and how to work with the unified annotation format.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ This document explains how data flows through the Curator system, how algorithms
 
 ## Pipeline Overview
 
-The Curator processing pipeline follows a **staged data flow** where outputs from earlier stages become inputs to later stages.
+The Sidechain processing pipeline follows a **staged data flow** where outputs from earlier stages become inputs to later stages.
 
 ### Seven-Stage Architecture
 

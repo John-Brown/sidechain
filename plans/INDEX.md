@@ -34,6 +34,7 @@ Stable technical docs — algorithm specs, data flow, deployment.
 | [system-flow.md](../reference/system-flow.md) | Pipeline flow diagram (with assets) |
 | [cloud-infrastructure.md](../reference/cloud-infrastructure.md) | Infrastructure documentation |
 | [local-to-aws-migration.md](../reference/local-to-aws-migration.md) | S3 migration runbook (local → AWS) |
+| [talkvid-dataset.md](../reference/talkvid-dataset.md) | TalkVid dataset format, quality metrics, download instructions |
 
 ## Completed Phases (`plans/archive/`)
 

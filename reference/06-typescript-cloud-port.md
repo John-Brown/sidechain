@@ -2,7 +2,7 @@
 
 > **Date:** February 2026
 > **Status:** Research / Proposal
-> **Constraint:** No Apple-internal tooling. All dependencies must be publicly available open-source or commercial services.
+> **Constraint:** All dependencies must be publicly available open-source or commercial services.
 
 ## What Exists Today
 
@@ -23,16 +23,16 @@ The system has two fundamentally different halves: a **Python ML pipeline** that
 - Task assignment is manual; no centralized quality control
 - Processing requires local GPU and model setup
 - FaceKitRunner is a macOS-only binary
-- Dependencies on Apple-internal tooling (TagKit/TagKitUI, AppleConnect auth, Interlinked/Floodgate SDK)
+- Dependencies on legacy internal tooling (TagKit/TagKitUI, legacy LLM proxy)
 
-### Apple-Internal Dependencies to Replace
+### Legacy Internal Dependencies to Replace
 
 | Dependency | Current Usage | Public Replacement |
 |------------|--------------|-------------------|
 | TagKit / TagKitUI | Annotation tag rendering and editing UI | Custom React components |
-| AppleConnect auth | Task Mode authentication for crowdsourcing | Clerk, Auth0, or Supabase Auth (OAuth2/OIDC) |
-| Interlinked SDK | Wraps Anthropic/OpenAI API calls through internal proxy | Direct `@anthropic-ai/sdk` + `openai` npm SDKs |
-| Floodgate API | Unified LLM endpoint | Direct provider APIs or LiteLLM for unified routing |
+| Legacy auth | Task Mode authentication for crowdsourcing | Clerk, Auth0, or Supabase Auth (OAuth2/OIDC) |
+| Legacy LLM SDK | Wraps Anthropic/OpenAI API calls through legacy internal proxy | Direct `@anthropic-ai/sdk` + `openai` npm SDKs |
+| Legacy LLM proxy | Unified LLM endpoint | Direct provider APIs or LiteLLM for unified routing |
 | FaceKitRunner (ARKit) | Facial tracking — 51 blend shapes, head pose, gaze | **Research needed** — see [Facial Tracking Replacement](#facial-tracking-replacement-research-needed) |
 | Shasta repo | Hosts TagKit dependency | Eliminated — custom UI replaces it |
 | Sparkle | macOS app updates | N/A for web deployment |
@@ -47,7 +47,7 @@ The system has two fundamentally different halves: a **Python ML pipeline** that
 |-----------|---------|---------|-------|
 | Silero VAD | PyTorch model, 16kHz/100ms windows | `@ricky0123/vad-node` or `onnxruntime-node` + official Silero ONNX | Same model, officially published as ONNX. Stereo energy calc is pure RMS math. |
 | FFmpeg | `ffmpeg-python` wrapper | `fluent-ffmpeg` | Same binary underneath, just a wrapper change |
-| LLM intent classification | Anthropic/OpenAI via Interlinked/Floodgate | `@anthropic-ai/sdk` + `openai` npm (direct) | Both SDKs are TypeScript-first. Eliminates Interlinked dependency entirely. |
+| LLM intent classification | Anthropic/OpenAI via direct SDK | `@anthropic-ai/sdk` + `openai` npm (direct) | Both SDKs are TypeScript-first. Uses public SDKs directly. |
 | State annotation | Rule-based (diarization -> speaking/listening) | Direct port | Pure logic, no models, ~200 lines |
 | Mouth energy | Weighted blend shape deviation | Direct port | Pure math on already-computed data |
 
@@ -150,10 +150,10 @@ Canvas 2D handles the data density easily — voice activity at 10Hz means 100-6
 21 Swift files implementing temporal masking, constraint validation, metrics tracking, and recovery. Complex state management but no technical barrier. The constraint model maps directly to a database-driven assignment system.
 
 **Existing annotation platforms (CVAT, Label Studio, VIA):**
-None are close enough to serve as a foundation. The gap between spatial video annotation and Curator's multi-track temporal annotation is too large. Build custom.
+None are close enough to serve as a foundation. The gap between spatial video annotation and Sidechain's multi-track temporal annotation is too large. Build custom.
 
 **Real-time collaboration — Easy, and the biggest win:**
-Yjs (CRDT) or Liveblocks provide conflict-free shared editing. Annotation data model maps cleanly to Yjs shared types. This transforms Curator from single-user desktop to collaborative platform.
+Yjs (CRDT) or Liveblocks provide conflict-free shared editing. Annotation data model maps cleanly to Yjs shared types. This transforms Sidechain from single-user desktop to collaborative platform.
 
 **Offline/PWA — Moderate:**
 Online-first is the right default for a crowdsourcing tool. Service workers + IndexedDB handle annotation data. Video files are the challenge (500MB-2GB each) — use OPFS for explicit offline downloads. Start online-only.
@@ -255,7 +255,7 @@ At 500 videos/month: ~$250-400/month (GPU scales, infrastructure stays flat).
 | Benefit | Impact |
 |---------|--------|
 | Cross-platform access | Annotators need a browser, not macOS + Apple Silicon |
-| No Apple-internal deps | Fully portable, open-source or commercial dependencies only |
+| No legacy internal deps | Fully portable, open-source or commercial dependencies only |
 | Real-time collaboration | Multiple annotators on same video simultaneously |
 | Centralized task management | Server-side queue replaces Box Drive sync + manual assignment |
 | Cloud processing | Scale workers dynamically; no local GPU/model setup |
@@ -299,6 +299,6 @@ Clerk auth, role-based access, task assignment, real-time presence.
 
 The question isn't "can this be ported" — it can, with the diarization caveat. The question is whether the **collaboration and distribution benefits** justify 3-4 months of engineering against a working system.
 
-If you're scaling the annotator pool beyond a handful of macOS users, the answer is yes. The hybrid architecture preserves the ML pipeline you've already validated while unlocking the web distribution model and eliminating Apple-internal dependencies.
+If you're scaling the annotator pool beyond a handful of macOS users, the answer is yes. The hybrid architecture preserves the ML pipeline you've already validated while unlocking the web distribution model and eliminating legacy internal dependencies.
 
 **Highest-priority research item:** Facial tracking replacement. Run MediaPipe vs FaceKitRunner comparison on existing test videos before committing to the port.

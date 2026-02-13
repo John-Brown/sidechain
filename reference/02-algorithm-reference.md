@@ -1,6 +1,6 @@
 # Algorithm Reference Guide
 
-This document provides detailed technical information about each algorithm in the Curator processing pipeline.
+This document provides detailed technical information about each algorithm in the Sidechain processing pipeline.
 
 ## Table of Contents
 
@@ -795,7 +795,7 @@ scipy
 3. Generate HF token
 4. Save token to file:
    ```bash
-   echo "your_token_here" > ~/Library/Application\ Support/Curator/huggingfacetoken.txt
+   echo "your_token_here" > ~/Library/Application\ Support/Sidechain/huggingfacetoken.txt
    ```
    (Environment variable `HUGGING_FACE_TOKEN` is also checked as fallback)
 
@@ -938,8 +938,8 @@ Classify expressive intents, intensity, and emotional valence of speech segments
 **File**: `src/processing/intent_annotation/intent_processor.py`
 
 **Models**:
-- Anthropic Claude (via Floodgate API)
-- OpenAI GPT (via Floodgate API)
+- Anthropic Claude (via Anthropic API)
+- OpenAI GPT (via OpenAI API)
 
 **Method**: Structured prompting with conversation context
 
@@ -1146,9 +1146,6 @@ json
 ```bash
 export ANTHROPIC_API_KEY="your_key"
 export OPENAI_API_KEY="your_key"
-# Or use Floodgate unified endpoint
-export FLOODGATE_API_KEY="your_key"
-export FLOODGATE_ENDPOINT="https://api.floodgate.com"
 ```
 
 ### Known Limitations
@@ -1324,7 +1321,7 @@ Use per-speaker transcription instead of standard transcription when:
    - Combine transcripts from both channels chronologically
    - Remove duplicate words caused by audio bleed (see Deduplication below)
 
-10. **Output in Curator Format**
+10. **Output in Sidechain Format**
     - Generate `speech_transcription.json` and `diarization.json`
     - Include processing metadata
 

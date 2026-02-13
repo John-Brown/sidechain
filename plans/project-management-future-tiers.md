@@ -58,7 +58,7 @@ These features are deferred to later phases but documented here for planning con
 
 ### Export Presets
 - Named export configurations per project
-- Output format selection: Curator JSON, COCO-temporal, custom CSV, raw JSONB dump
+- Output format selection: Sidechain JSON, COCO-temporal, custom CSV, raw JSONB dump
 - Field selection: which annotation types to include
 - Time format: seconds, milliseconds, timecode (HH:MM:SS.mmm)
 - Destination: S3 path, direct download, webhook POST

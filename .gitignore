@@ -56,6 +56,9 @@ packages/**/node_modules/
 packages/**/dist/
 packages/**/.turbo/
 
+# Data (downloaded samples, not tracked)
+data/
+
 # Local config
 .mcp.json
 generated_imgs/

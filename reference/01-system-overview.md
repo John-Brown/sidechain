@@ -1,14 +1,14 @@
-# Curator System Overview
+# Sidechain System Overview
 
-## What is Curator?
+## What is Sidechain?
 
-Curator is a social interaction annotation system that automatically analyzes video recordings to classify human behavior, communication patterns, and expressive intents. The system combines computer vision, audio processing, and AI-powered natural language understanding to generate detailed annotations of conversations.
+Sidechain is a social interaction annotation system that automatically analyzes video recordings to classify human behavior, communication patterns, and expressive intents. The system combines computer vision, audio processing, and AI-powered natural language understanding to generate detailed annotations of conversations.
 
 The core design philosophy is **"AI proposes, humans dispose"**: AI handles scale (processing videos faster than humans could) while humans provide judgment (validating and correcting AI predictions). The 7-stage pipeline, Task Mode constraints, and diagnostic logging all serve this human-AI collaboration model.
 
 ## System Components
 
-Curator consists of four main components:
+Sidechain consists of four main components:
 
 ### 1. Processing Pipeline (Python)
 A multi-stage backend that processes video files through various AI/ML algorithms to extract features and generate annotations.
@@ -19,10 +19,10 @@ A multi-stage backend that processes video files through various AI/ML algorithm
 - Python 3.12+ with PyTorch
 - FFmpeg for audio/video processing
 - Multiple AI models (Whisper, MLX Whisper, Silero-VAD, pyannote.audio, FaceKitRunner)
-- LLM integration (Claude/GPT via apple-interlinked and Floodgate)
+- LLM integration (Claude/GPT via Anthropic API)
 - MLX for Apple Silicon-optimized inference
 
-### 2. Curator App (Swift/SwiftUI)
+### 2. Sidechain App (Swift/SwiftUI)
 A native macOS application for visualizing, validating, and adjusting the generated annotations.
 
 **Location**: `src/visualization/`
@@ -101,7 +101,7 @@ The system follows a 7-stage pipeline that alternates between AI processing and 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Stages 1, 3, and 5 are automated (AI). Stages 2, 4, 6, and 7 are human validation/annotation performed in the Curator App, often via Task Mode for crowdsourcing.
+Stages 1, 3, and 5 are automated (AI). Stages 2, 4, 6, and 7 are human validation/annotation performed in the Sidechain App, often via Task Mode for crowdsourcing.
 
 ## Data Flow Overview
 
@@ -121,7 +121,7 @@ JSON Annotation Files
     ├── annotation_saves.json          (diagnostic log)
     └── processing_summary.json
     ↓
-[Curator App]
+[Sidechain App]
     ↓
 Visual Timeline + Validation UI (Task Mode)
     ↓
@@ -207,7 +207,7 @@ All outputs follow a consistent JSON schema with metadata and time-aligned data:
 - **CPU**: Multi-core processor (Intel/Apple Silicon)
 - **RAM**: 8GB
 - **Storage**: 5GB for models + video storage
-- **OS**: macOS 15+ (for Curator App and FaceKit)
+- **OS**: macOS 15+ (for Sidechain App and FaceKit)
 
 ### Recommended
 - **CPU**: Apple Silicon M1/M2/M3/M4 (for MPS acceleration and MLX)
@@ -217,12 +217,12 @@ All outputs follow a consistent JSON schema with metadata and time-aligned data:
 
 ### Cloud Processing
 - Can run processing pipeline on Linux with CUDA
-- Curator App requires macOS for visualization
+- Sidechain App requires macOS for visualization
 
 ## Project Structure
 
 ```
-Curator/
+Sidechain/
 ├── src/
 │   ├── processing/                  # Python processing pipeline
 │   │   ├── processor.py             # Main CLI dispatcher
@@ -243,7 +243,7 @@ Curator/
 │   │   │   └── audio_exclusion.py
 │   │   ├── state_annotation/        # Stage 3: state generation
 │   │   └── intent_annotation/       # Stage 5: LLM classification
-│   ├── visualization/               # Swift Curator App
+│   ├── visualization/               # Swift Sidechain App
 │   │   └── Sources/VideoVisualizer/
 │   │       ├── VideoVisualizerApp.swift
 │   │       ├── ContentView.swift
@@ -286,6 +286,6 @@ This project uses several open-source and commercial models:
 - **MLX Whisper**: MIT License (Apple Silicon optimized)
 - **pyannote.audio**: MIT License (requires HuggingFace agreement)
 - **FaceKitRunner**: Apple ARKit (macOS only)
-- **Claude/GPT**: Commercial APIs (via apple-interlinked / Floodgate)
+- **Claude/GPT**: Commercial APIs (via Anthropic API)
 
 See individual algorithm documentation for specific licensing details.

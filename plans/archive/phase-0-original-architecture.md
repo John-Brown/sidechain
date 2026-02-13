@@ -1,8 +1,8 @@
-# Curator Web: Browser-Based Video Annotation Platform
+# Sidechain Web: Browser-Based Video Annotation Platform
 
 ## Context
 
-Curator is a human-AI collaborative annotation system for social interaction analysis. It currently exists as reference documentation (~50K LOC spec) describing a 7-stage ML pipeline (Python) and a macOS-native visualization app (Swift/SwiftUI). The pipeline alternates AI automation with human validation: VAD, transcription, facial tracking, diarization, state annotation, intent classification, and backchannel tagging.
+Sidechain is a human-AI collaborative annotation system for social interaction analysis. It currently exists as reference documentation (~50K LOC spec) describing a 7-stage ML pipeline (Python) and a macOS-native visualization app (Swift/SwiftUI). The pipeline alternates AI automation with human validation: VAD, transcription, facial tracking, diarization, state annotation, intent classification, and backchannel tagging.
 
 **Goal**: Build a browser-based version that replaces the macOS-only workflow, enabling crowdsourced annotators to review and correct AI-generated annotations on uploaded videos. Start with a working foundation and iteratively add pipeline stages.
 
@@ -81,7 +81,7 @@ Video ──→ VAD ────────────────────
 | **Pipeline orchestration** | **Trigger.dev** ($10-25/mo) | Durable workflows with DAG support. `waitForEvent` for human-in-the-loop pauses. TypeScript-native. |
 | **GPU compute** | **Modal** (pay-per-second) | Scale-to-zero. Models baked into container images (no cold-start download). Per-second billing keeps costs proportional to usage. |
 | **Facial tracking** | **MediaPipe Face Mesh** | 52 blend shapes with ARKit-compatible naming. The 10 mouth shapes used for mouth energy map directly -- no weight recalibration. Cross-platform (Linux, browser, Node). |
-| **LLM (intents)** | **Anthropic SDK** (direct) | Replaces apple-interlinked. Claude 4.5 Sonnet for intent classification. |
+| **LLM (intents)** | **Anthropic SDK** (direct) | Direct Anthropic SDK. Claude 4.5 Sonnet for intent classification. |
 | **Frontend deploy** | **Vercel Pro** ($20/mo) | Native SvelteKit adapter. Preview deployments per PR. Edge functions for API routes. |
 | **Styling** | **Tailwind CSS 4** | Utility-first, pairs well with Svelte. |
 | **UI components** | **Skeleton UI** (Svelte) | Modals, dropdowns, tables -- the non-custom parts. |
@@ -251,7 +251,7 @@ Build a standalone HTML page with:
 
 - All 7 ML stages as Modal functions
 - MediaPipe replacing FaceKitRunner (validate blend shape parity)
-- Anthropic SDK replacing apple-interlinked for intent classification
+- Anthropic SDK for intent classification
 - Trigger.dev DAG orchestration with progress polling
 - Video list with per-stage processing status
 
@@ -295,7 +295,7 @@ Build a standalone HTML page with:
 
 - Error handling: retry failed stages, dead letter queue
 - CloudFront signed URLs (time-limited, per-user)
-- Export in Curator JSON format (backward compatibility)
+- Export in Sidechain JSON format (backward compatibility)
 - Analytics dashboard (processing throughput, cost tracking)
 - Load testing with 50 concurrent annotators
 - Annotator onboarding documentation
@@ -330,7 +330,7 @@ Build a standalone HTML page with:
 
 ### Pre-Production (Phase 5-6)
 - Load test: 50 concurrent WebSocket connections to Supabase Realtime
-- Process 10 videos end-to-end, verify output JSON matches Curator format
+- Process 10 videos end-to-end, verify output JSON matches Sidechain format
 - Inter-annotator agreement on 5 test videos with known ground truth
 - Cost validation: measure actual Modal spend vs estimates
 

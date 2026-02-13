@@ -85,7 +85,7 @@ mouthClose, mouthDimpleLeft/Right, mouthFrownLeft/Right, mouthFunnel, mouthLeft/
 
 **Raw from FaceKitRunner**: 3×3 rotation matrix + [x, y, z] translation (mm)
 
-**Curator's transform** (facial_tracking_processor.py):
+**Sidechain's transform** (facial_tracking_processor.py):
 - Flip Y,Z rows of rotation matrix (OpenCV coordinate convention)
 - Extract Euler angles via `atan2` decomposition ("Friend's Method")
 - Invert pitch so "nod up = positive"
@@ -97,7 +97,7 @@ mouthClose, mouthDimpleLeft/Right, mouthFrownLeft/Right, mouthFunnel, mouthLeft/
 
 **Raw from FaceKitRunner**: 3D lookat vector `[x, y, z]` in mm
 
-**Curator's transform**:
+**Sidechain's transform**:
 - `yaw = atan2(x, z)` — horizontal angle, -π to π
 - `pitch = atan2(y, sqrt(x² + z²))` — vertical angle, -π/2 to π/2
 - Rejected if vector too small: `|x| < 1mm, |y| < 1mm, |z| < 10mm`
@@ -133,7 +133,7 @@ facial_tracking.json
     │                   Uses: Welch's t-test or bootstrap analysis
     │                   Output: visible_speaker_probability in diarization.json metadata
     │
-    └─→ Curator App (Swift UI)
+    └─→ Sidechain App (SwiftUI)
             ├─→ Gaze Direction Track (yaw, pitch vector visualization)
             ├─→ Head Pose Track (yaw, pitch vector visualization)
             ├─→ Raw Inspector Panel (all 51 blend shapes, grouped)
@@ -187,7 +187,7 @@ For **full feature parity**, you also need:
 
 **Blend shape mapping**: MediaPipe outputs ARKit-compatible blend shape names. The 10 mouth blend shapes used for mouth energy map directly:
 
-| Curator Uses | MediaPipe Provides | Direct Match? |
+| Sidechain Uses | MediaPipe Provides | Direct Match? |
 |-------------|-------------------|---------------|
 | mouthDimpleRight/Left | mouthDimpleRight/Left | Yes |
 | lipsPucker | lipsPucker | Yes (as mouthPucker) |
