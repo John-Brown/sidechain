@@ -8,6 +8,7 @@
     EditType,
     AnnotationSetType,
   } from '@annotation/shared';
+  import { groupWordsBySegment, type TranscriptionSegment } from './utils/group-words.js';
   import type { Viewport } from './types.js';
 
   import { TimelineState } from './state/timeline.svelte.js';
@@ -177,6 +178,27 @@
 
   function transcriptionBlockLabel(item: SpeechWord): string {
     return item.speech.word;
+  }
+
+  // --- Transcription LOD: segment-level aggregation when zoomed out ---
+  const transcriptionSegments = $derived.by(() => {
+    if (!annotations.transcription?.data) return [];
+    return groupWordsBySegment(annotations.transcription.data);
+  });
+
+  const useSegmentLOD = $derived.by(() => {
+    const words = annotations.transcription?.data;
+    if (!words || words.length < 2) return false;
+    const avgDuration = (words[words.length - 1].time_range.end - words[0].time_range.start) / words.length;
+    return avgDuration * timeline.zoom < 8;
+  });
+
+  function segmentBlockClass(item: TranscriptionSegment): string {
+    return item.speaker === 'SPEAKER_00' ? 'block-speaker-0' : 'block-speaker-1';
+  }
+
+  function segmentBlockLabel(item: TranscriptionSegment): string {
+    return item.text;
   }
 
   function getTimeRangeStart(item: { time_range: { start: number } }): number {
@@ -920,14 +942,25 @@
           {#if showTranscription}
             <TrackContent>
               {#if hasTranscription}
-                <DOMTrack
-                  data={annotations.transcription!.data}
-                  getStart={getTimeRangeStart}
-                  getEnd={getTimeRangeEnd}
-                  blockClass={transcriptionBlockClass}
-                  blockLabel={transcriptionBlockLabel}
-                  onBlockClick={(item) => handleBlockClick(item as unknown as Record<string, unknown>)}
-                />
+                {#if useSegmentLOD}
+                  <DOMTrack
+                    data={transcriptionSegments}
+                    getStart={getTimeRangeStart}
+                    getEnd={getTimeRangeEnd}
+                    blockClass={segmentBlockClass}
+                    blockLabel={segmentBlockLabel}
+                    onBlockClick={(item) => handleBlockClick(item as unknown as Record<string, unknown>)}
+                  />
+                {:else}
+                  <DOMTrack
+                    data={annotations.transcription!.data}
+                    getStart={getTimeRangeStart}
+                    getEnd={getTimeRangeEnd}
+                    blockClass={transcriptionBlockClass}
+                    blockLabel={transcriptionBlockLabel}
+                    onBlockClick={(item) => handleBlockClick(item as unknown as Record<string, unknown>)}
+                  />
+                {/if}
               {:else if annotations.loadStatus.transcription === 'error'}
                 <div class="w-full h-full flex items-center justify-center">
                   <span class="text-viewer-sm text-red-400">Failed to load transcription data</span>
