@@ -100,15 +100,10 @@
   );
   const palette = $derived(isDark ? PALETTE_DARK : PALETTE_LIGHT);
 
-  // tRPC client
-  const supabase = createSupabaseBrowserClient();
-  const trpc = createTRPCClientInstance(async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
-  });
-
-  // Data loader (extracted from inline functions)
-  const dataLoader = createDataLoader({ trpc, annotations, timeline, session, videoId: props.videoId });
+  // tRPC client — initialized in onMount to avoid SSR fetch warnings
+  let supabase: ReturnType<typeof createSupabaseBrowserClient>;
+  let trpc: ReturnType<typeof createTRPCClientInstance>;
+  let dataLoader: ReturnType<typeof createDataLoader>;
 
   // Component refs
   let videoPlayer = $state<VideoPlayer>();
@@ -703,6 +698,14 @@
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Initialize browser-only clients (avoids SSR fetch warnings)
+    supabase = createSupabaseBrowserClient();
+    trpc = createTRPCClientInstance(async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token ?? null;
+    });
+    dataLoader = createDataLoader({ trpc, annotations, timeline, session, videoId: props.videoId });
 
     // Load data
     loadViewerData();

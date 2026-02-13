@@ -1,5 +1,36 @@
 # Development Log
 
+## 2026-02-13 — Viewer Bugfixes: Spacebar, Favicon 404s, SSR Warning
+
+### Spacebar playing video natively
+- **Root cause**: `<video>` element received spacebar keydown before the `<svelte:window>` handler could `preventDefault()`. Browser's native video play/pause fired alongside our custom `togglePlay()`.
+- **Fix**: Added `tabindex="-1"` and `onkeydown={(e) => e.preventDefault()}` on `<video>` in `VideoPlayer.svelte` — removes it from tab order and blocks all native keyboard behavior on the element. Our window-level handler in `AnnotationViewer.svelte` remains the sole keyboard controller.
+
+### Favicon / apple-touch-icon 404s
+- **Root cause**: Only `favicon.svg` existed in `static/`. Browsers auto-request `/favicon.ico` by convention regardless of `<link>` tags. iOS requests `apple-touch-icon.png` and `apple-touch-icon-precomposed.png`.
+- **Fix**: Created minimal `favicon.ico` (64 bytes) in `static/`. Added `<link rel="apple-touch-icon">` pointing to existing SVG in `app.html`.
+
+### SSR fetch warning
+- **Root cause**: `createSupabaseBrowserClient()` and `createTRPCClientInstance()` were initialized at component module level in `AnnotationViewer.svelte`. Supabase's browser client calls `fetch` during construction, triggering SvelteKit's SSR warning.
+- **Fix**: Moved all three initializations (`supabase`, `trpc`, `dataLoader`) into `onMount()`, declared as `let` variables at module level.
+
+### Files changed
+- Modified: `VideoPlayer.svelte`, `AnnotationViewer.svelte`, `app.html`
+- New: `static/favicon.ico`
+
+---
+
+## 2026-02-13 — Docs: Curator → Sidechain Rename + TalkVid Reference
+
+### Changes
+- Renamed all "Curator" references to "Sidechain" across `reference/` and `plans/archive/`
+- Added `reference/talkvid-dataset.md` — dataset format, quality metrics, download instructions
+- Added `talkvid-dataset.md` to `plans/INDEX.md`
+- Added `data/` to `.gitignore` for downloaded samples
+- New: `scripts/download-talkvid-sample.py`
+
+---
+
 ## 2026-02-08 — Server-Side Waveform Peaks Pipeline Stage
 
 ### Motivation

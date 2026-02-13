@@ -124,11 +124,13 @@
     bind:this={videoEl}
     {src}
     crossorigin="anonymous"
+    tabindex="-1"
     class="max-w-full max-h-full"
     onloadedmetadata={handleLoadedMetadata}
     ontimeupdate={handleTimeUpdate}
     onplay={handlePlay}
     onpause={handlePause}
+    onkeydown={(e) => e.preventDefault()}
   >
     <track kind="captions" />
   </video>
