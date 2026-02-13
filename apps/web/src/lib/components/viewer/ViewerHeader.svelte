@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getTimelineState, getSessionState, getEditorState } from './context.js';
+  import { getTimelineState, getSessionState, getEditorState, getAnnotationDataState } from './context.js';
   import { formatTimePrecise } from './utils/format-time.js';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import SaveIndicator from './components/SaveIndicator.svelte';
@@ -24,6 +24,9 @@
   const timeline = getTimelineState();
   const session = getSessionState();
   const editor = getEditorState();
+  const annotations = getAnnotationDataState();
+
+  const hasMeshTopology = $derived(!!annotations.facialTracking?.metadata?.mesh_topology);
 
   const taskTypeLabels: Record<string, string> = {
     tag_session_bounds: 'Session Bounds',
@@ -153,6 +156,22 @@
   >
     Normalize
   </button>
+
+  {#if hasMeshTopology}
+    <button
+      onclick={() => session.meshOverlayVisible = !session.meshOverlayVisible}
+      class="px-2 py-1 rounded text-viewer-sm transition-colors {session.meshOverlayVisible ? 'bg-purple-500/20 text-purple-400' : 'text-viewer-text-dim hover:text-viewer-text'}"
+      title="Face mesh overlay (F)"
+    >
+      <svg class="w-3.5 h-3.5 mr-1 inline-block align-[-2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="10" r="7" />
+        <path d="M5 10 Q12 16 19 10" />
+        <path d="M5 10 Q12 4 19 10" />
+        <line x1="12" y1="3" x2="12" y2="17" />
+      </svg>
+      Mesh
+    </button>
+  {/if}
 
   <div class="w-px h-6 bg-viewer-border"></div>
 

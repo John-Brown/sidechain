@@ -479,6 +479,12 @@
         }
         // In edit mode, N creates annotation — handled by CreateAnnotationBar
         break;
+      case 'KeyF':
+        e.preventDefault();
+        if (annotations.facialTracking?.metadata?.mesh_topology) {
+          session.meshOverlayVisible = !session.meshOverlayVisible;
+        }
+        break;
       case 'Delete':
       case 'Backspace':
         if (editor.editing && editor.hasSelection) {

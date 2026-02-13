@@ -40,6 +40,7 @@
         { keys: [mod, 'Scroll'], description: 'Zoom timeline' },
         { keys: ['P'], description: 'Picture-in-Picture' },
         { keys: ['N'], description: 'Toggle normalize' },
+        { keys: ['F'], description: 'Toggle face mesh' },
         { keys: ['?'], description: 'This help' },
       ],
     },

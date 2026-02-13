@@ -31,6 +31,11 @@ export interface ViewerPalette {
 	speaker0: { bg: string; border: string };
 	speaker1: { bg: string; border: string };
 	speakerDefault: { bg: string; border: string };
+
+	// Mesh overlay
+	meshWireframe: string;
+	meshDepth: string[];
+	meshIris: string;
 }
 
 export const PALETTE_DARK: ViewerPalette = {
@@ -62,6 +67,19 @@ export const PALETTE_DARK: ViewerPalette = {
 	speaker0: { bg: 'rgba(34, 211, 238, 0.3)', border: 'rgba(34, 211, 238, 0.6)' },
 	speaker1: { bg: 'rgba(244, 114, 182, 0.3)', border: 'rgba(244, 114, 182, 0.6)' },
 	speakerDefault: { bg: 'rgba(100, 116, 139, 0.2)', border: 'rgba(100, 116, 139, 0.4)' },
+
+	meshWireframe: 'rgba(99, 102, 241, 0.35)',
+	meshDepth: [
+		'rgba(59, 130, 246, 0.5)',
+		'rgba(6, 182, 212, 0.5)',
+		'rgba(20, 184, 166, 0.5)',
+		'rgba(52, 211, 153, 0.5)',
+		'rgba(163, 230, 53, 0.5)',
+		'rgba(250, 204, 21, 0.5)',
+		'rgba(249, 115, 22, 0.5)',
+		'rgba(239, 68, 68, 0.5)',
+	],
+	meshIris: 'rgba(168, 85, 247, 0.8)',
 };
 
 export const PALETTE_LIGHT: ViewerPalette = {
@@ -93,4 +111,17 @@ export const PALETTE_LIGHT: ViewerPalette = {
 	speaker0: { bg: 'rgba(8, 145, 178, 0.15)', border: 'rgba(8, 145, 178, 0.5)' },
 	speaker1: { bg: 'rgba(219, 39, 119, 0.12)', border: 'rgba(219, 39, 119, 0.45)' },
 	speakerDefault: { bg: 'rgba(71, 85, 105, 0.08)', border: 'rgba(71, 85, 105, 0.3)' },
+
+	meshWireframe: 'rgba(79, 70, 229, 0.3)',
+	meshDepth: [
+		'rgba(37, 99, 235, 0.45)',
+		'rgba(8, 145, 178, 0.45)',
+		'rgba(13, 148, 136, 0.45)',
+		'rgba(5, 150, 105, 0.45)',
+		'rgba(101, 163, 13, 0.45)',
+		'rgba(202, 138, 4, 0.45)',
+		'rgba(234, 88, 12, 0.45)',
+		'rgba(220, 38, 38, 0.45)',
+	],
+	meshIris: 'rgba(147, 51, 234, 0.75)',
 };
