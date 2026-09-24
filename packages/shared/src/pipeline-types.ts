@@ -66,6 +66,7 @@ export const EDIT_TYPES = [
   "merge",
   "classify",
   "bulk",
+  "confirm",
 ] as const;
 
 export type EditType = (typeof EDIT_TYPES)[number];
