@@ -5,29 +5,46 @@ paths:
   - "apps/web/src/lib/components/viewer/**"
 ---
 
-# Style Guide
+# Style Guide — Deco Parchment
 
-## Typeface
+Warm parchment surfaces, ink text, one teal for interaction, amber for ornament. Two themes: **Day** (default, `@theme` in `app.css`) and **Night** (`.dark` on `<html>`). Both must look right. 2px radius everywhere, no shadows, motion limited to 150–200ms color/border transitions.
 
-**Inter Variable** (`@fontsource-variable/inter`) — self-hosted, loaded in `app.css` before Tailwind. Variable weight axis 100–900. No Google Fonts, no external CDN.
+## Typefaces
+
+All self-hosted via @fontsource and imported in `app.css` before Tailwind. No Google Fonts, no CDN.
 
 ```css
-/* app.css — font-face registers before Tailwind reset */
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/dm-serif-display";
 @import "tailwindcss";
 ```
 
-Registered in `@theme`:
-```css
---font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
---font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-```
+| Token | Class | Family | Use |
+|-------|-------|--------|-----|
+| `--font-sans` | `font-sans` (default) | DM Sans Variable | Body, buttons, track labels, block text |
+| `--font-mono` | `font-mono` | IBM Plex Mono 400/500 | Numbers, timecodes, uppercase labels, kbd glyphs, code |
+| `--font-serif` | `font-serif` | DM Serif Display | Panel titles, dialog headings, the Inspector's category label. **Never on the timeline.** |
+| `--tracking-label` | `tracking-label` | 0.1em | Mono uppercase labels |
 
-Body has `antialiased` for subpixel rendering.
+Body has `antialiased`.
+
+## Mono usage (numbers and labels, not just code)
+
+Use `font-mono` for:
+- **Timecodes and durations** (header time, ruler, inspector time rows, queue times, locked-range ranges)
+- **Measured values**: zoom in px/s (`72 px/s`), confidences (`0.48`), counts (`31 / 46`), thresholds (`thr 0.50`)
+- **Uppercase labels**: `font-mono uppercase tracking-label` at 10–11px (section eyebrows like INSPECTOR, NEEDS REVIEW, TASK; button labels in the viewer header/toolbar; track group headers)
+- **Kbd hints** (`⌘E`, `⇥`, `↵`, `1–6`) and code / JSON / debug output
+
+Do not use mono for: sentence text, track names ("Waveform", "VAD"), block labels (words, categories), dialog body copy.
+
+Plex Mono digits are already fixed-width, so `tabular-nums` isn't needed on mono text (it's harmless). Keep `tabular-nums` for numbers set in DM Sans.
 
 ## Type Scale — App Pages
 
-Standard Tailwind utilities. Inter adoption is automatic via `--font-sans`.
+Standard Tailwind utilities, `--font-sans` by default.
 
 | Role | Class | Size | Weight |
 |------|-------|------|--------|
@@ -39,91 +56,139 @@ Standard Tailwind utilities. Inter adoption is automatic via `--font-sans`.
 
 ## Type Scale — Viewer Density
 
-Custom tokens in `app.css` `@theme` for the high-density annotation viewer. These generate Tailwind utilities.
+Custom tokens in `app.css` `@theme`. They generate Tailwind utilities.
 
 | Token | Class | Size | Line-height | Use |
 |-------|-------|------|-------------|-----|
-| `--text-viewer-xs` | `text-viewer-xs` | 10px (0.625rem) | 1 | Canvas labels, DOM track block text |
-| `--text-viewer-sm` | `text-viewer-sm` | 11px (0.6875rem) | 1.2 | Status/loading messages, zoom label + value |
-| `--text-viewer-base` | `text-viewer-base` | 12px (0.75rem) | 1.2 | Track labels (TrackLabel) |
+| `--text-viewer-xs` | `text-viewer-xs` | 10px | 1 | Block text, mono uppercase labels, canvas labels |
+| `--text-viewer-sm` | `text-viewer-sm` | 11px | 1.2 | Header controls, timecodes, status bar |
+| `--text-viewer-base` | `text-viewer-base` | 12px | 1.2 | Track labels, body text in panels |
+| `--text-viewer-md` | `text-viewer-md` | 13px | 1.45 | Task brief, the Inspector's confidence value |
+
+Serif headings in viewer panels are the exception (19px header title, 24px inspector category).
 
 ### Rules
 
-- **No arbitrary pixel sizes** — never use `text-[10px]`, `text-[11px]`, `text-[12px]`. Use the viewer tokens.
-- **Canvas font strings** — use `'10px "Inter Variable", sans-serif'`, not `'10px monospace'`.
-
-## Monospace Usage
-
-`font-mono` is reserved for **code and raw data display only**.
-
-| Use `font-mono` | Do NOT use `font-mono` |
-|-----------------|----------------------|
-| Inspector panel JSON `<pre>` blocks | Track labels ("VAD", "Waveform") |
-| Inspector time range values | Time display in viewer header |
-| Video detail results `<pre>` | Zoom value ("5.0x") |
-| Code snippets, debug output | DOM track blocks (words, states) |
-
-For fixed-width digits without monospace, use `tabular-nums`. Inter's tabular figures provide column-aligned numbers.
+- **No arbitrary pixel sizes** like `text-[10px]`. Use the viewer tokens.
+- **Canvas font strings** come from the constants in `tracks/draw-functions.ts`: `RULER_FONT` (`'10px "IBM Plex Mono", monospace'`) for timecodes and `CANVAS_LABEL_FONT` (`'10px "DM Sans Variable", sans-serif'`) for text labels. `CANVAS_TAG_FONT` (Plex Mono) is for short tags like the diarization `S0`.
 
 ## Weight Strategy
 
 | Role | Class | Numeric |
 |------|-------|---------|
 | Page/section headings | `font-semibold` | 600 |
-| Buttons, labels, table headers, badges | `font-medium` | 500 |
-| Body, inputs, descriptions | (default) | 400 |
+| Buttons, labels, badges, human blocks | `font-medium` | 500 |
+| Body, inputs, descriptions, AI blocks | (default) | 400 |
 
-Do not use `font-bold` (700) or `font-light` (300) — they're outside the project's weight range.
+Don't use `font-bold` (700) or `font-light` (300). The serif has a single weight.
 
 ## Color System
 
-### App-Level (shadcn-svelte)
+### App tokens (`app.css`)
 
-Defined in `app.css` `@theme` + `.dark` override. Semantic tokens:
+Day values in `@theme`, Night overrides in `.dark`. Use via Tailwind utilities (`bg-background`, `text-muted-foreground`, `border-border`, `bg-primary`, `hover:bg-primary-hover` …).
 
-- `background` / `foreground` — page base
-- `card` / `card-foreground` — card surfaces
-- `primary` / `primary-foreground` — main action color
-- `secondary`, `muted`, `accent` — supporting surfaces
-- `destructive` — error/danger actions
-- `border`, `input`, `ring` — form elements
+| Token | Day | Night | Role |
+|-------|-----|-------|------|
+| `background` / `foreground` | `#f5f0e8` / `#2a2520` | `#1c1814` / `#f0e9dd` | Parchment page, ink text |
+| `card`, `popover` | `#faf7f2` | `#242019` | Raised surfaces, panels |
+| `secondary`, `muted` | `#ede7db` | `#2e2821` | Inset surfaces, neutral badges |
+| `muted-foreground` | `#6b5f54` | `#b5a795` | Secondary text that must be read |
+| `subtle-foreground` | `#9a8e82` | `#7f7264` | **Hints only** (see contrast rule) |
+| `primary` / `primary-foreground` | `#1a6b5a` / `#fff` | `#3fa78d` / `#1c1814` | Teal: interactive only |
+| `primary-hover` | `#134d41` | `#6cc9ad` | Hover for primary fills (lighter on Night) |
+| `accent` | teal 5% | teal 10% | Hover wash, edit-mode wash, selected row |
+| `destructive` | `#a3322a` | `#ec8373` | Brick: errors, delete, failed. Same value as `--hue-challenge` |
+| `border`, `input` | `#c9bfb0` | `#4a4034` | Rules and field borders |
+| `ring` | `#1a6b5a` | `#3fa78d` | Focus ring |
+| `ornament` | `#b8860b` | `#d4a02a` | Amber: decorative only |
 
-Use via Tailwind utilities: `bg-background`, `text-foreground`, `border-border`, etc.
+**Teal is for interactive elements only**: buttons, links, the active mode segment, selection outlines, focus rings, resize handles, sliders, checkmarks. Don't use it for decoration or plain status. (App-page "ready/active" badges use `bg-primary/10 text-primary` as the one status exception.)
 
-### Viewer-Level
+**Amber is decorative only**: `◆` separators, the 2px top stripe on panels and dialogs, the 4px InfoBox left border (draft-recovery banner), 6px rotated-square bullets. Never on text that must be read, never as a state color.
 
-Custom properties in `viewer.css` (`.viewer-theme` / `.dark .viewer-theme`):
+Status badges on app pages: positive `bg-primary/10 text-primary`, in-progress `bg-secondary text-secondary-foreground`, neutral/paused `bg-muted text-muted-foreground`, failed `bg-destructive/10 text-destructive`. No raw Tailwind hues (`amber-*`, `indigo-*`, `green-*`, `red-*`, `slate-*` …) anywhere.
 
-| Variable | Light | Dark | Use |
-|----------|-------|------|-----|
-| `--viewer-bg` | `#ffffff` | `#0f1117` | Timeline background |
-| `--viewer-surface` | `#f4f5f7` | `#1a1d27` | Track label background, scrollbar track |
-| `--viewer-surface-2` | `#ebedf0` | `#242836` | Hover states |
-| `--viewer-border` | `#d4d8e0` | `#2e3345` | Borders, grid lines |
-| `--viewer-text` | `#1a1a2e` | `#e1e4ed` | Primary text |
-| `--viewer-text-dim` | `#64748b` | `#8b90a0` | Secondary text, labels |
-| `--viewer-accent` | `#6366f1` | `#6366f1` | Indigo accent (same both themes) |
-| `--viewer-playhead` | `#ef4444` | `#ef4444` | Playhead line (same both themes) |
-| `--viewer-warning-{bg,border,text,btn-bg,btn-text}` | amber 50/300/800/500/white | amber 950/700/200/700/50 | Draft-recovery / warning banner |
+### Contrast rule for dim text
 
-Accessed via utility classes: `bg-viewer-surface`, `text-viewer-text-dim`, `border-viewer-border`, etc.
+`subtle-foreground` / `--viewer-text-subtle` (`#9a8e82` on parchment ≈ 2.9:1) fails 4.5:1 at small sizes. Use it only for **redundant** hints: kbd glyphs next to a labelled button, table column headers, placeholder counts. Anything the annotator needs to read uses `muted-foreground` / `--viewer-text-dim`.
 
-### Canvas Palette
+### Viewer tokens (`viewer.css`)
 
-Canvas draw functions receive a `ViewerPalette` object (from `viewer-palette.ts`), not raw CSS variables. The palette is `$derived` from theme state in AnnotationViewer — canvas redraws automatically on theme change.
+`.viewer-theme` maps onto the app tokens, so Night follows `.dark` automatically.
 
-### DOM Track Block Colors
+| Variable | Maps to | Use |
+|----------|---------|-----|
+| `--viewer-bg` | `background` | Label column, ruler |
+| `--viewer-surface` | `card` | Track content, panels |
+| `--viewer-surface-2` | `secondary` | Group headers, video bar, insets |
+| `--viewer-border` | `border` | Rules, grid |
+| `--viewer-text` / `--viewer-text-dim` / `--viewer-text-subtle` | `foreground` / `muted-foreground` / `subtle-foreground` | Text tiers |
+| `--viewer-accent` / `-hover` / `-fg` / `-bg` | `primary` / `primary-hover` / `primary-foreground` / `accent` | Interactive teal and its wash |
+| `--viewer-danger` / `-fg` | `destructive` / `destructive-foreground` | Errors, delete |
+| `--viewer-ornament` | `ornament` | Amber ornament |
+| `--viewer-playhead` | `#b5391f` / `#f07a5a` | Playhead (brick, the warmest mark on screen) |
+| `--viewer-lock-hatch` | ink 7% / 10% | Locked-range hatch |
+| `--viewer-warning-*` | card / ornament / foreground / primary | Draft-recovery InfoBox |
 
-Defined in `viewer.css` with light defaults and `.dark` overrides. Each block variant uses a bg/border/text triple at different opacities:
+Utilities: `bg-viewer-surface`, `bg-viewer-surface-2`, `bg-viewer-bg`, `bg-viewer-accent-bg`, `text-viewer-text`, `text-viewer-text-dim`, `text-viewer-text-subtle`, `text-viewer-accent`, `text-viewer-danger`, `border-viewer-border`.
 
-- **Speakers**: `.block-speaker-0` (cyan), `.block-speaker-1` (pink)
-- **States**: `.block-speaking` (green), `.block-listening` (slate)
-- **Intents**: `.block-intent-engage` (indigo), `.block-intent-inform` (cyan), `.block-intent-inquire` (amber), `.block-intent-challenge` (red), `.block-intent-comfort` (purple), `.block-intent-celebrate` (emerald)
+### Data hues (`--hue-*`)
+
+Ten muted, warm-leaning categorical hues, Day / Night. They extend Deco Parchment, which has no categorical colors. Speaker 0 and inform are dusty blues on purpose so they stay distinct.
+
+| Hue | Day | Night | Data |
+|-----|-----|-------|------|
+| `--hue-spk-0` | `#3d5873` | `#8fb0cf` | Speaker 0 (words, waveform L, diarization) |
+| `--hue-spk-1` | `#9a4526` | `#e39170` | Speaker 1 |
+| `--hue-speaking` | `#4f6b2e` | `#a9c47f` | State: speaking, mouth energy |
+| `--hue-listening` | `#6b5f54` | `#b5a795` | State: listening |
+| `--hue-engage` | `#71406a` | `#c99bc0` | Intent: engage |
+| `--hue-inform` | `#4e5f86` | `#a3b0d8` | Intent: inform (and backchannel) |
+| `--hue-inquire` | `#87601a` | `#dcb060` | Intent: inquire |
+| `--hue-challenge` | `#a3322a` | `#ec8373` | Intent: challenge (= destructive) |
+| `--hue-comfort` | `#9c4a5c` | `#e39aab` | Intent: comfort |
+| `--hue-celebrate` | `#5f6b1f` | `#c2c870` | Intent: celebrate |
+| `--hue-label` | `#6b5f54` | `#b5a795` | User labels |
+
+### Block recipe (DOM tracks)
+
+One base class plus one hue class. State lives in attributes, never in per-block classes or effects:
+
+```html
+<div class="blk hue-intent-inquire" data-source="ai" data-lowconf aria-selected="true" tabindex="-1">
+```
+
+| State | Selector | Look |
+|-------|----------|------|
+| AI prediction | `.blk` | 10% tint (Night 16%), 45% border (Night 55%), text in the hue, weight 400 |
+| Human / confirmed | `[data-source="human"]`, `[data-source="supervisor_override"]` | Solid hue border, 22% tint (Night 30%), weight 500, static 2px inset ink cap |
+| Low confidence | `[data-lowconf]` (conf < `LOW_CONFIDENCE` = 0.6, from `viewer/review.ts`) | Dashed border at 90% of the hue + 135° hatch at 30% (Night 34%) |
+| Selected | `[aria-selected="true"]` | 2px teal outline, 1px offset, `z-index: 3` |
+| Locked (task) | `[data-locked]` | 40% opacity under the ink hatch overlay |
+| Focused | `:focus-visible` | 2px teal outline, 1px offset |
+
+Hue classes: `hue-spk-0`, `hue-spk-1`, `hue-speaking`, `hue-listening`, `hue-intent-{engage,inform,inquire,challenge,comfort,celebrate}`, `hue-label`, `hue-backchannel`.
+Handles: `.blk-handle.blk-handle-start` / `.blk-handle-end`, 4px teal bars rendered only on the selected block in edit mode. Drag origin: `.blk-ghost` (dashed, no fill).
+**No transitions and no shadows on `.blk`** (the human ink cap is static). Blocks use a roving tabindex per track.
+
+Locked ranges: `.locked-region-overlay` is a neutral ink hatch (`--viewer-lock-hatch`, 135°, 3px on / 5px off) with a LOCKED tag, never red.
+
+### Playhead
+
+`--viewer-playhead` / `palette.playhead`: brick `#b5391f` (Day), `#f07a5a` (Night). No neon red.
+
+### Canvas palette
+
+Canvas code (`draw-functions.ts`, `mesh-overlay.ts`, the overview) takes **every** color from the `ViewerPalette` parameter (`viewer-palette.ts`), `$derived` in AnnotationViewer from the `.dark` class on `<html>` (a MutationObserver keeps it in step with the DOM). `PALETTE_LIGHT` / `PALETTE_DARK` mirror the tokens above and add `lockHatch`, `lowConfMarker`, `overviewWindow` + `overviewWindowBg` (the accent-bg wash: 5% Day, 10% Night), the diarization `speaker0/1/Default` pairs, and `meshDepth` (8-step warm ramp: ink-blue → sage → ochre → brick). Keep `app.css`, `viewer.css` and `viewer-palette.ts` in sync.
 
 ## Conventions
 
-- **Dark mode**: toggled via `.dark` class on `<html>`. Use `@custom-variant dark (&:where(.dark, .dark *))` in Tailwind, not `prefers-color-scheme`.
-- **No inline color values** in canvas draw functions — always use the `ViewerPalette` parameter.
-- **Spacing**: follow Tailwind defaults (4px grid). Viewer uses tighter spacing than app pages.
-- **Border radius**: `--radius: 0.5rem` (8px) for cards/buttons. DOM track blocks use `rounded-sm` (2px).
-- **Transitions**: `transition-colors` on interactive elements. No transition on layout-critical elements during playback.
+- **Themes**: Day is the default. Night is the `.dark` class on `<html>` (`@custom-variant dark (&:where(.dark, .dark *))`), not `prefers-color-scheme` in CSS.
+- **Radius**: 2px everywhere. `--radius` and every `--radius-*` step are 2px, so `rounded`, `rounded-sm`, `rounded-md`, `rounded-lg` all render 2px. `rounded-full` only for tiny status dots.
+- **Shadows**: none (the static inset ink cap on human blocks is the one exception).
+- **Focus**: `:focus-visible` gets a 2px teal outline with a 1–2px offset. The base rule in `app.css` (`outline: 2px solid var(--color-ring); outline-offset: 2px`) covers every focusable element; components tighten the offset (blocks 1px, list rows −2px inset). App-page fields use `focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring`, never `ring-*` (a ring is a box-shadow).
+- **Motion**: `transition-colors` (150–200ms) on interactive elements only. Nothing on blocks or layout during playback or drag.
+- **Overlays** use bits-ui 2.x styled with these tokens: Dialog (Classify, Label text, Submit, Shortcuts), DropdownMenu (the block context menu), Slider (header zoom, mesh opacity). Select and Tooltip are allowed when needed (icon buttons use `title` today). The timeline, tracks and blocks stay hand-rolled.
+- **Theme default**: `stores/theme.svelte.ts` starts at `light`; `app.html` adds `.dark` before paint only for a stored `dark`, or a stored `system` on a dark OS.
+- **Spacing**: Tailwind defaults (4px grid). The viewer is denser than app pages.

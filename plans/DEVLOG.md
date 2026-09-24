@@ -1,5 +1,46 @@
 # Development Log
 
+## 2026-09-24 — Design pass: Deco Parchment timeline viewer
+
+Implemented the Claude Design "Deco Parchment" pass on `feat/design-pass` (one PR, based on PR #1). All 12 design notes for the timeline viewer are in; other app pages only picked up the tokens and fonts and lost their hardcoded Tailwind hues. Verified: 382/382 tests (18 files), svelte-check 0 errors / 0 warnings, `pnpm --filter web build` OK, `@annotation/db` and `@annotation/shared` typecheck OK.
+
+### Changes
+- **Tokens and fonts**: Day/Night token set in `app.css` (Day default, Night = `.dark`), `viewer.css` and `viewer-palette.ts` kept in sync; data hues `--hue-*`; 2px radius, no shadows, 150–200ms color transitions. Fonts self-hosted via @fontsource (DM Sans Variable, IBM Plex Mono 400/500, DM Serif Display); `@fontsource-variable/inter` removed. bits-ui 2.x re-added for overlays only (Dialog, DropdownMenu, Slider).
+- **Layout**: 48px header, Edit/Task toolbar, 400px top band (video 711 · Inspector 460 · review queue or task panel), 28px ruler outside the vertical scroll, grouped tracks (Audio / Face / Annotations) with sticky 184px labels, 30px overview, 24px status bar.
+- **Track layout** (`state/tracks.svelte.ts`, on `session.tracks`): one config array with per-mode heights, collapse and order per user; resize and reorder move a guide and commit on pointerup. View and edit share one layout, task has its own.
+- **Review**: `review.ts` (`LOW_CONFIDENCE` 0.6, provenance, queue, ⇥ navigation, task checklist), ReviewQueue, Inspector Confirm/Reclassify, ↵ confirm. New `confirm` edit type in `@annotation/shared` + `edit_type` enum, with migration `0004_soft_jamie_braddock.sql` (generated only, not run). `annotations.save` validates confirm edits and task `allowedOperations`.
+- **Blocks**: one `blk hue-*` recipe with state in attributes (`data-source`, `data-lowconf`, `aria-selected`, `data-locked`), roving tabindex, 4px teal handles on the selected block, `.blk-ghost` drag origin. States, intents and backchannels tracks are now rendered and editable; diarization is wired as a read-only canvas lane.
+- **Overlays mounted**: ClassifyDialog, LabelTextDialog, ContextMenu (right-click / menu key), TaskSubmitDialog, KeyboardShortcutsHelp.
+- **Dev fixture**: `/dev/viewer?mode=view|edit|task&theme=day|night&t=53.6` renders AnnotationViewer from `fixtures/generate.ts` (deterministic port of the design's `timeline-data.js`) without DB, tRPC or auth; 404 outside dev.
+- **Fixes found on the way**: undo threw `DataCloneError` on the first ⌘Z (`history.svelte.ts`); an empty `<video>` reset the playhead to 0.
+- **Review follow-up (critic gaps)**:
+  - Clicking a review-queue row no longer disables the viewer shortcuts; a pointer click refocuses the viewer root so ↵ confirms and ⇥ steps (task mini-queue too).
+  - `/dev/viewer` renders full-screen outside the app shell.
+  - The theme store defaults to Day. `app.html` only goes Night for a stored `dark` or `system` on a dark OS, and the canvas palette follows the `.dark` class through a MutationObserver. `?theme=` no longer overwrites the saved theme.
+  - Space and slider arrows stay with a focused control; ⇥ on a focused block moves between tracks.
+  - A global 2px teal `:focus-visible` outline; app-page fields use outlines instead of `ring-*`; the ReviewQueue list shows focus.
+  - The TaskPanel fallback brief is a sentence, not raw enums.
+  - State coverage gaps block Submit again (matches `data-contracts.md`), and the time on task is MM:SS.
+  - ⌘E keeps track heights.
+  - ClassifyDialog disables the categories a task doesn't allow.
+  - Low-confidence border at 90%; a single playhead cap; overview window fill from the palette (5% / 10%); head pose ±30°; 13px `text-viewer-md` token; short task ref (`T-XXXX`) in the header; header zoom is a bits-ui Slider; TrackLabel fits "Transcription" + lock + count.
+  - Removed `shadow-md` and `transition-all` from app pages; the fixture generator is lazy-loaded after the dev guard; undo/redo clears a stale selection; `drawDiarization` is binary-search culled.
+
+### Files changed
+- Modified: `CLAUDE.md`, `.claude/rules/{data-contracts,editing,performance,style-guide,testing,viewer}.md`, `plans/DEVLOG.md`, `apps/web/package.json`, `pnpm-lock.yaml`, `apps/web/src/{app.css,app.html}`, `apps/web/src/lib/stores/theme.svelte.ts`, `apps/web/src/lib/components/{ThemeToggle.svelte,upload/VideoUpload.svelte,project/{ProjectGuidelines,ProjectMembers,ProjectOverview,ProjectSettings}.svelte}`, `apps/web/src/lib/components/viewer/{AnnotationViewer,InspectorPanel,Playhead,VideoPlayer,ViewerHeader}.svelte`, `viewer/{data-loader.ts,viewer-palette.ts,viewer.css}`, `viewer/components/{ClassifyDialog,ContextMenu,DraftRecoveryBanner,KeyboardShortcutsHelp,LabelTextDialog,MeshOverlay,SaveIndicator,TaskPanel,TaskSubmitDialog}.svelte`, `viewer/state/{autosave,editor,history,session,task-mode}.svelte.ts`, `viewer/state/editor.test.ts`, `viewer/tracks/{CanvasTrack,DOMTrack,EditableDOMTrack,TrackContent,TrackLabel}.svelte`, `viewer/tracks/draw-functions.ts`, `apps/web/src/lib/server/trpc/routers/annotations.ts`, `apps/web/src/routes/{+layout.svelte,auth/login/+page.svelte,auth/signup/+page.svelte,projects/+page.svelte,projects/[id]/+page.svelte,videos/+page.svelte,videos/[id]/+page.svelte}`, `packages/db/{src/schema.ts,drizzle/meta/_journal.json}`, `packages/shared/src/{annotation-types,command-types,index,pipeline-types}.ts`
+- Renamed: `viewer/components/CreateAnnotationBar.svelte` → `viewer/components/EditToolbar.svelte`
+- New: `viewer/{review.ts,review.test.ts}`, `viewer/components/{ReviewQueue,TaskToolbar,TimelineOverview,ViewerStatusBar}.svelte`, `viewer/state/{tracks.svelte.ts,tracks.test.ts,task-mode.test.ts}`, `viewer/tracks/{TrackGroup.svelte,draw-functions.test.ts}`, `viewer/fixtures/{generate.ts,generate.test.ts}`, `apps/web/src/routes/dev/viewer/{+page.svelte,+page.ts}`, `packages/db/drizzle/{0004_soft_jamie_braddock.sql,meta/0004_snapshot.json}`
+- Deleted: `viewer/utils/focus-trap.ts` (bits-ui Dialog traps focus), `viewer/utils/push-undo.svelte.ts`
+
+### Known gaps
+- Zoom doesn't keep an anchor point (header or ⌘-wheel zoom keeps scrollLeft in px).
+- Diarization turns can't be selected for the Inspector (read-only canvas lane).
+- `videos.get` doesn't return the project name, so the header shows it only for the fixture.
+- bits-ui Tooltip isn't used; icon buttons keep `title` attributes.
+- `allowedCategories` and `lockedTimeRanges` are enforced in the UI only, not in `annotations.save`.
+
+---
+
 ## 2026-09-24 — Docs Freshness Audit (after 7-month gap)
 
 Checked CLAUDE.md, `.claude/rules/`, the audit-pipeline skill, `plans/`, and `reference/` against the code. Health check passed: 244/244 tests, svelte-check 0 errors, build OK.

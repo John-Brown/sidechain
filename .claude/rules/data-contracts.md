@@ -21,6 +21,8 @@
 
 **Human-only types** (no pipeline stage): `BackchannelResult` → `data: BackchannelAnnotation[]` with `backchannel { type (5 types), speaker, note }`; `UserLabelResult` → `data: UserLabel[]` with `text`
 
+**Per-item human review** (`AnnotationReview` in `annotation-types.ts`): optional `review { source: "human" | "supervisor_override", confirmed, by?, at? }` on an item. Absent = AI prediction. Stamped by the viewer on confirm/reclassify/create and persisted inside the `annotation_sets.data` JSONB. `annotations.save` rejects a `confirm` edit without a target index or a `review.confirmed = true` after-state.
+
 **All result types** include `AnnotationMetadata`: `source_file`, `format_version`, `created_timestamp`, `total_secs`, `algorithm { name, model, version, processing_time }`.
 
 **IMPORTANT**: Always validate TypeScript types against actual Python pipeline output (check `workers/ml-pipeline/stages/`). VAD and waveform are the stages whose output does not use the `data[]` shape.
@@ -30,7 +32,7 @@
 - **Stages**: vad, transcription, facial_tracking, waveform, mouth_energy, diarization, state_annotation, intent_classification
 - **Job status**: pending, running, completed, failed, cancelled
 - **Annotation set types**: state, intent, backchannel, session_bounds, transcription, user_labels
-- **Edit types**: create, resize, delete, split, merge, classify, bulk
+- **Edit types**: create, resize, delete, split, merge, classify, confirm, bulk (`confirm` = a human accepted an AI prediction unchanged; migration `0004`)
 - **Task types**: tag_session_bounds, verify_states, verify_intents, tag_backchannels
 - **Task status**: pending, assigned, in_progress, submitted, under_review, approved, rejected
 - **Annotation source**: ai, human, supervisor_override
