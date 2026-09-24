@@ -40,14 +40,15 @@ export class History<T> {
     const snapshot = this.#undoStack.pop();
     if (snapshot === undefined) return undefined;
     this.#redoStack.push(structuredClone($state.snapshot(currentState) as T));
-    return structuredClone(snapshot);
+    // Stack entries are deep $state proxies, which structuredClone can't clone
+    return structuredClone($state.snapshot(snapshot) as T);
   }
 
   redo(currentState: T): T | undefined {
     const snapshot = this.#redoStack.pop();
     if (snapshot === undefined) return undefined;
     this.#undoStack.push(structuredClone($state.snapshot(currentState) as T));
-    return structuredClone(snapshot);
+    return structuredClone($state.snapshot(snapshot) as T);
   }
 
   clear(): void {

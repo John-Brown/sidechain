@@ -1,41 +1,78 @@
-/* Viewer theme variables — light by default, dark via .dark ancestor */
+/*
+ * Viewer theme variables. They map onto the app tokens in app.css, so Day is
+ * the default and Night follows the .dark class on <html>. The data hues
+ * (--hue-*) are the only colors that are not app tokens.
+ */
 .viewer-theme {
-  --viewer-bg: #ffffff;
-  --viewer-surface: #f4f5f7;
-  --viewer-surface-2: #ebedf0;
-  --viewer-border: #d4d8e0;
-  --viewer-text: #1a1a2e;
-  --viewer-text-dim: #64748b;
-  --viewer-accent: #6366f1;
-  --viewer-playhead: #ef4444;
+  --viewer-bg: var(--color-background);       /* label column, ruler */
+  --viewer-surface: var(--color-card);        /* track content, panels */
+  --viewer-surface-2: var(--color-secondary); /* group headers, video bar, inset */
+  --viewer-border: var(--color-border);
+  --viewer-text: var(--color-foreground);
+  --viewer-text-dim: var(--color-muted-foreground);   /* readable secondary text */
+  --viewer-text-subtle: var(--color-subtle-foreground); /* redundant hints only (<4.5:1) */
+  --viewer-accent: var(--color-primary);      /* interactive only */
+  --viewer-accent-hover: var(--color-primary-hover);
+  --viewer-accent-fg: var(--color-primary-foreground);
+  --viewer-accent-bg: var(--color-accent);    /* edit wash, selected row */
+  --viewer-danger: var(--color-destructive);
+  --viewer-danger-fg: var(--color-destructive-foreground);
+  --viewer-ornament: var(--color-ornament);   /* amber, decorative only */
+  --viewer-playhead: #b5391f;
+  --viewer-lock-hatch: rgb(42 37 32 / 0.07);
 
-  /* Warning / draft recovery banner */
-  --viewer-warning-bg: #fffbeb;       /* amber-50 */
-  --viewer-warning-border: #fcd34d;   /* amber-300 */
-  --viewer-warning-text: #92400e;     /* amber-800 */
-  --viewer-warning-btn-bg: #f59e0b;   /* amber-500 */
-  --viewer-warning-btn-text: #ffffff;
+  /* Banners = InfoBox: card surface, 4px amber left border, teal action */
+  --viewer-warning-bg: var(--color-card);
+  --viewer-warning-border: var(--color-ornament);
+  --viewer-warning-text: var(--color-foreground);
+  --viewer-warning-btn-bg: var(--color-primary);
+  --viewer-warning-btn-text: var(--color-primary-foreground);
+
+  /* Data palette (Day) */
+  --hue-spk-0: #3d5873;
+  --hue-spk-1: #9a4526;
+  --hue-speaking: #4f6b2e;
+  --hue-listening: #6b5f54;
+  --hue-engage: #71406a;
+  --hue-inform: #4e5f86;
+  --hue-inquire: #87601a;
+  --hue-challenge: #a3322a;
+  --hue-comfort: #9c4a5c;
+  --hue-celebrate: #5f6b1f;
+  --hue-label: #6b5f54;
+  --hue-backchannel: var(--hue-inform);
+
+  /* Block alpha steps, used as color-mix percentages */
+  --blk-ai-bg: 10%;
+  --blk-ai-bd: 45%;
+  --blk-human-bg: 22%;
+  --blk-hatch: 30%;
 
   background-color: var(--viewer-bg);
   color: var(--viewer-text);
 }
 
 .dark .viewer-theme {
-  --viewer-bg: #0f1117;
-  --viewer-surface: #1a1d27;
-  --viewer-surface-2: #242836;
-  --viewer-border: #2e3345;
-  --viewer-text: #e1e4ed;
-  --viewer-text-dim: #8b90a0;
-  --viewer-accent: #6366f1;
-  --viewer-playhead: #ef4444;
+  --viewer-playhead: #f07a5a;
+  --viewer-lock-hatch: rgb(240 233 221 / 0.1);
 
-  /* Warning / draft recovery banner */
-  --viewer-warning-bg: #451a03;       /* amber-950 */
-  --viewer-warning-border: #b45309;   /* amber-700 */
-  --viewer-warning-text: #fde68a;     /* amber-200 */
-  --viewer-warning-btn-bg: #b45309;   /* amber-700 */
-  --viewer-warning-btn-text: #fffbeb; /* amber-50 */
+  /* Data palette (Night) */
+  --hue-spk-0: #8fb0cf;
+  --hue-spk-1: #e39170;
+  --hue-speaking: #a9c47f;
+  --hue-listening: #b5a795;
+  --hue-engage: #c99bc0;
+  --hue-inform: #a3b0d8;
+  --hue-inquire: #dcb060;
+  --hue-challenge: #ec8373;
+  --hue-comfort: #e39aab;
+  --hue-celebrate: #c2c870;
+  --hue-label: #b5a795;
+
+  --blk-ai-bg: 16%;
+  --blk-ai-bd: 55%;
+  --blk-human-bg: 30%;
+  --blk-hatch: 34%;
 }
 
 /* Focus-visible ring for interactive elements */
@@ -49,186 +86,104 @@
 .bg-viewer-surface { background-color: var(--viewer-surface); }
 .border-viewer-border { border-color: var(--viewer-border); }
 .text-viewer-text-dim { color: var(--viewer-text-dim); }
+.text-viewer-text-subtle { color: var(--viewer-text-subtle); }
 .text-viewer-text { color: var(--viewer-text); }
+.text-viewer-accent { color: var(--viewer-accent); }
+.text-viewer-danger { color: var(--viewer-danger); }
 .bg-viewer-bg { background-color: var(--viewer-bg); }
 .bg-viewer-surface-2 { background-color: var(--viewer-surface-2); }
+.bg-viewer-accent-bg { background-color: var(--viewer-accent-bg); }
 
-/* DOM track block variants — light defaults */
-.block-speaker-0 {
-  background-color: rgba(8, 145, 178, 0.12);
-  border-color: rgba(8, 145, 178, 0.4);
-  color: rgba(8, 145, 178, 0.85);
-}
-
-.block-speaker-1 {
-  background-color: rgba(219, 39, 119, 0.1);
-  border-color: rgba(219, 39, 119, 0.35);
-  color: rgba(219, 39, 119, 0.85);
-}
-
-.block-speaking {
-  background-color: rgba(5, 150, 105, 0.1);
-  border-color: rgba(5, 150, 105, 0.35);
-  color: rgba(5, 150, 105, 0.85);
-}
-
-.block-listening {
-  background-color: rgba(71, 85, 105, 0.1);
-  border-color: rgba(71, 85, 105, 0.25);
-  color: rgba(71, 85, 105, 0.7);
-}
-
-.block-intent-engage {
-  background-color: rgba(79, 70, 229, 0.12);
-  border-color: rgba(79, 70, 229, 0.4);
-  color: rgba(79, 70, 229, 0.85);
-}
-
-.block-intent-inform {
-  background-color: rgba(8, 145, 178, 0.12);
-  border-color: rgba(8, 145, 178, 0.4);
-  color: rgba(8, 145, 178, 0.85);
-}
-
-.block-intent-inquire {
-  background-color: rgba(217, 119, 6, 0.12);
-  border-color: rgba(217, 119, 6, 0.4);
-  color: rgba(217, 119, 6, 0.85);
-}
-
-.block-intent-challenge {
-  background-color: rgba(220, 38, 38, 0.12);
-  border-color: rgba(220, 38, 38, 0.4);
-  color: rgba(220, 38, 38, 0.85);
-}
-
-.block-intent-comfort {
-  background-color: rgba(124, 58, 237, 0.12);
-  border-color: rgba(124, 58, 237, 0.4);
-  color: rgba(124, 58, 237, 0.85);
-}
-
-.block-intent-celebrate {
-  background-color: rgba(5, 150, 105, 0.12);
-  border-color: rgba(5, 150, 105, 0.4);
-  color: rgba(5, 150, 105, 0.85);
-}
-
-.block-user-label {
-  background-color: rgba(139, 92, 246, 0.12);
-  border-color: rgba(139, 92, 246, 0.4);
-  color: rgba(139, 92, 246, 0.85);
-}
-
-/* Dark overrides for block variants */
-.dark .block-speaker-0 {
-  background-color: rgba(34, 211, 238, 0.3);
-  border-color: rgba(34, 211, 238, 0.6);
-  color: rgba(34, 211, 238, 0.9);
-}
-
-.dark .block-speaker-1 {
-  background-color: rgba(244, 114, 182, 0.3);
-  border-color: rgba(244, 114, 182, 0.6);
-  color: rgba(244, 114, 182, 0.9);
-}
-
-.dark .block-speaking {
-  background-color: rgba(52, 211, 153, 0.3);
-  border-color: rgba(52, 211, 153, 0.6);
-  color: rgba(52, 211, 153, 0.9);
-}
-
-.dark .block-listening {
-  background-color: rgba(100, 116, 139, 0.3);
-  border-color: rgba(100, 116, 139, 0.4);
-  color: rgba(100, 116, 139, 0.9);
-}
-
-.dark .block-intent-engage {
-  background-color: rgba(99, 102, 241, 0.3);
-  border-color: rgba(99, 102, 241, 0.6);
-  color: rgba(99, 102, 241, 0.9);
-}
-
-.dark .block-intent-inform {
-  background-color: rgba(34, 211, 238, 0.3);
-  border-color: rgba(34, 211, 238, 0.6);
-  color: rgba(34, 211, 238, 0.9);
-}
-
-.dark .block-intent-inquire {
-  background-color: rgba(245, 158, 11, 0.3);
-  border-color: rgba(245, 158, 11, 0.6);
-  color: rgba(245, 158, 11, 0.9);
-}
-
-.dark .block-intent-challenge {
-  background-color: rgba(239, 68, 68, 0.3);
-  border-color: rgba(239, 68, 68, 0.6);
-  color: rgba(239, 68, 68, 0.9);
-}
-
-.dark .block-intent-comfort {
-  background-color: rgba(167, 139, 250, 0.3);
-  border-color: rgba(167, 139, 250, 0.6);
-  color: rgba(167, 139, 250, 0.9);
-}
-
-.dark .block-intent-celebrate {
-  background-color: rgba(52, 211, 153, 0.3);
-  border-color: rgba(52, 211, 153, 0.6);
-  color: rgba(52, 211, 153, 0.9);
-}
-
-.dark .block-user-label {
-  background-color: rgba(167, 139, 250, 0.3);
-  border-color: rgba(167, 139, 250, 0.6);
-  color: rgba(167, 139, 250, 0.9);
-}
-
-/* Edit mode — header amber tint when editing */
-.viewer-header-editing {
-  background-color: color-mix(in srgb, var(--viewer-surface) 92%, #f59e0b 8%);
-}
-
-/* Edit mode — track container border when editing */
-.editable-track-container {
-  outline: 1px dashed var(--viewer-accent);
-  outline-offset: -1px;
+/*
+ * Block recipe. One base class plus one hue class:
+ *   <div class="blk hue-intent-inform" data-source="ai" data-lowconf aria-selected="true">
+ * State lives in attributes, so no per-block effects are needed.
+ * No transitions and no shadows (except the static human ink cap): see
+ * .claude/rules/performance.md.
+ */
+.blk {
+  --h: var(--hue-listening);
+  color: var(--h);
+  border: 1px solid color-mix(in srgb, var(--h) var(--blk-ai-bd), transparent);
+  background-color: color-mix(in srgb, var(--h) var(--blk-ai-bg), transparent);
   border-radius: 2px;
+  transition: none;
 }
 
-/* Locked time region overlay (repeating diagonal stripes) */
-.locked-region-overlay {
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 4px,
-    rgba(239, 68, 68, 0.08) 4px,
-    rgba(239, 68, 68, 0.08) 8px
+.blk[data-source="human"],
+.blk[data-source="supervisor_override"] {
+  border-color: var(--h);
+  font-weight: 500;
+  background-color: color-mix(in srgb, var(--h) var(--blk-human-bg), transparent);
+  box-shadow: inset 0 2px 0 var(--viewer-text); /* static ink cap */
+}
+
+.blk[data-lowconf] {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--h) 90%, transparent);
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--h) var(--blk-hatch), transparent) 0 2px,
+    transparent 2px 6px
   );
+}
+
+.blk[aria-selected="true"] {
+  outline: 2px solid var(--viewer-accent);
+  outline-offset: 1px;
+  z-index: 3;
+}
+
+.blk[data-locked] {
+  opacity: 0.4;
+}
+
+.blk:focus-visible {
+  outline: 2px solid var(--viewer-accent);
+  outline-offset: 1px;
+}
+
+/* Resize handles: 4px teal bars, rendered only on the selected block */
+.blk-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--viewer-accent);
+}
+.blk-handle-start { left: 0; }
+.blk-handle-end { right: 0; }
+
+/* Drag origin ghost: dashed outline only, no fill, no shadow */
+.blk-ghost {
+  border: 1px dashed var(--viewer-text-subtle);
+  border-radius: 2px;
+  background: transparent;
   pointer-events: none;
 }
 
-.dark .locked-region-overlay {
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 4px,
-    rgba(239, 68, 68, 0.12) 4px,
-    rgba(239, 68, 68, 0.12) 8px
-  );
-}
+/* Hue classes: one per data category */
+.hue-spk-0 { --h: var(--hue-spk-0); }
+.hue-spk-1 { --h: var(--hue-spk-1); }
+.hue-speaking { --h: var(--hue-speaking); }
+.hue-listening { --h: var(--hue-listening); }
+.hue-intent-engage { --h: var(--hue-engage); }
+.hue-intent-inform { --h: var(--hue-inform); }
+.hue-intent-inquire { --h: var(--hue-inquire); }
+.hue-intent-challenge { --h: var(--hue-challenge); }
+.hue-intent-comfort { --h: var(--hue-comfort); }
+.hue-intent-celebrate { --h: var(--hue-celebrate); }
+.hue-label { --h: var(--hue-label); }
+.hue-backchannel { --h: var(--hue-backchannel); }
 
-/* Dirty indicator dot for track labels */
-.dirty-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #f59e0b;
-  display: inline-block;
-  margin-left: 4px;
+/* Locked time region overlay: neutral ink hatch (not an error color) */
+.locked-region-overlay {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--viewer-lock-hatch) 0 3px,
+    transparent 3px 8px
+  );
+  pointer-events: none;
 }
 
 /* Timeline container scrollbar styling */
@@ -243,13 +198,9 @@
 
 .viewer-timeline::-webkit-scrollbar-thumb {
   background: var(--viewer-border);
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .viewer-timeline::-webkit-scrollbar-thumb:hover {
-  background: var(--viewer-surface-2);
-}
-
-.dark .viewer-timeline::-webkit-scrollbar-thumb:hover {
-  background: #4a5068;
+  background: var(--viewer-text-subtle);
 }

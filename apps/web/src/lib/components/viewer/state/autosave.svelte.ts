@@ -13,7 +13,7 @@ import type { AnnotationSetType } from '@annotation/shared';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 /** Maps editor field names to annotation_set types */
-const EDITABLE_TO_ANNOTATION_TYPE: Record<EditableType, AnnotationSetType> = {
+export const EDITABLE_TO_ANNOTATION_TYPE: Record<EditableType, AnnotationSetType> = {
   states: 'state',
   intents: 'intent',
   transcription: 'transcription',
@@ -34,6 +34,15 @@ interface SaveFn {
   (videoId: string, type: AnnotationSetType, data: unknown, edits: EditRecord[]): Promise<void>;
 }
 
+export interface AutoSaveOptions {
+  /**
+   * Back up edits to localStorage as a recoverable draft (default true).
+   * False keeps everything in memory, e.g. the /dev/viewer fixture, whose
+   * save function is a no-op too.
+   */
+  persistDrafts?: boolean;
+}
+
 export class AutoSaveState {
   status: SaveStatus = $state('idle');
   lastSavedAt: number | null = $state(null);
@@ -46,11 +55,13 @@ export class AutoSaveState {
   #savedStatusTimer: ReturnType<typeof setTimeout> | null = null;
   #disposed = false;
   #saving = false;
+  #persistDrafts: boolean;
 
-  constructor(editor: EditorState, videoId: string, saveFn: SaveFn) {
+  constructor(editor: EditorState, videoId: string, saveFn: SaveFn, opts: AutoSaveOptions = {}) {
     this.#editor = editor;
     this.#videoId = videoId;
     this.#saveFn = saveFn;
+    this.#persistDrafts = opts.persistDrafts ?? true;
   }
 
   /** Get the localStorage key for this video's draft */
@@ -58,23 +69,9 @@ export class AutoSaveState {
     return `draft:${this.#videoId}`;
   }
 
-  /**
-   * Call from $effect in component scope to watch dirty state.
-   * Returns a cleanup function.
-   */
-  watchDirtyState(): () => void {
-    // This is meant to be called inside a Svelte $effect
-    // The caller should read editor.hasChanges to create the reactive dependency
-    // and then call saveDraft() + scheduleSave() when dirty.
-    //
-    // We can't create $effect here (we're not in component init),
-    // so we provide the logic as methods.
-    return () => this.dispose();
-  }
-
   /** Immediately back up current editor state to localStorage */
   saveDraft(): void {
-    if (!this.#editor.editing) return;
+    if (!this.#persistDrafts || !this.#editor.editing) return;
 
     const draft: DraftData = {
       states: this.#editor.states ? [...this.#editor.states] : null,
@@ -138,10 +135,12 @@ export class AutoSaveState {
       this.#editor.clearDirty();
 
       // Remove localStorage draft
-      try {
-        localStorage.removeItem(this.draftKey);
-      } catch {
-        // non-fatal
+      if (this.#persistDrafts) {
+        try {
+          localStorage.removeItem(this.draftKey);
+        } catch {
+          // non-fatal
+        }
       }
 
       this.status = 'saved';

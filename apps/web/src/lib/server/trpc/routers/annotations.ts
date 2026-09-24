@@ -97,6 +97,40 @@ async function validateSavePermissions(
   return { membership, task: null };
 }
 
+// --- Input schemas ---
+
+/**
+ * One audit-trail record. A "confirm" (a human accepted an AI prediction
+ * unchanged) must name the item and carry its after-state, which holds the
+ * `review` stamp; that stamp is what persists the confirmation (it lives in
+ * the saved `data`), the edit row is the audit of who confirmed what.
+ */
+const editRecordSchema = z
+  .object({
+    editType: z.enum(EDIT_TYPES),
+    targetIndex: z.number().int().nullable(),
+    beforeState: z.unknown().nullable(),
+    afterState: z.unknown().nullable(),
+  })
+  .superRefine((edit, ctx) => {
+    if (edit.editType !== "confirm") return;
+    if (edit.targetIndex === null || edit.targetIndex < 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["targetIndex"],
+        message: "confirm edits must target an item index",
+      });
+    }
+    const review = (edit.afterState as { review?: { confirmed?: unknown } } | null)?.review;
+    if (!review || review.confirmed !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["afterState"],
+        message: "confirm edits must carry the confirmed item (review.confirmed = true)",
+      });
+    }
+  });
+
 // --- Router ---
 
 export const annotationsRouter = router({
@@ -112,18 +146,11 @@ export const annotationsRouter = router({
         data: z.unknown(),
         metadata: z.unknown().optional(),
         taskId: z.string().uuid().optional(),
-        edits: z.array(
-          z.object({
-            editType: z.enum(EDIT_TYPES),
-            targetIndex: z.number().int().nullable(),
-            beforeState: z.unknown().nullable(),
-            afterState: z.unknown().nullable(),
-          }),
-        ),
+        edits: z.array(editRecordSchema),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await validateSavePermissions(
+      const { task } = await validateSavePermissions(
         ctx.db,
         ctx.user.id,
         input.videoId,
@@ -131,12 +158,25 @@ export const annotationsRouter = router({
         input.taskId,
       );
 
+      // Task constraints: every recorded operation must be allowed
+      const allowed = (task?.constraints as TaskConstraints | null)?.allowedOperations;
+      if (allowed) {
+        const denied = input.edits.find((e) => !allowed.includes(e.editType));
+        if (denied) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `Operation "${denied.editType}" is not allowed in this task`,
+          });
+        }
+      }
+
       return await ctx.db.transaction(async (tx) => {
         // 1. Find current version (if any)
         const [current] = await tx
           .select({
             id: annotationSets.id,
             version: annotationSets.version,
+            metadata: annotationSets.metadata,
           })
           .from(annotationSets)
           .where(
@@ -166,7 +206,8 @@ export const annotationsRouter = router({
             type: input.type,
             version: nextVersion,
             data: input.data,
-            metadata: input.metadata ?? null,
+            // Carry the previous version's metadata forward when the client sends none
+            metadata: input.metadata ?? current?.metadata ?? null,
             source: "human",
             createdBy: ctx.user.id,
             isCurrent: true,

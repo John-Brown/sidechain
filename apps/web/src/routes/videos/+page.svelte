@@ -41,11 +41,11 @@
   }
 
   const statusColors: Record<VideoStatus, string> = {
-    uploading: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    uploaded: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400",
-    processing: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    ready: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    error: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    uploading: "bg-muted text-muted-foreground",
+    uploaded: "bg-secondary text-secondary-foreground",
+    processing: "bg-secondary text-secondary-foreground",
+    ready: "bg-primary/10 text-primary",
+    error: "bg-destructive/10 text-destructive",
   };
 
   function formatDuration(secs: number | null): string {
@@ -90,7 +90,7 @@
     {#if project.id}
       <button
         onclick={() => (showUpload = !showUpload)}
-        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
       >
         {showUpload ? "Cancel" : "Upload video"}
       </button>
@@ -145,7 +145,7 @@
                   </a>
                 </td>
                 <td class="px-4 py-3">
-                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {statusColors[video.status]}">
+                  <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium {statusColors[video.status]}">
                     {video.status}
                   </span>
                 </td>
@@ -165,7 +165,7 @@
                   <button
                     onclick={() => deleteVideo(video.id, video.filename)}
                     disabled={deleting === video.id}
-                    class="text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:underline disabled:opacity-50"
+                    class="text-sm font-medium text-destructive hover:underline disabled:opacity-50"
                   >
                     {deleting === video.id ? "Deleting..." : "Delete"}
                   </button>

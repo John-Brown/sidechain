@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { createFocusTrap } from '../utils/focus-trap';
+  import { Dialog } from 'bits-ui';
 
   interface Props {
     onClose: () => void;
@@ -8,290 +7,182 @@
 
   let { onClose }: Props = $props();
 
-  let dialogEl: HTMLDivElement;
-
-  const isMac = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac');
-  const mod = isMac ? '\u2318' : 'Ctrl';
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '');
 
   interface Shortcut {
-    keys: string[];
-    description: string;
-    editOnly?: boolean;
+    k: string;
+    d: string;
   }
 
   interface ShortcutGroup {
-    title: string;
-    shortcuts: Shortcut[];
+    name: string;
+    items: Shortcut[];
   }
 
-  const leftColumn: ShortcutGroup[] = [
+  // Copy and grouping from the design's SHORTCUTS table (design-pass.html).
+  const SHORTCUTS: ShortcutGroup[] = [
     {
-      title: 'Playback',
-      shortcuts: [
-        { keys: ['Space'], description: 'Play / pause' },
-        { keys: ['\u2190', '\u2192'], description: 'Seek \u00b11s' },
-        { keys: ['\u21e7', '\u2190', '\u2192'], description: 'Seek \u00b15s' },
-        { keys: ['Home', 'End'], description: 'Jump to start / end' },
+      name: 'Playback',
+      items: [
+        { k: 'Space', d: 'Play / pause' },
+        { k: '← →', d: '±1 s' },
+        { k: '⇧← →', d: '±5 s' },
+        { k: 'Home', d: 'Start' },
+        { k: 'P', d: 'Picture-in-picture' },
       ],
     },
     {
-      title: 'Navigation',
-      shortcuts: [
-        { keys: [mod, 'Scroll'], description: 'Zoom timeline' },
-        { keys: ['P'], description: 'Picture-in-Picture' },
-        { keys: ['N'], description: 'Toggle normalize' },
-        { keys: ['F'], description: 'Toggle face mesh' },
-        { keys: ['V'], description: 'Hide video (mesh mode)' },
-        { keys: ['?'], description: 'This help' },
-      ],
-    },
-  ];
-
-  const rightColumn: ShortcutGroup[] = [
-    {
-      title: 'Editing',
-      shortcuts: [
-        { keys: [mod, 'E'], description: 'Toggle edit mode' },
-        { keys: [mod, 'Z'], description: 'Undo', editOnly: true },
-        { keys: [mod, '\u21e7', 'Z'], description: 'Redo', editOnly: true },
-        { keys: [mod, 'S'], description: 'Force save', editOnly: true },
-        { keys: ['\u232b'], description: 'Delete selected', editOnly: true },
-        { keys: ['S'], description: 'Split at playhead', editOnly: true },
-        { keys: ['M'], description: 'Merge adjacent', editOnly: true },
-        { keys: ['C'], description: 'Classify / rename', editOnly: true },
+      name: 'Review',
+      items: [
+        { k: '⇥', d: 'Next in review' },
+        { k: '⇧⇥', d: 'Previous' },
+        { k: '↵', d: 'Confirm' },
+        { k: 'C', d: 'Reclassify' },
+        { k: '1–6', d: 'Pick category' },
       ],
     },
     {
-      title: 'Selection',
-      shortcuts: [
-        { keys: ['Tab'], description: 'Next annotation', editOnly: true },
-        { keys: ['\u21e7', 'Tab'], description: 'Previous annotation', editOnly: true },
-        { keys: ['Esc'], description: 'Deselect / exit edit', editOnly: true },
+      name: 'Edit',
+      items: [
+        { k: '⌘E', d: 'Toggle edit' },
+        { k: 'S', d: 'Split at playhead' },
+        { k: 'M', d: 'Merge next' },
+        { k: '⌫', d: 'Delete' },
+        { k: '⌘Z', d: 'Undo · ⇧ redo' },
+      ],
+    },
+    {
+      name: 'View',
+      items: [
+        { k: 'N', d: 'Normalize' },
+        { k: 'F', d: 'Face mesh' },
+        { k: 'V', d: 'Hide video' },
+        { k: '⌥↑↓', d: 'Move track' },
+        { k: '?', d: 'This panel' },
       ],
     },
   ];
 
-  onMount(() => {
-    const cleanupTrap = createFocusTrap(dialogEl);
+  /** The design writes Mac glyphs; spell the modifiers out elsewhere. */
+  function keyLabel(k: string): string {
+    if (isMac) return k;
+    return k.replace('⌘', 'Ctrl ').replace('⌥', 'Alt ');
+  }
 
-    function handleKeydown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
-    }
-    document.addEventListener('keydown', handleKeydown, true);
-    return () => {
-      cleanupTrap();
-      document.removeEventListener('keydown', handleKeydown, true);
-    };
-  });
-
-  function handleBackdropClick(e: MouseEvent) {
-    if (e.target === e.currentTarget) {
+  function handleKeydown(e: KeyboardEvent) {
+    // Escape belongs to bits-ui's escape layer; keep the rest away from the viewer shortcuts.
+    if (e.key === 'Escape') return;
+    e.stopPropagation();
+    if (e.key === '?') {
+      e.preventDefault();
       onClose();
     }
   }
 </script>
 
-{#snippet shortcutRow(shortcut: Shortcut)}
-  <div class="sk-row">
-    <span class="sk-desc">
-      {shortcut.description}
-      {#if shortcut.editOnly}
-        <span class="sk-edit-badge">Edit</span>
-      {/if}
-    </span>
-    <span class="sk-keys">
-      {#each shortcut.keys as key, i}
-        <kbd class="sk-key">{key}</kbd>
-      {/each}
-    </span>
-  </div>
-{/snippet}
-
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="sk-backdrop" onclick={handleBackdropClick} role="presentation" bind:this={dialogEl}>
-  <div class="sk-dialog" role="dialog" aria-label="Keyboard shortcuts" aria-modal="true">
-    <div class="sk-header">
-      <h3 class="sk-title">Keyboard Shortcuts</h3>
-      <button class="sk-close" onclick={onClose} aria-label="Close">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </button>
-    </div>
-
-    <div class="sk-body">
-      <div class="sk-column">
-        {#each leftColumn as group}
-          <div class="sk-group">
-            <h4 class="sk-group-title">{group.title}</h4>
-            {#each group.shortcuts as shortcut}
-              {@render shortcutRow(shortcut)}
-            {/each}
-          </div>
-        {/each}
-      </div>
-
-      <div class="sk-divider"></div>
-
-      <div class="sk-column">
-        {#each rightColumn as group}
-          <div class="sk-group">
-            <h4 class="sk-group-title">{group.title}</h4>
-            {#each group.shortcuts as shortcut}
-              {@render shortcutRow(shortcut)}
-            {/each}
-          </div>
-        {/each}
-      </div>
-    </div>
-  </div>
-</div>
+<Dialog.Root open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+  <Dialog.Portal>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="viewer-theme ov-overlay"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content onkeydown={handleKeydown} onEscapeKeydown={(e) => e.stopPropagation()}>
+      {#snippet child({ props })}
+        <div {...props} class="viewer-theme sk-panel">
+          <Dialog.Title level={2} class="sr-only">Keyboard shortcuts</Dialog.Title>
+          {#each SHORTCUTS as group (group.name)}
+            <div class="sk-group">
+              <h3 class="font-mono sk-group-title">{group.name}</h3>
+              {#each group.items as s (s.k)}
+                <div class="sk-row">
+                  <kbd class="font-mono sk-key">{keyLabel(s.k)}</kbd>
+                  <span>{s.d}</span>
+                </div>
+              {/each}
+            </div>
+          {/each}
+        </div>
+      {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
-  .sk-backdrop {
+  .ov-overlay {
     position: fixed;
     inset: 0;
     z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
+    background-color: color-mix(in srgb, var(--viewer-bg) 70%, transparent);
   }
 
-  .sk-dialog {
-    width: 580px;
-    max-height: 80vh;
+  /* Surface, 1px border, 2px amber top stripe, no shadow; 4 columns per the design */
+  .sk-panel {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 101;
+    width: min(880px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
     overflow-y: auto;
-    border-radius: 10px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding: 16px 20px;
+    background-color: var(--viewer-surface);
+    color: var(--viewer-text);
     border: 1px solid var(--viewer-border);
-    background: var(--viewer-surface);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+    border-top: 2px solid var(--viewer-ornament);
+    border-radius: 2px;
+    outline: none;
   }
 
-  .sk-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--viewer-border);
-    position: sticky;
-    top: 0;
-    background: var(--viewer-surface);
-    z-index: 1;
-  }
-
-  .sk-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--viewer-text);
-    margin: 0;
-  }
-
-  .sk-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--viewer-text-dim);
-    cursor: pointer;
-  }
-
-  .sk-close:hover {
-    background: var(--viewer-surface-2);
-    color: var(--viewer-text);
-  }
-
-  .sk-body {
-    display: flex;
-    padding: 16px 20px 20px;
-    gap: 0;
-  }
-
-  .sk-column {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .sk-divider {
-    width: 1px;
-    background: var(--viewer-border);
-    margin: 0 16px;
-    align-self: stretch;
+  @media (max-width: 720px) {
+    .sk-panel {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   .sk-group {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 6px;
+    min-width: 0;
   }
 
   .sk-group-title {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--viewer-text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 0 0 6px;
+    margin: 0;
     padding-bottom: 4px;
-    border-bottom: 1px solid color-mix(in srgb, var(--viewer-border) 50%, transparent);
+    border-bottom: 1px solid var(--viewer-border);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--viewer-text-dim);
   }
 
   .sk-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 4px 0;
-    gap: 12px;
-  }
-
-  .sk-desc {
+    gap: 8px;
     font-size: 12px;
-    color: var(--viewer-text-dim);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    white-space: nowrap;
-  }
-
-  .sk-keys {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-shrink: 0;
   }
 
   .sk-key {
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--viewer-text);
-    background: var(--viewer-bg);
+    min-width: 22px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    padding: 0 5px;
+    box-sizing: border-box;
     border: 1px solid var(--viewer-border);
-    border-radius: 4px;
-    padding: 1px 6px;
-    min-width: 20px;
-    text-align: center;
-    line-height: 18px;
-    box-shadow: 0 1px 0 var(--viewer-border);
-  }
-
-  .sk-edit-badge {
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: rgb(251 191 36);
-    background: rgb(251 191 36 / 0.15);
-    padding: 1px 5px;
-    border-radius: 3px;
+    border-radius: 2px;
+    background-color: var(--viewer-surface-2);
+    color: var(--viewer-text);
+    font-size: 10px;
+    white-space: nowrap;
   }
 </style>

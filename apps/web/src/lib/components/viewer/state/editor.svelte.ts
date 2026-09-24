@@ -8,6 +8,12 @@ import type {
 } from '@annotation/shared';
 import { History } from './history.svelte.js';
 import type { AnnotationDataState } from './annotation-data.svelte.js';
+import {
+  isHumanReviewed,
+  reviewKey,
+  withReview,
+  type ReviewableAnnotation,
+} from '../review.js';
 
 export type EditableType = 'states' | 'intents' | 'transcription' | 'backchannels' | 'userLabels';
 
@@ -51,6 +57,81 @@ export class EditorState {
   // Pending edit records per type — accumulated between saves
   #pendingEdits: Record<string, EditRecord[]> = {};
 
+  /**
+   * Stable keys (`start|end|label`, see review.ts) of items a human has
+   * decided on (confirmed, reclassified, created), for a type. Derived from
+   * the per-item `review` stamp, so undo/redo, drafts and saves keep it in
+   * sync with no extra state. O(n) per call: wrap it in `$derived` in
+   * components. Empty outside edit mode.
+   */
+  reviewedKeys(type: EditableType): ReadonlySet<string> {
+    return reviewedKeySet(this[type] as ReviewableAnnotation[] | null);
+  }
+
+  /** Whether the item at `index` has been decided on by a human. */
+  isReviewed(type: EditableType, index: number): boolean {
+    const item = (this[type] as ReviewableAnnotation[] | null)?.[index];
+    return item ? isHumanReviewed(item) : false;
+  }
+
+  /** Snapshot the current array of `type` onto its undo stack. Call before every commit. */
+  pushUndo(type: EditableType): void {
+    switch (type) {
+      case 'states':
+        if (this.states) this.stateHistory.push(structuredClone($state.snapshot(this.states)));
+        break;
+      case 'intents':
+        if (this.intents) this.intentHistory.push(structuredClone($state.snapshot(this.intents)));
+        break;
+      case 'transcription':
+        if (this.transcription) this.transcriptionHistory.push(structuredClone($state.snapshot(this.transcription)));
+        break;
+      case 'backchannels':
+        if (this.backchannels) this.backchannelHistory.push(structuredClone($state.snapshot(this.backchannels)));
+        break;
+      case 'userLabels':
+        if (this.userLabels) this.userLabelHistory.push(structuredClone($state.snapshot(this.userLabels)));
+        break;
+    }
+  }
+
+  /**
+   * Accept an AI prediction without changing it (↵ / "Confirm prediction").
+   * Stamps `review: { source: 'human', confirmed: true }` on the item, pushes
+   * undo, records a "confirm" audit edit and marks the type dirty so autosave
+   * persists it. Returns false (and does nothing) outside edit mode, for a bad
+   * index, or when a human already decided on the item.
+   */
+  confirm(type: EditableType, index: number, opts: { by?: string } = {}): boolean {
+    if (!this.editing) return false;
+    const arr = this[type] as ReviewableAnnotation[] | null;
+    if (!arr || index < 0 || index >= arr.length) return false;
+    if (isHumanReviewed(arr[index])) return false;
+
+    this.pushUndo(type);
+    const next = structuredClone($state.snapshot(arr)) as ReviewableAnnotation[];
+    const before = next[index];
+    const after = withReview(before, { confirmed: true, by: opts.by });
+    next[index] = after;
+    (this as unknown as Record<EditableType, ReviewableAnnotation[]>)[type] = next;
+
+    this.recordEdit(type, {
+      editType: 'confirm',
+      targetIndex: index,
+      beforeState: before,
+      afterState: after,
+    });
+    this.lastEditedType = type;
+    this.markDirty(type);
+    return true;
+  }
+
+  /** confirm() on the current selection. */
+  confirmSelected(opts: { by?: string } = {}): boolean {
+    if (this.selectedType === null || this.selectedIndex === null) return false;
+    return this.confirm(this.selectedType, this.selectedIndex, opts);
+  }
+
   /** Record an edit for the audit trail (batched until next save) */
   recordEdit(type: EditableType, edit: EditRecord): void {
     if (!this.#pendingEdits[type]) {
@@ -82,14 +163,29 @@ export class EditorState {
 
   /** Undo the last operation on the most recently edited type */
   undo(): boolean {
-    if (!this.lastEditedType) return false;
-    return this.#undoType(this.lastEditedType);
+    const type = this.lastEditedType;
+    if (!type) return false;
+    const ok = this.#undoType(type);
+    if (ok) this.#dropStaleSelection(type);
+    return ok;
   }
 
   /** Redo the last undone operation on the most recently edited type */
   redo(): boolean {
-    if (!this.lastEditedType) return false;
-    return this.#redoType(this.lastEditedType);
+    const type = this.lastEditedType;
+    if (!type) return false;
+    const ok = this.#redoType(type);
+    if (ok) this.#dropStaleSelection(type);
+    return ok;
+  }
+
+  /**
+   * After undo/redo replaced `type`'s array, a selection on it may point at a
+   * different item (create/split/merge shift indices), so ⌫, S, M or ↵ would
+   * act on the wrong one. Clear it.
+   */
+  #dropStaleSelection(type: EditableType): void {
+    if (this.selectedType === type) this.deselect();
   }
 
   #canUndoType(type: EditableType): boolean {
@@ -284,4 +380,13 @@ export class EditorState {
     if (!this.selectedType) return null;
     return this[this.selectedType] as { time_range: { start: number; end: number } }[] | null;
   }
+}
+
+function reviewedKeySet(items: readonly ReviewableAnnotation[] | null): ReadonlySet<string> {
+  const keys = new Set<string>();
+  if (!items) return keys;
+  for (const item of items) {
+    if (isHumanReviewed(item)) keys.add(reviewKey(item));
+  }
+  return keys;
 }

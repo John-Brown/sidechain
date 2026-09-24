@@ -6,6 +6,46 @@
  */
 
 import type { TaskConstraints, AnnotationSetType, EditType, TimeRange } from '@annotation/shared';
+import {
+  buildTaskChecklist,
+  computeReviewProgress,
+  type ChecklistItem,
+  type ChecklistTracks,
+  type ReviewProgress,
+  type ReviewScope,
+} from '../review.js';
+
+/** Data the review counters and checklist read. Wire with TaskModeState.connectReview(). */
+export interface TaskReviewSource {
+  /** Current data: editor arrays while editing, else the loaded annotations */
+  current: ChecklistTracks;
+  /** Data as loaded, before this session's edits (locked-range check) */
+  baseline?: ChecklistTracks;
+}
+
+/** annotation_set type → checklist track */
+const SET_TYPE_TO_TRACK: Partial<Record<AnnotationSetType, keyof ChecklistTracks>> = {
+  intent: 'intents',
+  transcription: 'words',
+  state: 'states',
+  backchannel: 'backchannels',
+};
+
+/** Which review kinds a task covers. No constraints (or no reviewable types) → both. */
+export function reviewScopeFor(constraints: TaskConstraints | null): ReviewScope {
+  const types = constraints?.editableTypes ?? [];
+  const scope = { intents: types.includes('intent'), words: types.includes('transcription') };
+  if (!scope.intents && !scope.words) return { intents: true, words: true };
+  return scope;
+}
+
+/** Tracks the "No overlaps" row checks: the task's editable types, or intents by default. */
+export function overlapTracksFor(constraints: TaskConstraints | null): (keyof ChecklistTracks)[] {
+  const tracks = (constraints?.editableTypes ?? [])
+    .map((t) => SET_TYPE_TO_TRACK[t])
+    .filter((t): t is keyof ChecklistTracks => t !== undefined);
+  return tracks.length > 0 ? [...new Set(tracks)] : ['intents'];
+}
 
 export interface TaskInfo {
   id: string;
@@ -38,6 +78,64 @@ export class TaskModeState {
 
   #timerInterval: ReturnType<typeof setInterval> | null = null;
   #startTime: number | null = null;
+
+  // Getter over reactive viewer state; $state.raw so re-connecting re-runs dependents
+  #reviewSource: (() => TaskReviewSource) | null = $state.raw(null);
+
+  /**
+   * Point the review counters and checklist at the viewer's data, e.g.
+   * `taskMode.connectReview(() => ({ current: { intents: editor.intents ?? annotations.intentClassification?.data }, baseline: {...} }))`.
+   * The getter is re-read on every access, so reads stay reactive.
+   */
+  connectReview(source: (() => TaskReviewSource) | null): void {
+    this.#reviewSource = source;
+  }
+
+  /** Review kinds this task covers (intents and/or words). */
+  get reviewScope(): ReviewScope {
+    return reviewScopeFor(this.constraints);
+  }
+
+  /** Review counters over the connected data; zeros when not connected. */
+  get reviewProgress(): ReviewProgress {
+    const src = this.#reviewSource?.();
+    if (!src) {
+      return { reviewedCount: 0, totalReviewable: 0, lowConfRemaining: 0, intentsReviewed: 0, intentsTotal: 0 };
+    }
+    return computeReviewProgress(src.current, this.reviewScope);
+  }
+
+  /** Items a human has confirmed/decided on (see review.ts computeReviewProgress). */
+  get reviewedCount(): number {
+    return this.reviewProgress.reviewedCount;
+  }
+
+  /** All intents in scope plus flagged/reviewed words. */
+  get totalReviewable(): number {
+    return this.reviewProgress.totalReviewable;
+  }
+
+  /** Low-confidence AI items still unreviewed (the queue length within scope). */
+  get lowConfRemaining(): number {
+    return this.reviewProgress.lowConfRemaining;
+  }
+
+  /** "Before you submit" rows: all reviewed, low-confidence resolved, no overlaps, locked untouched. */
+  get checklist(): ChecklistItem[] {
+    const src = this.#reviewSource?.();
+    return buildTaskChecklist({
+      current: src?.current ?? {},
+      baseline: src?.baseline,
+      scope: this.reviewScope,
+      overlapTracks: overlapTracksFor(this.constraints),
+      lockedRanges: this.lockedTimeRanges,
+    });
+  }
+
+  /** True when every checklist row is done. */
+  get checklistComplete(): boolean {
+    return this.checklist.every((row) => row.done);
+  }
 
   /** Initialize task mode with task data */
   activate(task: TaskInfo): void {

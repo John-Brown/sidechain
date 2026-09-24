@@ -115,11 +115,11 @@
   }
 
   const jobStatusColors: Record<JobStatus, string> = {
-    pending: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
-    running: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-900/30 dark:text-gray-500",
+    pending: "bg-muted text-muted-foreground",
+    running: "bg-secondary text-secondary-foreground",
+    completed: "bg-primary/10 text-primary",
+    failed: "bg-destructive/10 text-destructive",
+    cancelled: "bg-muted text-subtle-foreground",
   };
 
   const STAGE_DEPS: Record<PipelineStage, PipelineStage[]> = {
@@ -299,7 +299,7 @@
         {#if completedCount > 0}
           <a
             href="/videos/{data.videoId}/timeline"
-            class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
           >
             Open Timeline
           </a>
@@ -353,7 +353,7 @@
             <label for="edit-tags" class="text-sm font-medium">Tags</label>
             <div class="flex flex-wrap gap-1.5 mb-1.5">
               {#each editTags as tag}
-                <span class="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
+                <span class="inline-flex items-center gap-1 rounded-sm bg-muted px-2.5 py-0.5 text-xs font-medium">
                   {tag}
                   <button
                     onclick={() => removeTag(tag)}
@@ -405,7 +405,7 @@
             <button
               onclick={saveMetadata}
               disabled={saving}
-              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
             >
               {saving ? "Saving..." : "Save"}
             </button>
@@ -428,7 +428,7 @@
             {#if meta.tags?.length}
               <div class="flex flex-wrap gap-1.5">
                 {#each meta.tags as tag}
-                  <span class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">{tag}</span>
+                  <span class="inline-flex items-center rounded-sm bg-muted px-2.5 py-0.5 text-xs font-medium">{tag}</span>
                 {/each}
               </div>
             {/if}
@@ -467,7 +467,7 @@
             <button
               onclick={processAll}
               disabled={processingAll}
-              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+              class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
             >
               {#if processingAll}
                 Starting...
@@ -497,13 +497,13 @@
                 </span>
               {/if}
               {#if job}
-                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {jobStatusColors[job.status]}">
+                <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium {jobStatusColors[job.status]}">
                   {job.status}
                 </span>
                 {#if job.status === "running"}
-                  <div class="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                  <div class="w-24 h-2 rounded-sm bg-muted overflow-hidden">
                     <div
-                      class="h-full bg-primary transition-all"
+                      class="h-full bg-primary transition-[width] duration-150"
                       style="width: {job.progress * 100}%"
                     ></div>
                   </div>
@@ -515,15 +515,15 @@
                 {/if}
               {:else}
                 {#if IN_DEVELOPMENT.has(stage)}
-                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                  <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium border border-dashed border-border text-muted-foreground">
                     In development
                   </span>
                 {:else if !depsReady}
-                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium border border-border text-muted-foreground">
                     Awaiting dependencies
                   </span>
                 {:else}
-                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                  <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium bg-secondary text-secondary-foreground">
                     Ready
                   </span>
                 {/if}
@@ -549,7 +549,7 @@
                 <button
                   onclick={() => retryStage(stage)}
                   disabled={retryingStage !== null}
-                  class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+                  class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
                 >
                   {retryingStage === stage ? "Retrying..." : "Retry"}
                 </button>
