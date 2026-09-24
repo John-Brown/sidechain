@@ -1,5 +1,52 @@
 # Development Log
 
+## 2026-09-24 — Docs Freshness Audit (after 7-month gap)
+
+Checked CLAUDE.md, `.claude/rules/`, the audit-pipeline skill, `plans/`, and `reference/` against the code. Health check passed: 244/244 tests, svelte-check 0 errors, build OK.
+
+### Changes
+- CLAUDE.md: Phase 4 marked complete (command executor + router tests deferred); 8 stages; transcription = WhisperX + large-v3-turbo; facial_tracking T4 + Depth Anything V2; diarization A10G, auth fixed; RLS section replaced with the actual authorization model (no policies exist; checks live in tRPC); missing env vars; removed shadcn-svelte/bits-ui claims; updated viewer file map
+- Rules: viewer.md (5 contexts, new tracks, LOD, mesh overlay, real hierarchy); editing.md (`History<T>` class; executor is unbuilt); ai-first.md (status banner: types only); data-contracts.md (waveform stage + result types, mesh/depth fields); trpc.md (UserInfo, publicProcedure, requireMembership, CONFLICT); pipeline.md (correct DAG, human gates shipped, GPUs); testing.md (real coverage table, 244 tests); docs.md (`paths:` frontmatter); style-guide.md (warning palette, TrackRow removed)
+- Skill audit-pipeline: added waveform stage; `Task` → `Agent` tool name
+- Moved `plans/phase-4-editing-task-mode.md` → `plans/archive/`
+- INDEX.md: flagged reference 01–04 as Phase 0 spike era, added PIPELINE.md
+- Fixed broken links in reference/01, 02, 04, 05
+
+### Files changed
+- Modified: `CLAUDE.md`, `.claude/rules/{viewer,editing,ai-first,data-contracts,trpc,pipeline,testing,docs,style-guide}.md`, `.claude/skills/audit-pipeline/{SKILL,expected-shapes}.md`, `plans/INDEX.md`, `plans/DEVLOG.md`, `reference/{01,02,04,05}-*.md`
+- Moved: `plans/phase-4-editing-task-mode.md` → `plans/archive/`
+
+### Cleanup
+
+Four implementers ran in parallel on top of the audit above: pipeline model/SDK bump, dead-code removal, missing-test backfill, and a reference-docs reorg. Verified afterward: 270/270 tests, svelte-check 0 errors, build OK, `uv sync --frozen` + both pipeline module imports OK.
+
+- **Pipeline model/SDK**: `intent_classification.py` now uses a `CLAUDE_MODEL = "claude-sonnet-5"` constant (was hardcoded `claude-sonnet-4-5-20250929` in two places); `anthropic` bumped `>=0.30` → `>=1.0` (`pyproject.toml`, `uv.lock`, `modal_app.py`'s `intent_image` pip_install); diarization docstrings reworded to "pyannote.audio (pyannote/speaker-diarization-3.1 pipeline)"; `PIPELINE.md` model/SDK mentions updated to match.
+- **Dead code removed**: duplicate `viewer/editing/history.test.ts` (cases merged into `viewer/state/history.test.ts`, now 15 tests); unused `viewer/tracks/TrackRow.svelte`; unused `$lib/utils.ts` (shadcn `cn()` helper); deps `bits-ui`, `tailwind-variants`, `@types/dompurify`, `clsx`, `tailwind-merge` removed from `apps/web/package.json` (dompurify 3.3.1 ships its own types). `.gitignore` gained `**/.DS_Store` so `packages/.DS_Store` stops reappearing in status.
+- **New tests**: `viewer/utils/group-words.test.ts` (12 tests) and `viewer/mesh-overlay.test.ts` (21 tests), covering the transcription-LOD grouping and keyframe depth interpolation modules added in the prior entry below.
+- **Reference docs reorg**: Phase 0 docs 01, 03–06 moved to `plans/archive/phase-0-reference/` with archive banners (superseded by current code — Silero v3.1→v5, OpenAI/MLX Whisper→WhisperX/faster-whisper, FaceKitRunner→MediaPipe, Swift app gone). `02-algorithm-reference.md` (1452 lines) split into `02a`–`02d` (vad/transcription/face, mouth/diarization/states, intents/summary, phase-0 extras), each under 500 lines with a status banner and current-file pointers. `07-facial-tracking-reference.md` re-bannered (MediaPipe FaceLandmarker, not FaceKitRunner). `cloud-infrastructure.md`, `getting-started.md`, `local-to-aws-migration.md`, `system-flow.md` fixed against `modal_app.py`/`dag.ts` (8 stages incl. waveform, facial_tracking + diarization on GPU, real app name/secrets, current result filenames). `plans/viewer-code-review.md` moved to `plans/archive/`. `docs.md` gained lifecycle/size rules for archiving and splitting. `plans/INDEX.md` rewritten to match.
+- **Doc fixes applied on top of the above** (this session): `CLAUDE.md` — `viewer-code-review.md` path corrected to `plans/archive/`, bits-ui sentence corrected, Reference Docs section updated (setup/system-flow/infra/02a–02d, added `plans/archive/phase-0-reference/` row), `docs.md` rules-table row noted archive/split rules, `ContextMenu` flagged `(unwired)` in the viewer file map; `reference/cloud-infrastructure.md` model ID updated to `claude-sonnet-5`; `.claude/rules/testing.md` coverage table recounted to 270 tests / 13 files (duplicate history row removed, group-words + mesh-overlay rows added, Remaining Test Priorities row for both removed).
+- **Known gap, not fixed here**: `ClassifyDialog.svelte` and `ContextMenu.svelte` are written but never mounted (`AnnotationViewer.svelte` declares `showClassifyDialog` and wires the `C` key to it, but never renders the dialog; `EditableDOMTrack`'s `onBlockContextMenu` prop has no caller). Left as-is — wiring vs. deleting is a product call, not a cleanup item.
+
+### Files changed (cleanup)
+- Modified: `workers/ml-pipeline/{stages/intent_classification.py,stages/diarization.py,modal_app.py,pyproject.toml,uv.lock,PIPELINE.md}`, `apps/web/{package.json,src/lib/components/viewer/state/history.test.ts}`, `pnpm-lock.yaml`, `.gitignore`, `reference/{07-facial-tracking-reference,cloud-infrastructure,getting-started,local-to-aws-migration,system-flow}.md`, `.claude/rules/{docs,testing}.md`, `CLAUDE.md`, `plans/INDEX.md`
+- Deleted: `apps/web/src/lib/components/viewer/editing/history.test.ts`, `apps/web/src/lib/components/viewer/tracks/TrackRow.svelte`, `apps/web/src/lib/utils.ts`
+- New: `apps/web/src/lib/components/viewer/{mesh-overlay.test.ts,utils/group-words.test.ts}`, `reference/02b-algorithm-reference-mouth-diarization-states.md`, `reference/02c-algorithm-reference-intents-summary.md`, `reference/02d-algorithm-reference-phase0-extras.md`
+- Moved: `reference/{01-system-overview,03-data-flow,04-quick-start,05-cloud-deployment-guidance,06-typescript-cloud-port}.md` → `plans/archive/phase-0-reference/`; `reference/02-algorithm-reference.md` → `reference/02a-algorithm-reference-vad-transcription-face.md`; `plans/viewer-code-review.md` → `plans/archive/viewer-code-review.md`
+
+---
+
+## 2026-02-13 — Transcription LOD, Mesh Overlay + Depth, Vendored Face Mesh Topology (backfilled)
+
+### Changes
+- **Transcription LOD** (d558e86): `utils/group-words.ts` `groupWordsBySegment()` groups words by `speech_segment` into phrase blocks when zoomed out (avg word width < 8px). Cuts DOM elements from ~600 to ~40–60 at overview zoom. Also exports `MeshKeyframe`/`MeshTopology`/`DepthEstimationInfo` from the shared barrel.
+- **Mesh overlay controls + depth types** (39b692f): opacity slider, video-dim toggle (V key), full-alpha wireframe colors; shared types for depth estimation + mesh topology; Depth Anything V2 in the facial_tracking Modal image.
+- **Face mesh overlay + vendored topology** (fb0e158): new `MeshOverlay.svelte` + `mesh-overlay.ts`. MediaPipe 0.10.30+ removed `mediapipe.python.solutions`, so tessellation/contour/iris constants are vendored in `stages/face_mesh_topology.py` (Apache 2.0).
+
+### Files changed
+- New: `viewer/utils/group-words.ts`, `viewer/components/MeshOverlay.svelte`, `viewer/mesh-overlay.ts`, `workers/ml-pipeline/stages/face_mesh_topology.py`
+- Modified: `AnnotationViewer.svelte`, `VideoPlayer.svelte`, `ViewerHeader.svelte`, `KeyboardShortcutsHelp.svelte`, `state/session.svelte.ts`, `viewer-palette.ts`, `packages/shared/src/{annotation-types,index}.ts`, `stages/facial_tracking.py`, `modal_app.py`, `pyproject.toml`, `uv.lock`
+
+---
 ## 2026-02-13 — Viewer Bugfixes: Spacebar, Favicon 404s, SSR Warning
 
 ### Spacebar playing video natively

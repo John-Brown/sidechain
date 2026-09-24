@@ -1,5 +1,7 @@
 # Facial Tracking Reference
 
+> **Status (2026-09-24):** This doc was written during Phase 0, when facial tracking ran through FaceKitRunner (a macOS ARKit binary, 51 blend shapes, `bin/FaceKitRunner-macOS`, output consumed by the Swift app). That tooling is gone. The "If Choosing MediaPipe" path below is what shipped: `workers/ml-pipeline/stages/facial_tracking.py` runs MediaPipe FaceLandmarker (478 landmarks, 52 blend shapes, transformation matrix) on Modal, and `stages/mouth_energy.py` reads 10 mouth blend shapes by index. The current mouth-energy weights (`MOUTH_BLEND_SHAPE_WEIGHTS`, jawOpen 0.25 down to 0.075, 100ms windows) differ from the Phase 0 Cohen's d weights and 500ms window in the table below. The blend-shape semantics, the critical path and the alternatives analysis are still valid background; see [PIPELINE.md](../workers/ml-pipeline/PIPELINE.md) for the current stage details.
+
 What FaceKitRunner extracts, how it's consumed, and what alternatives exist for each capability.
 
 ## What FaceKitRunner Actually Does

@@ -89,25 +89,26 @@ S3 → R2 is nearly zero-effort: same API, change the endpoint and credentials. 
 
 ### What we use it for
 
-- **Serverless ML inference**. 7 pipeline stages, each as a `@modal.fastapi_endpoint`. Modal handles container orchestration, GPU provisioning, and cold-start management.
-- **GPU workloads**: Transcription (faster-whisper on A10G), diarization (pyannote on A10G). Other stages run CPU-only.
+- **Serverless ML inference**. 8 pipeline stages (including the `waveform` root stage), each as a `@modal.fastapi_endpoint`. Modal handles container orchestration, GPU provisioning, and cold-start management.
+- **GPU workloads**: Transcription (faster-whisper on A10G), diarization (pyannote on A10G), facial tracking (MediaPipe + depth model on T4). Other stages run CPU-only.
 - **Isolated environments**: Each stage has its own Docker image with pinned dependencies. No conflicts between e.g., MediaPipe and PyTorch versions.
 
 ### How it works
 
-1. `pnpm` tRPC mutation triggers a stage → HTTP POST to Modal endpoint
+1. A tRPC mutation (`processing` router) triggers the root stages → HTTP POST to each Modal endpoint
 2. Modal spins up a container with the right image/GPU
 3. Stage runs synchronously: reads input from S3, processes, writes result to S3
 4. Returns `StageResponse` with status + result key
-5. tRPC callback handler triggers dependent stages (DAG cascading)
+5. Modal POSTs a callback to `/api/processing/callback`, which marks the job complete and triggers newly ready stages (DAG cascading)
 
 ### Stage resource profiles
 
 | Stage | Image | GPU | Memory | Approx. cold start |
 |-------|-------|-----|--------|-------------------|
 | VAD | Silero VAD, ffmpeg, soundfile | None | 2 GB | ~10s |
+| Waveform | ffmpeg, NumPy | None | 1 GB | ~5s |
 | Transcription | faster-whisper, whisperx | A10G | 4 GB | ~30s (model load) |
-| Facial tracking | MediaPipe, OpenCV | None | 4 GB | ~15s |
+| Facial tracking | MediaPipe, OpenCV, depth model | T4 | 8 GB | ~15s |
 | Mouth energy | NumPy | None | 1 GB | ~5s |
 | Diarization | pyannote.audio, speechbrain | A10G | 4 GB | ~30s |
 | State annotation | Rule-based (NumPy) | None | 1 GB | ~5s |
@@ -145,8 +146,8 @@ Modal's lock-in is minimal — each stage is a standard Python function that rea
 
 ### Configuration
 
-- **Model**: `claude-sonnet-4-5-20250929`
-- **SDK**: `anthropic` Python package, called from within a Modal function
+- **Model**: `claude-sonnet-5` (see `CLAUDE_MODEL` in `stages/intent_classification.py`)
+- **SDK**: `anthropic` Python package (>=1.0), called from within a Modal function
 - **Status**: In development (gated in `IN_DEVELOPMENT_STAGES`)
 
 ### Why Claude

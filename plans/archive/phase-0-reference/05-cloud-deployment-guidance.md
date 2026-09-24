@@ -1,5 +1,7 @@
 # Cloud Deployment & Language Migration Guidance
 
+> **Archived 2026-09-24: describes the Phase 0 spike** and a pre-migration proposal for porting it to the cloud; its recommendations (TypeScript web app + Python ML on Modal, MediaPipe in place of FaceKitRunner) have since shipped. For the current system see [cloud-infrastructure.md](../../../reference/cloud-infrastructure.md).
+
 High-level architectural guidance for deploying the Sidechain processing pipeline to cloud infrastructure and evaluating language migration options.
 
 ## Table of Contents
@@ -104,7 +106,7 @@ Keep macOS machines for FaceKitRunner, run everything else in cloud.
 
 Replace FaceKitRunner with MediaPipe Face Mesh. This is more viable than it appears — MediaPipe deliberately outputs ARKit-compatible blend shape names. The 10 mouth blend shapes used for mouth energy (the only ones that affect the automated pipeline) map directly. No weight recalibration needed.
 
-See [Facial Tracking Reference](06-facial-tracking-reference.md) for the complete analysis of what FaceKitRunner extracts, what's consumed downstream, and the detailed replacement strategy.
+See [Facial Tracking Reference](../../../reference/07-facial-tracking-reference.md) for the complete analysis of what FaceKitRunner extracts, what's consumed downstream, and the detailed replacement strategy.
 
 **Key insight**: For stereo recordings with per-speaker mics, audio channel detection provides speaker identity without any video analysis. Facial tracking becomes purely a visualization enhancement — meaning FaceKitRunner replacement may not be needed at all.
 

@@ -91,15 +91,15 @@ flowchart LR
 
 | Gate | Trigger | Input | Output | Next Step |
 |------|---------|-------|--------|-----------|
-| Video uploaded | Admin triggers pipeline | S3 video file | processing_jobs rows (7 stages, all pending) | Fire root stages |
+| Video uploaded | Admin triggers pipeline | S3 video file | processing_jobs rows (8 stages incl. waveform, all pending) | Fire root stages |
 | VAD complete | Modal response | Video audio | voice_activity.json | Unblock diarization (if facial_tracking done) |
 | Transcription complete | Modal response | Video audio | speech_transcription.json | Unblock intent_classification (when states approved) |
 | Facial tracking complete | Modal response | Video frames | facial_tracking.json | Fire mouth_energy |
 | Mouth energy complete | Modal response | facial_tracking.json | mouth_energy.json | Unblock diarization |
 | Diarization complete | Modal response | VAD + mouth_energy + video | diarization.json | Fire state_annotation |
-| State annotation complete | Modal response | diarization.json | state_annotation.json | Create verify_states task |
+| State annotation complete | Modal response | diarization.json | annotations.json | Create verify_states task |
 | **Verify states approved** | Supervisor | Human-edited states | state_approved.json (S3) | Fire intent_classification |
-| Intent classification complete | Modal response | States + transcription + VAD | intent_classification.json | Create verify_intents task |
+| Intent classification complete | Modal response | States + transcription + VAD | intent_classification_annotations.json | Create verify_intents task |
 | **Verify intents approved** | Supervisor | Human-edited intents | intent_approved.json (S3) | Create tag_backchannels task |
 | **Backchannels approved** | Supervisor | Human-created backchannels | backchannel_approved.json (S3) | Video fully annotated |
 
