@@ -5,16 +5,17 @@ paths:
 
 # Viewer Architecture
 
-## Three-Context State System
+## Five-Context State System
 
-AnnotationViewer.svelte creates and provides three state objects via Symbol-keyed context:
+AnnotationViewer.svelte creates and provides five state objects via Symbol-keyed context:
 
 | Context | Class | Key Fields | Set In |
 |---------|-------|-----------|--------|
 | `getTimelineState()` | `TimelineState` | currentTime, duration, playing, zoom, scrollLeft, containerWidth, scrubbing | AnnotationViewer |
-| `getAnnotationDataState()` | `AnnotationDataState` | vad, transcription, diarization, mouthEnergy, stateAnnotation, intentClassification, userLabels, loadStatus | AnnotationViewer |
-| `getSessionState()` | `SessionState` | videoId, videoSrc, filename, selectedAnnotation, pipActive, pipSupported, waveform* | AnnotationViewer |
+| `getAnnotationDataState()` | `AnnotationDataState` | vad, transcription, diarization, facialTracking, mouthEnergy, stateAnnotation, intentClassification, backchannel, userLabels, waveform, loadStatus (+ `*Max`/`headPoseMin/Max` normalization, latestEditTimestamp) | AnnotationViewer |
+| `getSessionState()` | `SessionState` | videoId, videoSrc, filename, selectedAnnotation, normalized, pipActive, pipSupported, meshOverlayVisible, meshOverlayOpacity, meshVideoHidden | AnnotationViewer |
 | `getEditorState()` | `EditorState` | editing, states, intents, transcription, backchannels, userLabels, selectedType, selectedIndex, *History | AnnotationViewer |
+| `getTaskModeState()` | `TaskModeState` | active, task, constraints, elapsedSecs, editCount, submitted | AnnotationViewer |
 
 To add new viewer-wide state: create class in `state/`, add Symbol+getter/setter in `context.ts`, instantiate in AnnotationViewer.
 
@@ -27,9 +28,11 @@ All time conversions go through `TimelineState`:
 
 ## Track Types
 
-**CanvasTrack** — continuous data (VAD, energy, diarization, mouth energy). Draw callback receives `(ctx, width, height, viewport)`. Uses RAF loop when playing/scrubbing. Handles DPR scaling.
+**CanvasTrack** — continuous data (ruler, waveform, VAD, mouth energy, head pose). Draw functions live in `tracks/draw-functions.ts` (`drawRuler`, `drawWaveform`, `drawVad`, `drawMouthEnergy`, `drawHeadPose`). `drawDiarization` exists but isn't wired up; the diarization track is a TODO in AnnotationViewer because the stage is in development. Draw callback receives `(ctx, width, height, viewport)`. Uses RAF loop when playing/scrubbing. Handles DPR scaling.
 
 **DOMTrack** — discrete blocks (transcription, states, intents, user labels in view mode). Generic `<T>` with `getStart`/`getEnd`/`blockClass`/`blockLabel` props. Viewport-culled via binary search (`utils/binary-search.ts`). Blocks are absolutely-positioned `<button>` elements with `will-change: transform`.
+
+**Transcription LOD** — when zoomed out, `utils/group-words.ts` `groupWordsBySegment()` aggregates `SpeechWord[]` into phrase-level blocks by `speech_segment`, so the transcription DOMTrack renders phrases instead of individual words.
 
 **EditableDOMTrack** — editable version of DOMTrack (states, intents, transcription, backchannels, user labels in edit mode). Adds drag-resize (left/right handles) and drag-move (block body, 3px threshold). Selection via click. Undo snapshot on commit. See `.claude/rules/editing.md` for drag protocol.
 
@@ -44,8 +47,8 @@ Only items in `[viewStartTime, viewEndTime]` are rendered/drawn. This is critica
 ## Component Hierarchy
 
 ```
-AnnotationViewer → ViewerHeader, VideoPlayer, InspectorPanel, Timeline[
-  Playhead, TrackRow[CanvasTrack | DOMTrack] × N
+AnnotationViewer → ViewerHeader, VideoPlayer[MeshOverlay], InspectorPanel, TaskPanel, Timeline[
+  Playhead, (TrackLabel + TrackContent[CanvasTrack | DOMTrack | EditableDOMTrack]) × N
 ]
 ```
 
@@ -61,9 +64,13 @@ Browser PiP API floats the video and collapses the left panel to give timeline f
 - PiP events not in Svelte's type defs — attached imperatively in `onMount`, cleaned up on destroy
 - `ResizeObserver` on timeline container auto-updates `containerWidth` → all tracks redraw at new width
 
+## Mesh Overlay
+
+`components/MeshOverlay.svelte` is rendered inside VideoPlayer. It draws the facial-tracking face mesh, using `FacialTrackingResult.mesh_keyframes` and Depth Anything V2 depth, over the video. Its geometry helpers are in `mesh-overlay.ts`. It is controlled by `SessionState.meshOverlayVisible`, `meshOverlayOpacity`, and `meshVideoHidden`, which hides the video and shows only the mesh.
+
 ## CSS Theme
 
-Custom properties in `viewer.css` (`.viewer-theme`): `--viewer-bg`, `--viewer-surface`, `--viewer-surface-2`, `--viewer-border`, `--viewer-text`, `--viewer-text-dim`, `--viewer-accent`, `--viewer-playhead`. Light/dark variants via `.dark .viewer-theme`.
+Custom properties in `viewer.css` (`.viewer-theme`): `--viewer-bg`, `--viewer-surface`, `--viewer-surface-2`, `--viewer-border`, `--viewer-text`, `--viewer-text-dim`, `--viewer-accent`, `--viewer-playhead`, plus `--viewer-warning-*` (draft-recovery banner). Light/dark variants via `.dark .viewer-theme`.
 
 Block colors: `.block-speaker-0` (cyan), `.block-speaker-1` (pink), `.block-speaking` (green), `.block-listening` (slate), `.block-intent-*` (one per intent type), `.block-user-label` (violet). Each has light default + `.dark` override.
 

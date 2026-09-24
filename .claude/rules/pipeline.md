@@ -9,13 +9,15 @@ paths:
 ## DAG Structure (dag.ts)
 
 ```
-vad ──────────────────────────────────┐
-transcription ─────────────────────────┤
-facial_tracking → mouth_energy ────────┤
-                                       ├→ diarization → state_annotation → intent_classification
+waveform            (root, no dependents — viewer only)
+vad ──────────────┬──────────────────────────────────────────────┐
+facial_tracking → mouth_energy ─┴→ diarization → state_annotation ─┼→ intent_classification
+transcription ─────────────────────────────────────────────────────┘
 ```
 
-Root stages (vad, transcription, facial_tracking) fire in parallel. `getReadyStages()` returns pending stages whose deps are all completed and not in `IN_DEVELOPMENT_STAGES`.
+`STAGE_DEPS`: diarization ← [vad, mouth_energy]; state_annotation ← [diarization]; intent_classification ← [state_annotation, transcription, vad].
+
+Root stages (vad, transcription, facial_tracking, waveform) fire in parallel. `getReadyStages()` returns pending stages whose deps are all completed and not in `IN_DEVELOPMENT_STAGES`.
 
 ## Key Exports (dag.ts)
 
@@ -36,9 +38,9 @@ Root stages (vad, transcription, facial_tracking) fire in parallel. `getReadySta
 4. After completion: `triggerReadyStages()` cascades dependents
 5. Fire triggers with `.then()` (no await) so mutations return immediately
 
-## Phase 4 DAG Extension: Human Gates
+## Human Gates (implemented)
 
-After state_annotation/intent_classification complete, human tasks must be submitted AND approved before downstream stages fire:
+`HUMAN_GATES` is exported from `@annotation/shared` (`packages/shared/src/pipeline-types.ts`). `dag.ts` `getReadyStages` and `trigger.ts` `getApprovedGates` consume it. After state_annotation/intent_classification complete, human tasks must be submitted AND approved before downstream stages fire:
 
 ```typescript
 export const HUMAN_GATES: Partial<Record<PipelineStage, TaskType>> = {
@@ -47,7 +49,7 @@ export const HUMAN_GATES: Partial<Record<PipelineStage, TaskType>> = {
 };
 ```
 
-`getReadyStages` must check: if upstream stage has a human gate, all associated tasks must be in approved status.
+`getReadyStages` checks: an upstream stage with a human gate is satisfied once **at least one** task of the gate's type is approved for the video (`trigger.ts` `getApprovedGates`). Other tasks of that type that aren't approved do not block. Requiring *all* of them to be approved is not implemented.
 
 On task approval: export edited data to S3 as `{type}_approved.json`, then call `triggerReadyStages`.
 
@@ -56,4 +58,7 @@ On task approval: export edited data to S3 as `{type}_approved.json`, then call 
 - `@modal.fastapi_endpoint` (not `@modal.web_endpoint`)
 - `image.add_local_python_source("stages")` (not `modal.Mount`)
 - Images need `ffmpeg` apt-installed
+- GPUs: transcription A10G, diarization A10G, facial_tracking T4 (Depth Anything V2); others CPU
+- Diarization image pip-installs **unpinned** `pyannote.audio`, so the deployed version can differ from `uv.lock`
+- Per-stage model details: `workers/ml-pipeline/PIPELINE.md`
 - Secret: `AWS_DEFAULT_REGION` (read as both that and `S3_REGION` in utils.py)

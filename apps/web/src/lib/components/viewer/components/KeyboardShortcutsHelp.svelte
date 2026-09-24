@@ -40,6 +40,8 @@
         { keys: [mod, 'Scroll'], description: 'Zoom timeline' },
         { keys: ['P'], description: 'Picture-in-Picture' },
         { keys: ['N'], description: 'Toggle normalize' },
+        { keys: ['F'], description: 'Toggle face mesh' },
+        { keys: ['V'], description: 'Hide video (mesh mode)' },
         { keys: ['?'], description: 'This help' },
       ],
     },

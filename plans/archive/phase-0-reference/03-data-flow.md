@@ -1,5 +1,7 @@
 # Data Flow and Integration
 
+> **Archived 2026-09-24: describes the Phase 0 spike** (`src/processing/`, Swift app, FaceKitRunner). For the current system see [getting-started.md](../../../reference/getting-started.md), [system-flow.md](../../../reference/system-flow.md) and [PIPELINE.md](../../../workers/ml-pipeline/PIPELINE.md).
+
 This document explains how data flows through the Sidechain system, how algorithms connect, and how to work with the unified annotation format.
 
 ## Table of Contents
@@ -684,7 +686,7 @@ For practical usage instructions:
 - See [Quick Start Guide](04-quick-start.md)
 
 For detailed algorithm information:
-- See [Algorithm Reference](02-algorithm-reference.md)
+- See [Algorithm Reference](../../../reference/02a-algorithm-reference-vad-transcription-face.md)
 
 For system overview:
 - See [System Overview](01-system-overview.md)

@@ -45,7 +45,7 @@ Custom tokens in `app.css` `@theme` for the high-density annotation viewer. Thes
 |-------|-------|------|-------------|-----|
 | `--text-viewer-xs` | `text-viewer-xs` | 10px (0.625rem) | 1 | Canvas labels, DOM track block text |
 | `--text-viewer-sm` | `text-viewer-sm` | 11px (0.6875rem) | 1.2 | Status/loading messages, zoom label + value |
-| `--text-viewer-base` | `text-viewer-base` | 12px (0.75rem) | 1.2 | Track labels (TrackLabel, TrackRow) |
+| `--text-viewer-base` | `text-viewer-base` | 12px (0.75rem) | 1.2 | Track labels (TrackLabel) |
 
 ### Rules
 
@@ -104,6 +104,7 @@ Custom properties in `viewer.css` (`.viewer-theme` / `.dark .viewer-theme`):
 | `--viewer-text-dim` | `#64748b` | `#8b90a0` | Secondary text, labels |
 | `--viewer-accent` | `#6366f1` | `#6366f1` | Indigo accent (same both themes) |
 | `--viewer-playhead` | `#ef4444` | `#ef4444` | Playhead line (same both themes) |
+| `--viewer-warning-{bg,border,text,btn-bg,btn-text}` | amber 50/300/800/500/white | amber 950/700/200/700/50 | Draft-recovery / warning banner |
 
 Accessed via utility classes: `bg-viewer-surface`, `text-viewer-text-dim`, `border-viewer-border`, etc.
 

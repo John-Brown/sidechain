@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getTimelineState, getSessionState } from './context.js';
+  import MeshOverlay from './components/MeshOverlay.svelte';
 
   interface Props {
     src: string;
@@ -11,7 +12,7 @@
   const timeline = getTimelineState();
   const session = getSessionState();
 
-  let videoEl: HTMLVideoElement;
+  let videoEl = $state<HTMLVideoElement>();
 
   // requestVideoFrameCallback for frame-accurate sync
   function onVideoFrame() {
@@ -120,18 +121,24 @@
 </script>
 
 <div class="w-full h-full flex items-center justify-center bg-black">
-  <video
-    bind:this={videoEl}
-    {src}
-    crossorigin="anonymous"
-    tabindex="-1"
-    class="max-w-full max-h-full"
-    onloadedmetadata={handleLoadedMetadata}
-    ontimeupdate={handleTimeUpdate}
-    onplay={handlePlay}
-    onpause={handlePause}
-    onkeydown={(e) => e.preventDefault()}
-  >
-    <track kind="captions" />
-  </video>
+  <div class="relative inline-flex">
+    <video
+      bind:this={videoEl}
+      {src}
+      crossorigin="anonymous"
+      tabindex="-1"
+      class="max-w-full max-h-full block transition-opacity duration-150"
+      style:opacity={session.meshVideoHidden ? 0.25 : 1}
+      onloadedmetadata={handleLoadedMetadata}
+      ontimeupdate={handleTimeUpdate}
+      onplay={handlePlay}
+      onpause={handlePause}
+      onkeydown={(e) => e.preventDefault()}
+    >
+      <track kind="captions" />
+    </video>
+    {#if session.meshOverlayVisible && !session.pipActive && videoEl}
+      <MeshOverlay {videoEl} />
+    {/if}
+  </div>
 </div>

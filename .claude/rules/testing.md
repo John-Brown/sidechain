@@ -52,25 +52,30 @@ describe('myFunction', () => {
 
 ## Existing Test Coverage
 
+270 tests across 13 files, all passing as of 2026-09-24 (`pnpm --filter web test`).
+
 | File | Tests | Covers |
 |------|-------|--------|
-| `viewer/utils/binary-search.test.ts` | 21 | Viewport culling binary search — time_range + time-only items, edges, padding |
-| `viewer/utils/format-time.test.ts` | 13 | formatTime + formatTimePrecise, edge cases |
+| `viewer/editing/time-validation.test.ts` | 40 | Overlap, bounds, min duration (50ms), locked regions, coverage |
+| `viewer/editing/drag-resize.test.ts` | 39 | Resize/move math, snapping, clamping |
+| `viewer/utils/binary-search.test.ts` | 32 | Viewport culling binary search: time_range + time-only items, edges, padding |
+| `viewer/editing/operations.test.ts` | 31 | create, delete, split, merge, classify (immutability, return shapes) |
+| `viewer/state/editor.test.ts` | 24 | EditorState enter/exit edit, dirty tracking, selection |
 | `server/pipeline/dag.test.ts` | 20 | getReadyStages, buildS3KeysIn, ROOT_STAGES, in-dev gating, dep consistency |
+| `viewer/mesh-overlay.test.ts` | 21 | Keyframe depth interpolation: nearest-frame lookup, lerp between bracketing keyframes, clamping, exact hits, immutability |
+| `viewer/utils/format-time.test.ts` | 13 | formatTime + formatTimePrecise, edge cases |
+| `viewer/utils/group-words.test.ts` | 12 | Transcription LOD phrase grouping: segment merge/transition, undefined speech_segment, majority speaker, 80-char truncation, immutability |
+| `viewer/state/history.test.ts` | 15 | History<T>: push, undo, redo, overflow ordering, default max 50, branch truncation, roundtrips, deep clone, clear |
 | `viewer/state/timeline.test.ts` | 9 | Viewport math, clamping, fitZoom, roundtrips |
 | `viewer/utils/annotation-cache.test.ts` | 7 | IndexedDB annotation cache lifecycle |
-| `viewer/utils/waveform-cache.test.ts` | 7 | IndexedDB waveform cache lifecycle |
 | `server/s3-cache.test.ts` | 7 | In-memory S3 getter cache, TTL, dedup |
 
-## Phase 4 Test Priorities
+## Remaining Test Priorities
 
-Stub files already exist in `viewer/editing/` — fill in as modules are implemented:
+Not yet written:
 
 | File | Coverage |
 |------|----------|
-| `history.test.ts` | push, undo, redo, overflow (>50), branch truncation on new push after undo |
-| `time-validation.test.ts` | overlap detection, bounds check, min duration (50ms), locked region enforcement, coverage validation |
-| `operations.test.ts` | create, delete, split, merge, classify — verify returned arrays are valid, original unchanged |
 | `annotations.router.test.ts` | save (version increment, is_current flag), revert, audit trail in annotation_edits |
 | `tasks.router.test.ts` | lifecycle transitions, constraint enforcement, pipeline trigger on approval |
 

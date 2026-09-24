@@ -1,10 +1,10 @@
 # ML Pipeline — Stage Reference & Improvement Guide
 
-> Last updated: 2026-02-08
+> Last updated: 2026-09-24
 
 ## Architecture Overview
 
-7-stage DAG running on [Modal](https://modal.com) serverless. Each stage is a `@modal.fastapi_endpoint` accepting `StageRequest` and returning `StageResponse`. Stages download inputs from S3, process, upload results as JSON to S3, and optionally POST a callback.
+8-stage DAG (incl. `waveform` root stage) running on [Modal](https://modal.com) serverless. Each stage is a `@modal.fastapi_endpoint` accepting `StageRequest` and returning `StageResponse`. Stages download inputs from S3, process, upload results as JSON to S3, and optionally POST a callback.
 
 ```
                 ┌──────────┐
@@ -153,7 +153,7 @@ S3 key: results/{videoId}/voice_activity.json
 
 1. Downloads video from S3
 2. Loads `WhisperModel("large-v3-turbo", device="cuda", compute_type="float16")`
-3. Transcribes with `beam_size=5`, `word_timestamps=True`, `vad_filter=True`
+3. Transcribes with `beam_size=5`, `word_timestamps=True`, `vad_filter=False`, then WhisperX wav2vec2 forced alignment (+ optional `whisperx.assign_word_speakers` via pyannote when `HF_TOKEN` is set)
 4. Collects word-level results: `{ time_range, speech: { word, speaker, confidence, speech_segment } }`
 5. Uploads JSON
 
@@ -163,7 +163,7 @@ S3 key: results/{videoId}/voice_activity.json
 |-------|-------|-------|
 | `beam_size` | 5 | Standard quality setting |
 | `word_timestamps` | True | Required for annotation alignment |
-| `vad_filter` | True | Skips silence, faster processing |
+| `vad_filter` | False | Disabled; the wav2vec2 alignment pass refines word timing |
 
 ### Output Schema
 
@@ -179,13 +179,13 @@ S3 key: results/{videoId}/speech_transcription.json
     "created_timestamp": "ISO8601",
     "total_secs": 0.0,
     "algorithm": {
-      "name": "whisper",
-      "model": "large-v3",
-      "version": "faster-whisper",
+      "name": "whisperx",
+      "model": "large-v3-turbo",
+      "version": "faster-whisper+wav2vec2",
       "processing_time": 0.0,
       "parameters": {
         "beam_size": 5,
-        "vad_filter": true,
+        "vad_filter": false,
         "word_timestamps": true,
         "language_detected": "en",
         "language_probability": 0.0
@@ -210,7 +210,7 @@ S3 key: results/{videoId}/speech_transcription.json
 
 | Option | Speed vs large-v3 | Accuracy (WER) | GPU Memory | Word Timestamps | Notes |
 |--------|--------------------|----------------|------------|-----------------|-------|
-| **large-v3** (current) | 1x baseline | ~6-7% | ~8-10 GB | Yes | Good multilingual |
+| **large-v3** | 1x baseline | ~6-7% | ~8-10 GB | Yes | Good multilingual |
 | **large-v3-turbo** | **~6x faster** | ~5.8% (comparable) | **~4-6 GB** | Yes | **Drop-in upgrade via faster-whisper** |
 | **distil-large-v3** | **~6x faster** | ~6-8% | **~4-6 GB** | Yes (forced alignment) | English-optimized |
 | **BatchedInferencePipeline** | **4-8x faster** | Same as base model | Same | Yes (disable for max speed) | Batches chunks in parallel |
@@ -219,7 +219,7 @@ S3 key: results/{videoId}/speech_transcription.json
 
 **Recommended upgrades** (in priority order):
 
-1. **Switch to `large-v3-turbo`** — Drop-in change, ~6x faster, half the memory, near-identical accuracy:
+1. ✅ **Done: switched to `large-v3-turbo`** — Drop-in change, ~6x faster, half the memory, near-identical accuracy:
    ```python
    # Change one line:
    model = WhisperModel("large-v3-turbo", device="cuda", compute_type="float16")
@@ -233,7 +233,7 @@ S3 key: results/{videoId}/speech_transcription.json
    segments, info = batched.transcribe("audio.mp3", batch_size=16, word_timestamps=True)
    ```
 
-3. **Consider WhisperX** for Phase 4+ — Provides wav2vec2-aligned word timestamps (more precise than Whisper's native) and built-in speaker diarization. Would let you skip the separate diarization stage entirely for some use cases.
+3. ✅ **Done: WhisperX alignment integrated** (transcription.py). Original rationale: Provides wav2vec2-aligned word timestamps (more precise than Whisper's native) and built-in speaker diarization. Would let you skip the separate diarization stage entirely for some use cases.
 
 **GPU downgrade opportunity**: With turbo model, could potentially drop from A10G to T4, reducing cost.
 
@@ -247,7 +247,7 @@ S3 key: results/{videoId}/speech_transcription.json
 |---|---|
 | **Library** | [MediaPipe FaceLandmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker) (task API) |
 | **Model** | `face_landmarker_v2` (~4MB task bundle) |
-| **GPU** | None (4 CPUs) |
+| **GPU** | T4 (Depth Anything V2 keyframe depth for the mesh overlay) |
 | **Modal image** | `cpu_heavy_image` — mediapipe, opencv-python-headless |
 | **Timeout** | 1800s (30 min) |
 | **Memory** | 4096 MB |
@@ -417,7 +417,7 @@ S3 key: results/{videoId}/mouth_energy.json
 
 | | |
 |---|---|
-| **Library** | [pyannote.audio 3.1](https://github.com/pyannote/pyannote-audio) |
+| **Library** | [pyannote.audio](https://github.com/pyannote/pyannote-audio) (pyannote/speaker-diarization-3.1 pipeline) |
 | **Model** | `pyannote/speaker-diarization-3.1` (HuggingFace) |
 | **GPU** | A10G |
 | **Modal image** | `diarization_image` — pyannote.audio, speechbrain, torch, ffmpeg |
@@ -554,8 +554,8 @@ States are **contiguous** — they partition the full timeline with no gaps.
 
 | | |
 |---|---|
-| **Library** | [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) |
-| **Model** | `claude-sonnet-4-5-20250929` |
+| **Library** | [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) (>=1.0) |
+| **Model** | `claude-sonnet-5` |
 | **GPU** | None |
 | **Modal image** | `intent_image` — anthropic SDK only |
 | **Timeout** | 900s |
@@ -593,7 +593,7 @@ S3 key: results/{videoId}/intent_classification.json
     /* standard fields */
     "algorithm": {
       "name": "claude-intent-classification",
-      "model": "claude-sonnet-4-5-20250929",
+      "model": "claude-sonnet-5",
       "version": "1.0",
       "processing_time": 0.0,
       "parameters": {
@@ -621,7 +621,7 @@ S3 key: results/{videoId}/intent_classification.json
 
 | Improvement | Impact | Effort |
 |-------------|--------|--------|
-| **Update model** to `claude-sonnet-4-5-20250929` or newer | Better classification quality | Trivial (change string) |
+| **Update model** to a newer Claude model | Better classification quality | Trivial (change string) |
 | **Batch segments** into fewer API calls | Reduce latency + cost (currently 1 call per segment) | Medium — restructure prompt for multi-segment classification |
 | **Add audio features** to prompt context | Better intent detection (tone, prosody) | Medium — would need to extract audio features or use multimodal |
 | **Structured outputs** (tool_use) | More reliable JSON parsing, eliminate regex fallback | Low-medium — use Anthropic tool_use instead of free-form JSON |
@@ -700,7 +700,7 @@ class TranscriptionService:
 | ~~1~~ | ~~`use_auth_token` → `token`~~ | Diarization | **Done** |
 | ~~2~~ | ~~`large-v3` → `large-v3-turbo`~~ | Transcription | **Done** |
 | ~~3~~ | ~~Add `pipeline.to(torch.device("cuda"))`~~ | Diarization | **Done** |
-| 4 | Claude model string | Intent | Already latest (`claude-sonnet-4-5-20250929`) |
+| 4 | Claude model string | Intent | Already latest (`claude-sonnet-5`) |
 
 ### Medium-Term (architectural)
 

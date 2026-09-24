@@ -3,7 +3,7 @@ name: audit-pipeline
 description: Audit the end-to-end data pipeline for a video — from processing jobs through S3 JSON to viewer rendering. Use to diagnose why a track isn't showing, validate data contracts, or verify a new pipeline stage.
 argument-hint: "[video-id or 'types-only']"
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Bash(pnpm *), Task
+allowed-tools: Read, Grep, Glob, Bash(pnpm *), Agent
 ---
 
 # Pipeline Data Audit
@@ -27,6 +27,7 @@ For each pipeline stage, compare the **Python output shape** (what the Modal fun
    - `diarization.py` → `DiarizationResult`
    - `state_annotation.py` → `StateAnnotationResult`
    - `intent_classification.py` → `IntentClassificationResult`
+   - `waveform.py` → `WaveformPeaksResult` (flat shape, no `data[]`)
 
 3. For each stage, verify:
    - **Top-level keys**: Does the Python dict match the TS interface? (e.g., `data` vs `segments`/`frames`)
@@ -69,6 +70,7 @@ Verify the S3 key conventions are consistent.
    | diarization | `diarization.json` |
    | state_annotation | `annotations.json` |
    | intent_classification | `intent_classification_annotations.json` |
+   | waveform | `waveform_peaks.json` |
 
 ### Stage 4: Viewer Data Loading
 

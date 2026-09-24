@@ -8,12 +8,15 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 |-------|-------|--------|
 | 0 | Spike/prototype | Complete (`spike/`) |
 | 1 | Monorepo skeleton + schema + VAD pipeline | Complete |
-| 2 | All 7 pipeline stages + DAG orchestration + frontend | Complete (4/7 stages verified, 3 gated as in-dev) |
+| 2 | All 7 pipeline stages + DAG orchestration + frontend | Complete (waveform added later → now 8 stages: 5 working, 3 gated as in-dev) |
 | 3 | Read-only timeline viewer (multi-track timeline, Canvas + DOM tracks, viewport culling) | Complete |
 | 3.5 | Project management (detail page, members, guidelines, dashboard) | Complete |
-| 4 | Annotation editing + task mode (human-in-the-loop) | **In progress** → `plans/phase-4-editing-task-mode.md` |
+| 4 | Annotation editing + task mode (human-in-the-loop) | Infra complete → `plans/archive/phase-4-editing-task-mode.md`. Editor state, undo, autosave, task mode and submit/coverage are done, but **only user labels are editable in the viewer**: the state/intent/backchannel tracks aren't rendered yet (TODOs in `AnnotationViewer.svelte`, blocked on the in-dev stages). Deferred: command-executor layer, router tests |
 | 4.1 | User labels track (freeform text annotations, drag-move, view persistence) | Complete |
-| 4.2 | Viewer code review fixes (20 issues: data integrity, proxy safety, a11y, perf) | Complete → `plans/viewer-code-review.md` |
+| 4.2 | Viewer code review fixes (20 issues: data integrity, proxy safety, a11y, perf) | Complete → `plans/archive/viewer-code-review.md` |
+| — | Post-4.2 viewer work: waveform + head-pose tracks, mesh overlay + depth, transcription LOD | Complete (see `plans/DEVLOG.md`) |
+
+Last active: 2026-02-13. Health check 2026-09-24: `test` (270 passing), `check` (0 errors), `build` all green.
 
 ## Architecture
 
@@ -21,19 +24,19 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 
 | Package | Purpose |
 |---------|---------|
-| `apps/web` | SvelteKit app (Svelte 5, Tailwind 4, shadcn-svelte) |
+| `apps/web` | SvelteKit app (Svelte 5, Tailwind 4) |
 | `packages/shared` | TypeScript types (zero runtime deps) |
 | `packages/db` | Drizzle ORM schema + migrations (postgres-js driver) |
 | `workers/ml-pipeline` | Python Modal functions (uv-managed, independent of TS monorepo) |
 
 ## Tech Stack
 
-- **Frontend**: SvelteKit, Svelte 5 (runes), Tailwind CSS 4, shadcn-svelte v2, bits-ui, Inter Variable typeface
+- **Frontend**: SvelteKit, Svelte 5 (runes), Tailwind CSS 4, lucide-svelte icons, Inter Variable typeface. No component library in use: `components/ui/` is empty.
 - **API**: tRPC v11 (server + client, superjson transformer)
 - **Auth**: Supabase SSR (@supabase/ssr)
 - **Database**: PostgreSQL via Supabase, Drizzle ORM
 - **Storage**: S3 (multipart upload, presigned URLs, @aws-sdk/client-s3)
-- **ML Pipeline**: Modal (Python, Silero VAD, faster-whisper, MediaPipe, pyannote)
+- **ML Pipeline**: Modal (Python, Silero VAD, WhisperX/faster-whisper, MediaPipe, Depth Anything V2, pyannote, Anthropic SDK)
 - **Validation**: Zod
 
 ## Common Commands
@@ -48,7 +51,10 @@ pnpm --filter db generate      # Generate Drizzle migration SQL
 pnpm --filter db migrate       # Run migrations
 pnpm --filter db studio        # Open Drizzle Studio
 pnpm --filter web check        # Svelte type checking
+pnpm --filter web test         # Vitest (CI); test:watch for dev
 ```
+
+`packageManager` pins pnpm 9.15.0, but corepack isn't shipped with Node 25+, so nothing enforces the pin. Check `pnpm -v` yourself.
 
 ## Key File Locations
 
@@ -75,22 +81,26 @@ apps/web/src/lib/components/project/  # Project detail components
 apps/web/src/lib/components/viewer/   # Timeline viewer components
   AnnotationViewer.svelte             #   Root: state init, track layout, keyboard/wheel handlers
   data-loader.ts                      #   Extracted data loading (S3 results, annotation sets, polling)
-  context.ts                          #   Three Symbol-keyed contexts (timeline, annotations, session)
-  state/                              #   Svelte 5 rune state classes (timeline, annotation-data, session, editor, autosave)
+  context.ts                          #   Five Symbol-keyed contexts (timeline, annotation-data, session, editor, task-mode)
+  state/                              #   Svelte 5 rune state classes (timeline, annotation-data, session, editor, history, autosave, task-mode)
   editing/                            #   Pure functions: drag-resize (incl. move), operations, time-validation
-  tracks/                             #   CanvasTrack (VAD/energy), DOMTrack, EditableDOMTrack (drag-resize + move)
-  utils/                              #   Binary search (accessor overloads), focus-trap, push-undo
-  components/                         #   CreateAnnotationBar, LabelTextDialog, ClassifyDialog, KeyboardShortcutsHelp, SaveIndicator
+  tracks/                             #   CanvasTrack + draw-functions.ts, DOMTrack, EditableDOMTrack, TrackLabel, TrackContent
+  utils/                              #   Binary search (accessor overloads), group-words (transcription LOD), caches, focus-trap, push-undo
+  components/                         #   Editing UI (CreateAnnotationBar, dialogs, ContextMenu (unwired), SaveIndicator, DraftRecoveryBanner), TaskPanel, MeshOverlay
+  mesh-overlay.ts                     #   Face-mesh overlay geometry helpers
+  viewer-palette.ts                   #   Theme-aware ViewerPalette for canvas draw functions
   viewer.css                          #   Dark/light theme variables + block color schemes + focus-visible
 
 # Shared packages
 packages/db/src/schema.ts             # Full Drizzle schema (all tables)
 packages/shared/src/annotation-types.ts # Annotation data shapes
-packages/shared/src/pipeline-types.ts   # Pipeline enums + status types
+packages/shared/src/pipeline-types.ts   # Pipeline enums + status types + HUMAN_GATES
+packages/shared/src/command-types.ts    # AnnotationCommand/Target/CommandResult types (not yet wired up, see ai-first.md)
 
 # ML Pipeline
-workers/ml-pipeline/modal_app.py       # Modal endpoints (all 7 stages)
+workers/ml-pipeline/modal_app.py       # Modal endpoints (all 8 stages)
 workers/ml-pipeline/stages/            # Python stage implementations
+workers/ml-pipeline/PIPELINE.md        # Per-stage model/architecture reference + improvement guide
 ```
 
 ## Schema Overview
@@ -137,7 +147,9 @@ See `.env.example` for required vars. Key groups:
 - `MODAL_BASE_URL` — Base URL for Modal endpoints (subdomain-per-function format)
 - `ANTHROPIC_API_KEY` — For intent classification stage
 - `HF_TOKEN` — HuggingFace token for pyannote model access
-- `DATABASE_URL` — Direct Postgres connection (for Drizzle migrations)
+- `DATABASE_URL` — Direct Postgres connection (Drizzle migrations and app queries)
+- `PROCESSING_CALLBACK_SECRET` — Shared secret validating Modal's callback to `/api/processing/callback`
+- `PUBLIC_APP_URL` — Base URL used to build the pipeline callback URL
 
 ## Pipeline Stages
 
@@ -147,24 +159,32 @@ Defined in `@annotation/shared`: `vad`, `waveform`, `transcription`, `facial_tra
 |-------|--------|---------------|-----|
 | vad | Working | Silero VAD v5 (ffmpeg + soundfile audio loading) | No |
 | waveform | Working | ffmpeg audio extraction + numpy peak computation (200 peaks/sec) | No |
-| transcription | Working | faster-whisper large-v3 | A10G |
-| facial_tracking | Working | MediaPipe FaceLandmarker task API | No |
+| transcription | Working | WhisperX: faster-whisper large-v3-turbo + wav2vec2 alignment (+ optional pyannote speaker assignment when `HF_TOKEN` set) | A10G |
+| facial_tracking | Working | MediaPipe FaceLandmarker task API + Depth Anything V2 keyframe depth (mesh overlay) | T4 |
 | mouth_energy | Working | Weighted blend shape energy (10Hz) | No |
-| diarization | In Development | pyannote.audio 3.1 (blocked: `use_auth_token` API change) | T4 |
+| diarization | In Development | pyannote/speaker-diarization-3.1 pipeline. Still gated. Its `token=` kwarg needs pyannote 4.x, which only the unpinned Modal image pulls. The local `uv.lock` resolves 3.4.0 (via whisperx), and that version only accepts `use_auth_token=`, so the stage won't run locally | A10G |
 | state_annotation | In Development | Rule-based (depends on diarization) | No |
-| intent_classification | In Development | Claude API (depends on state_annotation) | No |
+| intent_classification | In Development | Claude API (depends on state_annotation, transcription, vad) | No |
 
 DAG orchestration: `apps/web/src/lib/server/pipeline/{dag,trigger}.ts`
 - Root stages (vad, waveform, transcription, facial_tracking) fire in parallel
 - `triggerReadyStages()` auto-cascades dependents after each completion
 - `IN_DEVELOPMENT_STAGES` set in dag.ts gates incomplete stages
+- `HUMAN_GATES` (in `@annotation/shared`) blocks downstream stages until verify tasks are approved
 
-## RLS Policies
+## Authorization
 
-Row-level security enforced via Supabase:
-- **Annotators**: See assigned videos/tasks within project membership
-- **Supervisors**: Read/update within project scope
-- **Admins**: Full access
+**There are no RLS policies in this repo.** No migration contains `CREATE POLICY`. The app also queries Postgres directly through Drizzle (`DATABASE_URL`), which bypasses RLS anyway. Authorization lives in the tRPC handlers instead, and it is **partial**:
+- Every handler checks project membership.
+- Role checks exist only in `projects.ts` (the private `requireMembership(db, projectId, userId, requiredRoles?)` helper), in tasks create/assign/review (admin/supervisor), and in annotations save/revert (restrictions on annotators).
+- The `videos` and `processing` procedures (list/get/create/update/delete, triggerPipeline, retryStage) check **membership only**. Any member, annotators included, can see, edit, delete or reprocess every video in the project.
+
+Intended role model, **not yet enforced**:
+- **Annotators**: assigned videos/tasks within project membership
+- **Supervisors**: read/update within project scope
+- **Admins**: full access
+
+For new role-gated code, move `requireMembership` into a shared module (e.g. `trpc/authz.ts`) and export it rather than hand-rolling another membership query.
 
 ## Rules (`.claude/rules/`)
 
@@ -174,19 +194,20 @@ Path-scoped rules auto-load when working on matching files:
 |------|-------|---------|
 | `data-contracts.md` | All files | Time conventions, type shapes, enums, S3 keys, coverage rules |
 | `svelte5.md` | `*.svelte`, `*.svelte.ts` | Rune syntax, class-based state, context pattern, common mistakes |
-| `viewer.md` | `viewer/**` | Three-context system, timeline math, track types, viewport culling |
+| `viewer.md` | `viewer/**` | Five-context system, timeline math, track types, viewport culling, mesh overlay |
 | `editing.md` | `viewer/**` | Phase 4 editor state, drag-resize, operations, auto-save, task lifecycle |
 | `trpc.md` | `trpc/**` | Router registration, Drizzle patterns, error handling |
 | `pipeline.md` | `pipeline/**`, `workers/**` | DAG structure, trigger pattern, human gates, Modal conventions |
-| `testing.md` | `*.test.ts` | Vitest setup, Phase 4 test priorities |
+| `testing.md` | `*.test.ts` | Vitest setup, coverage table, remaining test priorities |
 | `performance.md` | `viewer/**` | 60fps drag budget, viewport culling mandate, no-DnD-library rule |
-| `ai-first.md` | `viewer/**`, `trpc/**`, `shared/**` | Command layer, semantic targeting, agent API, NL-readiness checklist |
+| `ai-first.md` | `viewer/**`, `trpc/**`, `shared/**` | Target command-layer design (types only today), semantic targeting, agent API checklist |
 | `style-guide.md` | `*.svelte`, `*.css`, `viewer/**` | Typography (Inter), type scale, color system, viewer density tokens |
-| `docs.md` | `plans/**`, `reference/**` | Doc lifecycle, naming, INDEX.md maintenance, size limits |
+| `docs.md` | `plans/**`, `reference/**` | Doc lifecycle, naming, INDEX.md maintenance, size limits, archive/split rules |
 
 ## Reference Docs
 
 - **`plans/INDEX.md`** — Agent navigation hub. Start here to find any doc.
-- `reference/` — Stable technical docs (algorithm specs, data flow, deployment)
+- `reference/` — Stable technical docs (setup, system flow, infrastructure, algorithm specs in 02a–02d)
 - `spike/` — Phase 0 prototype (standalone HTML, not part of monorepo build)
-- `plans/archive/` — Completed phase plans (Phases 0-3)
+- `plans/archive/` — Completed phase plans (Phases 0-4)
+- `plans/archive/phase-0-reference/` — Superseded Phase 0 reference docs (01, 03–06), frozen
