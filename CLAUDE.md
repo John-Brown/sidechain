@@ -11,7 +11,7 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 | 2 | All 7 pipeline stages + DAG orchestration + frontend | Complete (waveform added later → now 8 stages: 5 working, 3 gated as in-dev) |
 | 3 | Read-only timeline viewer (multi-track timeline, Canvas + DOM tracks, viewport culling) | Complete |
 | 3.5 | Project management (detail page, members, guidelines, dashboard) | Complete |
-| 4 | Annotation editing + task mode (human-in-the-loop) | Complete → `plans/archive/phase-4-editing-task-mode.md` (deferred: command-executor layer, router tests) |
+| 4 | Annotation editing + task mode (human-in-the-loop) | Infra complete → `plans/archive/phase-4-editing-task-mode.md`. Editor state, undo, autosave, task mode and submit/coverage are done, but **only user labels are editable in the viewer**: the state/intent/backchannel tracks aren't rendered yet (TODOs in `AnnotationViewer.svelte`, blocked on the in-dev stages). Deferred: command-executor layer, router tests |
 | 4.1 | User labels track (freeform text annotations, drag-move, view persistence) | Complete |
 | 4.2 | Viewer code review fixes (20 issues: data integrity, proxy safety, a11y, perf) | Complete → `plans/archive/viewer-code-review.md` |
 | — | Post-4.2 viewer work: waveform + head-pose tracks, mesh overlay + depth, transcription LOD | Complete (see `plans/DEVLOG.md`) |
@@ -162,7 +162,7 @@ Defined in `@annotation/shared`: `vad`, `waveform`, `transcription`, `facial_tra
 | transcription | Working | WhisperX: faster-whisper large-v3-turbo + wav2vec2 alignment (+ optional pyannote speaker assignment when `HF_TOKEN` set) | A10G |
 | facial_tracking | Working | MediaPipe FaceLandmarker task API + Depth Anything V2 keyframe depth (mesh overlay) | T4 |
 | mouth_energy | Working | Weighted blend shape energy (10Hz) | No |
-| diarization | In Development | pyannote/speaker-diarization-3.1 pipeline (`token=` auth fixed; still gated pending validation) | A10G |
+| diarization | In Development | pyannote/speaker-diarization-3.1 pipeline. Still gated. Its `token=` kwarg needs pyannote 4.x, which only the unpinned Modal image pulls. The local `uv.lock` resolves 3.4.0 (via whisperx), and that version only accepts `use_auth_token=`, so the stage won't run locally | A10G |
 | state_annotation | In Development | Rule-based (depends on diarization) | No |
 | intent_classification | In Development | Claude API (depends on state_annotation, transcription, vad) | No |
 
@@ -174,10 +174,17 @@ DAG orchestration: `apps/web/src/lib/server/pipeline/{dag,trigger}.ts`
 
 ## Authorization
 
-**There are no RLS policies in this repo.** No migration contains `CREATE POLICY`. The app also queries Postgres directly through Drizzle (`DATABASE_URL`), which bypasses RLS anyway. Authorization is enforced in tRPC handlers instead, using project-membership and role checks. Reuse `requireMembership(db, projectId, userId, requiredRoles?)` from `routers/projects.ts`.
+**There are no RLS policies in this repo.** No migration contains `CREATE POLICY`. The app also queries Postgres directly through Drizzle (`DATABASE_URL`), which bypasses RLS anyway. Authorization lives in the tRPC handlers instead, and it is **partial**:
+- Every handler checks project membership.
+- Role checks exist only in `projects.ts` (the private `requireMembership(db, projectId, userId, requiredRoles?)` helper), in tasks create/assign/review (admin/supervisor), and in annotations save/revert (restrictions on annotators).
+- The `videos` and `processing` procedures (list/get/create/update/delete, triggerPipeline, retryStage) check **membership only**. Any member, annotators included, can see, edit, delete or reprocess every video in the project.
+
+Intended role model, **not yet enforced**:
 - **Annotators**: assigned videos/tasks within project membership
 - **Supervisors**: read/update within project scope
 - **Admins**: full access
+
+For new role-gated code, move `requireMembership` into a shared module (e.g. `trpc/authz.ts`) and export it rather than hand-rolling another membership query.
 
 ## Rules (`.claude/rules/`)
 

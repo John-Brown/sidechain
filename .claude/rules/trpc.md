@@ -23,7 +23,7 @@ Created in `context.ts` via `createContext(event)`. Auto-creates profile for new
 
 - `protectedProcedure` — requires auth (`ctx.user` non-null). Default for all new procedures.
 - `publicProcedure` — exported from `trpc.ts` but currently unused.
-- No role-gated procedure helper. Role checks happen inside handlers. Reuse `requireMembership(db, projectId, userId, requiredRoles?)` from `routers/projects.ts` rather than hand-rolling membership queries.
+- No role-gated procedure helper. Role checks happen inside handlers. `requireMembership(db, projectId, userId, requiredRoles?)` in `routers/projects.ts` is module-private. Other routers hand-roll membership queries, and `videos`/`processing` check membership only, with no role checks. Before reusing it, move it into a shared module (e.g. `trpc/authz.ts`) and export it.
 - Input: always Zod schema via `.input(z.object({ ... }))`
 - UUID fields: `z.string().uuid()`
 

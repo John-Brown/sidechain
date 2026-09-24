@@ -44,7 +44,7 @@ Stable technical docs: setup, system flow, infrastructure, algorithm specs.
 | [phase-2-pipeline-frontend.md](archive/phase-2-pipeline-frontend.md) | Phase 2 — all 7 stages + DAG + frontend |
 | [phase3-qa-checklist.md](archive/phase3-qa-checklist.md) | Phase 3 — QA checklist |
 | [v1-qa.md](archive/v1-qa.md) | V1 QA checklist |
-| [phase-4-editing-task-mode.md](archive/phase-4-editing-task-mode.md) | Phase 4 — annotation editing + task mode (complete; command-executor layer + router tests deferred) |
+| [phase-4-editing-task-mode.md](archive/phase-4-editing-task-mode.md) | Phase 4 — annotation editing + task mode (infra complete; only user labels editable in viewer; state/intent/backchannel tracks, command-executor layer and router tests deferred) |
 | [viewer-code-review.md](archive/viewer-code-review.md) | Phase 4.2 — timeline viewer code review (all 20 fixes shipped, f1740ef) |
 
 ## Archived Reference (`plans/archive/phase-0-reference/`)

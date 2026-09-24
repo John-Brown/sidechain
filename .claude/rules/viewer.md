@@ -28,7 +28,7 @@ All time conversions go through `TimelineState`:
 
 ## Track Types
 
-**CanvasTrack** — continuous data (VAD, waveform, diarization, mouth energy, head pose). Draw functions live in `tracks/draw-functions.ts` (`drawRuler`, `drawVad`, `drawDiarization`, `drawWaveform`, `drawMouthEnergy`, `drawHeadPose`). Draw callback receives `(ctx, width, height, viewport)`. Uses RAF loop when playing/scrubbing. Handles DPR scaling.
+**CanvasTrack** — continuous data (ruler, waveform, VAD, mouth energy, head pose). Draw functions live in `tracks/draw-functions.ts` (`drawRuler`, `drawWaveform`, `drawVad`, `drawMouthEnergy`, `drawHeadPose`). `drawDiarization` exists but isn't wired up; the diarization track is a TODO in AnnotationViewer because the stage is in development. Draw callback receives `(ctx, width, height, viewport)`. Uses RAF loop when playing/scrubbing. Handles DPR scaling.
 
 **DOMTrack** — discrete blocks (transcription, states, intents, user labels in view mode). Generic `<T>` with `getStart`/`getEnd`/`blockClass`/`blockLabel` props. Viewport-culled via binary search (`utils/binary-search.ts`). Blocks are absolutely-positioned `<button>` elements with `will-change: transform`.
 

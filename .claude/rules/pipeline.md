@@ -49,7 +49,7 @@ export const HUMAN_GATES: Partial<Record<PipelineStage, TaskType>> = {
 };
 ```
 
-`getReadyStages` checks: if an upstream stage has a human gate, all associated tasks must be in approved status.
+`getReadyStages` checks: an upstream stage with a human gate is satisfied once **at least one** task of the gate's type is approved for the video (`trigger.ts` `getApprovedGates`). Other tasks of that type that aren't approved do not block. Requiring *all* of them to be approved is not implemented.
 
 On task approval: export edited data to S3 as `{type}_approved.json`, then call `triggerReadyStages`.
 
