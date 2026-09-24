@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import {
   annotationSets,
   annotationEdits,
@@ -15,6 +15,7 @@ import {
 } from "@annotation/shared";
 import type { TaskConstraints } from "@annotation/shared";
 import { protectedProcedure, router } from "../trpc.js";
+import { assertEditsAllowed, assertTaskAllowsSave, stampReviews } from "../annotation-save-rules.js";
 
 // --- Helpers ---
 
@@ -67,21 +68,8 @@ async function validateSavePermissions(
       throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
     }
 
-    if (task.status !== "in_progress") {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Task is not in progress" });
-    }
-
-    if (task.assignedTo !== userId) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Not assigned to this task" });
-    }
-
-    const constraints = task.constraints as TaskConstraints | null;
-    if (constraints?.editableTypes && !constraints.editableTypes.includes(type)) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: `Cannot edit ${type} in this task`,
-      });
-    }
+    // Same video, in progress, assigned to the caller, type editable
+    assertTaskAllowsSave(task, { userId, videoId, type });
 
     return { membership, task };
   }
@@ -137,6 +125,14 @@ export const annotationsRouter = router({
   /**
    * Save annotation data — creates a new version of the annotation_set.
    * Transaction: set is_current=false on old → insert new with is_current=true → batch insert edits.
+   *
+   * With `taskId` (the viewer sends it in task mode) the task's constraints
+   * are enforced; without it annotators are refused. Per-item `review` stamps
+   * are server-owned: unchanged items keep the previous version's `by` / `at`,
+   * new ones get the caller and the server clock, and a new
+   * `supervisor_override` needs an admin or supervisor; an annotator may only
+   * restore one an earlier version stored on that exact item
+   * (annotation-save-rules.ts).
    */
   save: protectedProcedure
     .input(
@@ -150,7 +146,7 @@ export const annotationsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { task } = await validateSavePermissions(
+      const { membership, task } = await validateSavePermissions(
         ctx.db,
         ctx.user.id,
         input.videoId,
@@ -159,16 +155,7 @@ export const annotationsRouter = router({
       );
 
       // Task constraints: every recorded operation must be allowed
-      const allowed = (task?.constraints as TaskConstraints | null)?.allowedOperations;
-      if (allowed) {
-        const denied = input.edits.find((e) => !allowed.includes(e.editType));
-        if (denied) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: `Operation "${denied.editType}" is not allowed in this task`,
-          });
-        }
-      }
+      assertEditsAllowed(input.edits, task?.constraints as TaskConstraints | null);
 
       return await ctx.db.transaction(async (tx) => {
         // 1. Find current version (if any)
@@ -177,6 +164,7 @@ export const annotationsRouter = router({
             id: annotationSets.id,
             version: annotationSets.version,
             metadata: annotationSets.metadata,
+            data: annotationSets.data,
           })
           .from(annotationSets)
           .where(
@@ -189,6 +177,33 @@ export const annotationsRouter = router({
           .limit(1);
 
         const nextVersion = current ? current.version + 1 : 1;
+
+        // Review stamps: unchanged items keep the previous by/at, new ones get the
+        // caller and server time, supervisor_override is role-checked
+        const data = await stampReviews(input.data, current?.data, {
+          userId: ctx.user.id,
+          role: membership.role,
+          now: new Date().toISOString(),
+          // An annotator's undo can restore an item an earlier version stored
+          // with a supervisor stamp: allowed only if this exact item (stamp,
+          // by and at included) is in some version of this video and type
+          stampExistsInHistory: async (item) => {
+            const [hit] = await tx
+              .select({ id: annotationSets.id })
+              .from(annotationSets)
+              .where(
+                and(
+                  eq(annotationSets.videoId, input.videoId),
+                  eq(annotationSets.type, input.type),
+                  // Exact element equality, not containment (`@>` would accept a subset,
+                  // e.g. the stamp with by/at or content fields stripped)
+                  sql`CASE WHEN jsonb_typeof(${annotationSets.data}) = 'array' THEN EXISTS (SELECT 1 FROM jsonb_array_elements(${annotationSets.data}) AS e(v) WHERE e.v = ${JSON.stringify(item)}::jsonb) ELSE false END`,
+                ),
+              )
+              .limit(1);
+            return hit !== undefined;
+          },
+        });
 
         // 2. Set is_current=false on existing current version
         if (current) {
@@ -205,7 +220,7 @@ export const annotationsRouter = router({
             videoId: input.videoId,
             type: input.type,
             version: nextVersion,
-            data: input.data,
+            data,
             // Carry the previous version's metadata forward when the client sends none
             metadata: input.metadata ?? current?.metadata ?? null,
             source: "human",

@@ -26,6 +26,16 @@ export interface AnnotationReview {
   by?: string;
   /** ISO timestamp of the review */
   at?: string;
+  /**
+   * Review identity: the `reviewKey` (`start|end|label`, viewer/review.ts) of
+   * the item's ORIGINAL AI form. Set from the pre-edit item the first time the
+   * item is stamped and carried unchanged by later reclassify, resize, move,
+   * confirm and split (both halves); a merge keeps the lower item's origin.
+   * Absent on items a human created (they have no AI form) and on stamps
+   * written before it existed. The review queue uses it to tie an edited item
+   * back to its loaded queue row.
+   */
+  origin?: string;
 }
 
 // --- VAD ---
