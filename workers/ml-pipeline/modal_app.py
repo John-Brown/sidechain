@@ -6,7 +6,7 @@ Defines web endpoints for all processing stages:
 - Transcription (WhisperX: faster-whisper + wav2vec2 alignment + optional diarization)
 - Facial tracking (MediaPipe Face Mesh)
 - Mouth energy (from facial tracking blend shapes)
-- Diarization (pyannote.audio 3.1)
+- Diarization (pyannote.audio, pyannote/speaker-diarization-3.1 pipeline)
 - State annotation (rule-based speaking/listening)
 - Intent classification (Claude API)
 """
@@ -88,7 +88,7 @@ diarization_image = (
 # Intent classification: Anthropic SDK (lightweight)
 intent_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install(*_common, "anthropic")
+    .pip_install(*_common, "anthropic>=1.0")
     .add_local_python_source("stages", copy=True)
 )
 

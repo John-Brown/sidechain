@@ -12,6 +12,8 @@ from .utils import download_json_from_s3, upload_json_to_s3
 
 logger = logging.getLogger(__name__)
 
+CLAUDE_MODEL = "claude-sonnet-5"
+
 INTENT_TYPES = ["engage", "inform", "inquire", "challenge", "comfort", "celebrate"]
 INTENSITY_LEVELS = ["low", "moderate", "high"]
 VALENCE_LEVELS = ["positive", "neutral", "negative"]
@@ -57,7 +59,7 @@ def _classify_segment(
     )
 
     response = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model=CLAUDE_MODEL,
         max_tokens=256,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -195,7 +197,7 @@ def run_intent_classification(
             "total_secs": round(total_secs, 3),
             "algorithm": {
                 "name": "claude-intent-classification",
-                "model": "claude-sonnet-4-5-20250929",
+                "model": CLAUDE_MODEL,
                 "version": "1.0",
                 "processing_time": round(processing_time, 3),
                 "parameters": {
