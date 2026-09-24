@@ -260,7 +260,7 @@
       <span class="lowconf-swatch" aria-hidden="true"></span>{lowConfCount}&thinsp;&lt;&thinsp;{LOW_CONF_LABEL}
     </span>
   {:else if meta}
-    <span class="ml-auto shrink-0 font-mono text-viewer-xs text-viewer-text-subtle">{meta}</span>
+    <span class="ml-auto shrink-0 font-mono text-viewer-xs text-viewer-text-dim">{meta}</span>
   {/if}
 
   {#if resizable}

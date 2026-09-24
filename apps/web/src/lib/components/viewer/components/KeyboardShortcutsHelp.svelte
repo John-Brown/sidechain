@@ -34,8 +34,9 @@
     {
       name: 'Review',
       items: [
-        { k: '⇥', d: 'Next in review' },
-        { k: '⇧⇥', d: 'Previous' },
+        { k: '⇥', d: 'Next in review (after picking a queue row)' },
+        { k: '⇧⇥', d: 'Previous in review' },
+        { k: '← →', d: 'Blocks in a track (⇥ next track)' },
         { k: '↵', d: 'Confirm' },
         { k: 'C', d: 'Reclassify' },
         { k: '1–6', d: 'Pick category' },

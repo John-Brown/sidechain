@@ -20,8 +20,23 @@
  *   - `{ source, confirmed: false }` → a human decided on it some other way (reclassify, create)
  *
  * Keeping the flag in the data (not in a side table or set metadata) means
- * undo/redo snapshots, the localStorage draft, autosave and reload all carry
- * it with no extra plumbing, and it survives reindexing (split/merge/create).
+ * undo/redo snapshots, the localStorage draft and reload carry it, and it
+ * survives reindexing. EditorState.undo()/redo() mark the type dirty so the
+ * restored array (with or without the stamp) is saved, and drop or restore
+ * the step's pending audit edits, so an undone confirm never reaches
+ * annotation_edits (one withdrawn while its save is in flight was already
+ * sent; the next save still drops the stamp). Split, merge and resize re-stamp
+ * the items they produce `confirmed: false` (a human changed the extent).
+ *
+ * `review.origin` is the item's review identity: the key of its original AI
+ * form, set on the first stamp and carried by every later edit (see
+ * AnnotationReview.origin). The queue ties an edited item back to its loaded
+ * row through it (`reviewedBaselineKeys`, `locateQueueItem`).
+ *
+ * The server (`annotations.save`, server/trpc/annotation-save-rules.ts) owns
+ * `by` / `at`: an unchanged item keeps the previous version's values, a new
+ * stamp gets the caller and server time, and `supervisor_override` from an
+ * annotator is refused unless that exact item was stored before (an undo).
  *
  * Fallbacks when there is no `review` stamp (e.g. data saved before it existed):
  *   - backchannels and user labels have no pipeline stage → always "human".
@@ -145,18 +160,54 @@ export function isLowConfidence(item: ReviewableAnnotation): boolean {
   return isLowConfidenceValue(getConfidence(item)) && !isHumanReviewed(item);
 }
 
+/**
+ * The `review.origin` a new stamp on an item edited from `pre` carries: the
+ * pre-edit item's origin when it was already stamped (possibly none, for a
+ * created item or a legacy stamp), else `pre`'s own key (its AI form).
+ */
+export function originFor(pre: ReviewableAnnotation): string | undefined {
+  const review = getReview(pre);
+  return review ? review.origin : reviewKey(pre);
+}
+
+export interface WithReviewOptions {
+  confirmed: boolean;
+  source?: AnnotationReview['source'];
+  by?: string;
+  at?: string;
+  /**
+   * The item as it was before this edit, for `review.origin` (see
+   * AnnotationReview.origin). Defaults to `item` itself (a confirm). Pass the
+   * original for a reclassify, resize or split, the lower item for a merge,
+   * and `null` for an item a human created (no AI form, no origin).
+   */
+  from?: ReviewableAnnotation | null;
+}
+
 /** Return a copy of `item` stamped with human provenance. */
-export function withReview<T extends ReviewableAnnotation>(
-  item: T,
-  opts: { confirmed: boolean; source?: AnnotationReview['source']; by?: string; at?: string },
-): T {
+export function withReview<T extends ReviewableAnnotation>(item: T, opts: WithReviewOptions): T {
   const review: AnnotationReview = {
     source: opts.source ?? 'human',
     confirmed: opts.confirmed,
   };
   if (opts.by) review.by = opts.by;
   review.at = opts.at ?? new Date().toISOString();
+  const from = opts.from === undefined ? item : opts.from;
+  const origin = from ? originFor(from) : undefined;
+  if (origin !== undefined) review.origin = origin;
   return { ...structuredClone(item), review } as T;
+}
+
+/**
+ * Stamp the items an extent edit produced (split halves, a merge, a resize or
+ * move) as human-decided, `confirmed: false`: a person changed them, so the old
+ * stamp ("accepted unchanged", or one side of a merge) no longer describes
+ * them. `from` is the pre-edit item (the unsplit original, the merge's lower
+ * item, the item before the drag), so both split halves and the merged item
+ * keep its `origin`. User labels carry no `review`, so pass only the other types.
+ */
+export function stampExtentEdit<T extends ReviewableAnnotation>(item: T, by: string | undefined, from: ReviewableAnnotation): T {
+  return withReview(item, { confirmed: false, by, from });
 }
 
 /** Copy of `item` without its `review` stamp (for content comparisons). */
@@ -192,6 +243,11 @@ export interface ReviewItem {
 export interface ReviewQueueSource {
   intents?: readonly IntentAnnotation[] | null;
   words?: readonly SpeechWord[] | null;
+  /**
+   * Task locked ranges. Items overlapping one can't be confirmed or
+   * reclassified, so the queue and the progress counters leave them out.
+   */
+  lockedRanges?: readonly TimeRange[];
 }
 
 /** Order: start time, then key (deterministic tiebreak), then index. */
@@ -203,16 +259,23 @@ export function compareReviewItems(a: ReviewItem, b: ReviewItem): number {
 
 /**
  * Every low-confidence AI item (intents + transcription words) that no human
- * has reviewed, sorted by start time, filtered by kind.
+ * has reviewed, sorted by start time, filtered by kind. Items inside
+ * `source.lockedRanges` are left out.
  */
 export function buildReviewQueue(source: ReviewQueueSource, filter: ReviewFilter = 'all'): ReviewItem[] {
   const out: ReviewItem[] = [];
+  const locked = source.lockedRanges ?? [];
+  // Keys are unique by construction: an exact duplicate (same range and label) is listed once
+  const seen = new Set<string>();
 
   if (filter !== 'words' && source.intents) {
     source.intents.forEach((it, index) => {
-      if (!isLowConfidence(it)) return;
+      if (!isLowConfidence(it) || overlapsAny(it.time_range, locked)) return;
+      const key = `intent|${reviewKey(it)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
       out.push({
-        key: `intent|${reviewKey(it)}`,
+        key,
         kind: 'intent',
         editableType: 'intents',
         index,
@@ -227,9 +290,12 @@ export function buildReviewQueue(source: ReviewQueueSource, filter: ReviewFilter
 
   if (filter !== 'intents' && source.words) {
     source.words.forEach((w, index) => {
-      if (!isLowConfidence(w)) return;
+      if (!isLowConfidence(w) || overlapsAny(w.time_range, locked)) return;
+      const key = `word|${reviewKey(w)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
       out.push({
-        key: `word|${reviewKey(w)}`,
+        key,
         kind: 'word',
         editableType: 'transcription',
         index,
@@ -271,6 +337,97 @@ export function queueKeyFor(
   if (editableType === 'intents') return `intent|${reviewKey(item)}`;
   if (editableType === 'transcription') return `word|${reviewKey(item)}`;
   return null;
+}
+
+/**
+ * Keys of the `baseline` queue rows (the queue as loaded) whose item a human
+ * has since decided on, so the queue can keep them listed with a ✓.
+ *
+ * A row is reviewed iff some current human-reviewed item of the same kind
+ * carries `review.origin` equal to the row's item key (a reclassify, resize,
+ * move, confirm or either split half of that item), or has exactly the row's
+ * key. There is no positional or overlap guess, so an unrelated human item
+ * that lands on the row's index or time never marks it.
+ *
+ * Rows that drop out of both this set and the open queue: a deleted item, and
+ * the upper item of a merge (the merged item keeps the lower item's origin
+ * only). They are no longer an item anyone can review, so they are neither
+ * open nor ✓.
+ *
+ * Keys still in `open` (the current queue) are left out, so a key is never
+ * both open and reviewed (exact duplicates in the data, or a human item
+ * created with an open item's exact range and label).
+ */
+export function reviewedBaselineKeys(
+  baseline: readonly ReviewItem[],
+  current: { intents?: readonly IntentAnnotation[] | null; words?: readonly SpeechWord[] | null },
+  open: readonly ReviewItem[] = [],
+): Set<string> {
+  const decided = new Set<string>();
+  const collect = (prefix: string, items: readonly ReviewableAnnotation[] | null | undefined) => {
+    if (!items) return;
+    for (const it of items) {
+      if (!isHumanReviewed(it)) continue;
+      decided.add(`${prefix}|${reviewKey(it)}`);
+      const origin = getReview(it)?.origin;
+      if (origin !== undefined) decided.add(`${prefix}|${origin}`);
+    }
+  };
+  collect('intent', current.intents);
+  collect('word', current.words);
+
+  const openKeys = new Set(open.map((q) => q.key));
+  const keys = new Set<string>();
+  for (const q of baseline) {
+    if (decided.has(q.key) && !openKeys.has(q.key)) keys.add(q.key);
+  }
+  return keys;
+}
+
+/**
+ * The open queue plus the reviewed baseline rows (`reviewedKeys`), sorted,
+ * each key once. Unique by construction: open rows come first and a baseline
+ * row is added only when its key isn't taken, so a keyed `{#each}` never sees
+ * a duplicate.
+ */
+export function mergeQueueRows(
+  open: readonly ReviewItem[],
+  baseline: readonly ReviewItem[],
+  reviewedKeys: ReadonlySet<string>,
+): ReviewItem[] {
+  const seen = new Set<string>();
+  const rows: ReviewItem[] = [];
+  for (const q of open) {
+    if (seen.has(q.key)) continue;
+    seen.add(q.key);
+    rows.push(q);
+  }
+  for (const q of baseline) {
+    if (!reviewedKeys.has(q.key) || seen.has(q.key)) continue;
+    seen.add(q.key);
+    rows.push(q);
+  }
+  return rows.sort(compareReviewItems);
+}
+
+/**
+ * Index of a queue row's item in an editor array: the item with the row's
+ * key (preferring an unreviewed one, and the row's build-time index when it
+ * still fits), else the item whose `review.origin` is the row's (a reviewed
+ * row whose item was reclassified, resized or split). -1 when it's gone.
+ */
+export function locateQueueItem(items: readonly ReviewableAnnotation[], q: ReviewItem): number {
+  const itemKey = q.key.slice(q.kind.length + 1);
+  const hint = items[q.index];
+  if (hint && reviewKey(hint) === itemKey && !isHumanReviewed(hint)) return q.index;
+  let reviewedMatch = -1;
+  for (let i = 0; i < items.length; i++) {
+    if (reviewKey(items[i]) !== itemKey) continue;
+    if (!isHumanReviewed(items[i])) return i;
+    if (reviewedMatch < 0) reviewedMatch = i;
+  }
+  if (reviewedMatch >= 0) return reviewedMatch;
+  return items.findIndex((it) => getReview(it)?.origin === itemKey);
 }
 
 export interface ReviewAnchor {
@@ -370,10 +527,16 @@ export interface ReviewScope {
   words: boolean;
 }
 
+/** True when the scope covers at least one review kind (a verify-states task covers none). */
+export function hasReviewScope(scope: ReviewScope): boolean {
+  return scope.intents || scope.words;
+}
+
 /**
  * Review progress over the types in scope. Every intent is reviewable. Words
  * are reviewed by exception: only low-confidence or already-reviewed words
- * count, since nobody walks every word of a transcript.
+ * count, since nobody walks every word of a transcript. Items inside
+ * `source.lockedRanges` don't count at all: nobody may act on them.
  */
 export function computeReviewProgress(
   source: ReviewQueueSource,
@@ -384,9 +547,11 @@ export function computeReviewProgress(
   let lowConfRemaining = 0;
   let intentsReviewed = 0;
   let intentsTotal = 0;
+  const locked = source.lockedRanges ?? [];
 
   if (scope.intents && source.intents) {
     for (const it of source.intents) {
+      if (overlapsAny(it.time_range, locked)) continue;
       intentsTotal++;
       if (isHumanReviewed(it)) intentsReviewed++;
       else if (isLowConfidence(it)) lowConfRemaining++;
@@ -397,6 +562,7 @@ export function computeReviewProgress(
 
   if (scope.words && source.words) {
     for (const w of source.words) {
+      if (overlapsAny(w.time_range, locked)) continue;
       if (isHumanReviewed(w)) {
         reviewedCount++;
         totalReviewable++;
@@ -478,9 +644,11 @@ export type ChecklistId = 'all-reviewed' | 'low-confidence' | 'no-overlaps' | 'l
 export interface ChecklistItem {
   id: ChecklistId;
   text: string;
-  /** Right-aligned mono meta: "31 / 46", "4 left", "2" */
+  /** Right-aligned mono meta: "31 / 46", "4 left", "2", "N/A" */
   meta: string;
   done: boolean;
+  /** False when the row doesn't apply to this task (review rows on a task that reviews nothing); such a row is done */
+  applicable: boolean;
 }
 
 function reviewedRowText(scope: ReviewScope): string {
@@ -489,9 +657,14 @@ function reviewedRowText(scope: ReviewScope): string {
   return 'Every item reviewed';
 }
 
-/** The four "Before you submit" rows from the task panel design. */
+/**
+ * The four "Before you submit" rows from the task panel design. With an
+ * empty review scope (the task can edit neither intents nor words) the two
+ * review rows read N/A and count as done.
+ */
 export function buildTaskChecklist(input: ChecklistInput): ChecklistItem[] {
-  const progress = computeReviewProgress(input.current, input.scope);
+  const reviewing = hasReviewScope(input.scope);
+  const progress = computeReviewProgress({ ...input.current, lockedRanges: input.lockedRanges }, input.scope);
   const onlyIntents = input.scope.intents && !input.scope.words;
   const reviewed = onlyIntents ? progress.intentsReviewed : progress.reviewedCount;
   const total = onlyIntents ? progress.intentsTotal : progress.totalReviewable;
@@ -514,29 +687,37 @@ export function buildTaskChecklist(input: ChecklistInput): ChecklistItem[] {
       );
 
   return [
-    {
-      id: 'all-reviewed',
-      text: reviewedRowText(input.scope),
-      meta: `${reviewed} / ${total}`,
-      done: reviewed >= total,
-    },
-    {
-      id: 'low-confidence',
-      text: 'Low-confidence resolved',
-      meta: progress.lowConfRemaining > 0 ? `${progress.lowConfRemaining} left` : '',
-      done: progress.lowConfRemaining === 0,
-    },
+    reviewing
+      ? {
+          id: 'all-reviewed',
+          text: reviewedRowText(input.scope),
+          meta: `${reviewed} / ${total}`,
+          done: reviewed >= total,
+          applicable: true,
+        }
+      : { id: 'all-reviewed', text: 'Every item reviewed', meta: 'N/A', done: true, applicable: false },
+    reviewing
+      ? {
+          id: 'low-confidence',
+          text: 'Low-confidence resolved',
+          meta: progress.lowConfRemaining > 0 ? `${progress.lowConfRemaining} left` : '',
+          done: progress.lowConfRemaining === 0,
+          applicable: true,
+        }
+      : { id: 'low-confidence', text: 'Low-confidence resolved', meta: 'N/A', done: true, applicable: false },
     {
       id: 'no-overlaps',
       text: 'No overlaps',
       meta: overlapCount > 0 ? String(overlapCount) : '',
       done: overlapCount === 0,
+      applicable: true,
     },
     {
       id: 'locked-untouched',
       text: 'Locked ranges untouched',
       meta: input.lockedRanges.length > 0 ? String(input.lockedRanges.length) : '',
       done: untouched,
+      applicable: true,
     },
   ];
 }

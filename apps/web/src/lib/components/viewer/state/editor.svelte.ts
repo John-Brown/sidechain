@@ -17,6 +17,25 @@ import {
 
 export type EditableType = 'states' | 'intents' | 'transcription' | 'backchannels' | 'userLabels';
 
+/** Undo depth per type (History snapshots and the matching audit-edit steps) */
+const MAX_UNDO = 50;
+
+/**
+ * Types Reclassify (C) acts on: the ClassifyDialog for states and intents, the
+ * text dialog for user labels. Words and backchannels have nothing to reclassify.
+ */
+export const RECLASSIFIABLE_TYPES: readonly EditableType[] = ['states', 'intents', 'userLabels'];
+
+export function isReclassifiable(type: EditableType): boolean {
+  return RECLASSIFIABLE_TYPES.includes(type);
+}
+
+const EDITABLE_TYPES: readonly EditableType[] = ['states', 'intents', 'transcription', 'backchannels', 'userLabels'];
+
+function emptySteps(): Record<EditableType, EditRecord[][]> {
+  return Object.fromEntries(EDITABLE_TYPES.map((t) => [t, []])) as unknown as Record<EditableType, EditRecord[][]>;
+}
+
 export interface EditRecord {
   editType: EditType;
   targetIndex: number | null;
@@ -47,15 +66,32 @@ export class EditorState {
   // Monotonic counter — increments on every markDirty call so $effect can re-trigger
   dirtyVersion = $state(0);
 
+  /** profiles.id of the signed-in user, for `review.by` stamps (the server re-stamps on save) */
+  reviewerId: string | null = $state(null);
+
   // History instances per editable type
-  stateHistory = new History<StateAnnotation[]>();
-  intentHistory = new History<IntentAnnotation[]>();
-  transcriptionHistory = new History<SpeechWord[]>();
-  backchannelHistory = new History<BackchannelAnnotation[]>();
-  userLabelHistory = new History<UserLabel[]>();
+  stateHistory = new History<StateAnnotation[]>(MAX_UNDO);
+  intentHistory = new History<IntentAnnotation[]>(MAX_UNDO);
+  transcriptionHistory = new History<SpeechWord[]>(MAX_UNDO);
+  backchannelHistory = new History<BackchannelAnnotation[]>(MAX_UNDO);
+  userLabelHistory = new History<UserLabel[]>(MAX_UNDO);
 
   // Pending edit records per type — accumulated between saves
   #pendingEdits: Record<string, EditRecord[]> = {};
+
+  // Per-type markDirty counters (typeVersion / clearDirtyIfUnchanged)
+  #typeVersions: Record<string, number> = {};
+
+  /**
+   * Audit edits per undo step, parallel to each History stack: pushUndo opens
+   * a step, recordEdit adds to the newest one. undo() takes the step's edits
+   * out of the pending batch (an undone edit that was never saved is never
+   * sent) and redo() puts them back, so the audit trail follows the undo
+   * stack. Edits already saved stay in annotation_edits; undoing them saves a
+   * new version without the change.
+   */
+  #undoSteps = emptySteps();
+  #redoSteps = emptySteps();
 
   /**
    * Stable keys (`start|end|label`, see review.ts) of items a human has
@@ -76,6 +112,11 @@ export class EditorState {
 
   /** Snapshot the current array of `type` onto its undo stack. Call before every commit. */
   pushUndo(type: EditableType): void {
+    if (this[type] === null) return;
+    const steps = this.#undoSteps[type];
+    steps.push([]);
+    if (steps.length > MAX_UNDO) steps.shift();
+    this.#redoSteps[type] = [];
     switch (type) {
       case 'states':
         if (this.states) this.stateHistory.push(structuredClone($state.snapshot(this.states)));
@@ -111,7 +152,7 @@ export class EditorState {
     this.pushUndo(type);
     const next = structuredClone($state.snapshot(arr)) as ReviewableAnnotation[];
     const before = next[index];
-    const after = withReview(before, { confirmed: true, by: opts.by });
+    const after = withReview(before, { confirmed: true, by: opts.by ?? this.reviewerId ?? undefined });
     next[index] = after;
     (this as unknown as Record<EditableType, ReviewableAnnotation[]>)[type] = next;
 
@@ -132,12 +173,19 @@ export class EditorState {
     return this.confirm(this.selectedType, this.selectedIndex, opts);
   }
 
-  /** Record an edit for the audit trail (batched until next save) */
+  /** Record an edit for the audit trail (batched until next save), on the newest undo step */
   recordEdit(type: EditableType, edit: EditRecord): void {
     if (!this.#pendingEdits[type]) {
       this.#pendingEdits[type] = [];
     }
     this.#pendingEdits[type].push(edit);
+    const steps = this.#undoSteps[type];
+    if (steps.length > 0) steps[steps.length - 1].push(edit);
+  }
+
+  /** Edits waiting for the next save of `type` (read-only view, for tests and the save indicator) */
+  pendingEdits(type: EditableType): readonly EditRecord[] {
+    return this.#pendingEdits[type] ?? [];
   }
 
   /** Get and clear pending edits for a type (called by autosave on save) */
@@ -161,22 +209,40 @@ export class EditorState {
     return this.#canRedoType(this.lastEditedType);
   }
 
-  /** Undo the last operation on the most recently edited type */
+  /**
+   * Undo the last operation on the most recently edited type. Marks the type
+   * dirty so autosave persists the restored array (an undone confirm must
+   * reach the server too), and withdraws the step's unsaved audit edits.
+   */
   undo(): boolean {
     const type = this.lastEditedType;
     if (!type) return false;
     const ok = this.#undoType(type);
-    if (ok) this.#dropStaleSelection(type);
-    return ok;
+    if (!ok) return false;
+    const step = this.#undoSteps[type].pop() ?? [];
+    const pending = this.#pendingEdits[type];
+    if (pending && step.length > 0) {
+      this.#pendingEdits[type] = pending.filter((e) => !step.includes(e));
+    }
+    this.#redoSteps[type].push(step);
+    this.#dropStaleSelection(type);
+    this.markDirty(type);
+    return true;
   }
 
-  /** Redo the last undone operation on the most recently edited type */
+  /** Redo the last undone operation on the most recently edited type; re-queues its audit edits and marks dirty. */
   redo(): boolean {
     const type = this.lastEditedType;
     if (!type) return false;
     const ok = this.#redoType(type);
-    if (ok) this.#dropStaleSelection(type);
-    return ok;
+    if (!ok) return false;
+    const step = this.#redoSteps[type].pop() ?? [];
+    const pending = (this.#pendingEdits[type] ??= []);
+    for (const edit of step) if (!pending.includes(edit)) pending.push(edit);
+    this.#undoSteps[type].push(step);
+    this.#dropStaleSelection(type);
+    this.markDirty(type);
+    return true;
   }
 
   /**
@@ -319,6 +385,8 @@ export class EditorState {
     this.userLabelHistory.clear();
     this.#dirtyFlags = {};
     this.#pendingEdits = {};
+    this.#undoSteps = emptySteps();
+    this.#redoSteps = emptySteps();
   }
 
   exitEditMode(): void {
@@ -338,11 +406,42 @@ export class EditorState {
     this.userLabelHistory.clear();
     this.#dirtyFlags = {};
     this.#pendingEdits = {};
+    this.#undoSteps = emptySteps();
+    this.#redoSteps = emptySteps();
   }
 
   markDirty(type: string): void {
     this.#dirtyFlags = { ...this.#dirtyFlags, [type]: true };
+    this.#typeVersions[type] = (this.#typeVersions[type] ?? 0) + 1;
     this.dirtyVersion++;
+  }
+
+  /**
+   * Per-type change counter (bumped by every markDirty of `type`). Autosave
+   * reads it before a save and clears the flag only if it hasn't moved, so an
+   * edit or undo made while the save is in flight stays dirty.
+   */
+  typeVersion(type: string): number {
+    return this.#typeVersions[type] ?? 0;
+  }
+
+  /** Clear `type`'s dirty flag if nothing marked it since `version` (typeVersion) was read. Returns whether it cleared. */
+  clearDirtyIfUnchanged(type: string, version: number): boolean {
+    if (this.typeVersion(type) !== version || !this.#dirtyFlags[type]) return false;
+    const { [type]: _cleared, ...rest } = this.#dirtyFlags;
+    this.#dirtyFlags = rest;
+    return true;
+  }
+
+  /**
+   * Put edits taken by getAndClearEdits back at the front of the pending
+   * batch (a failed save), skipping any an undo has withdrawn meanwhile.
+   */
+  requeueEdits(type: EditableType, edits: readonly EditRecord[]): void {
+    if (edits.length === 0) return;
+    // Withdrawn = sitting on the redo stack (undone before this retry)
+    const back = edits.filter((e) => !this.#redoSteps[type].some((step) => step.includes(e)));
+    this.#pendingEdits[type] = [...back, ...(this.#pendingEdits[type] ?? []).filter((e) => !back.includes(e))];
   }
 
   isDirty(type: string): boolean {

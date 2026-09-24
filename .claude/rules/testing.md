@@ -52,14 +52,14 @@ describe('myFunction', () => {
 
 ## Existing Test Coverage
 
-382 tests across 18 files, all passing as of 2026-09-24 after the design pass (`pnpm --filter web test`).
+447 tests across 19 files, all passing as of 2026-09-24 after the design pass, its review fixes and the regression pass (`pnpm --filter web test`).
 
 | File | Tests | Covers |
 |------|-------|--------|
-| `viewer/review.test.ts` | 42 | LOW_CONFIDENCE, item introspection, provenance stamps, isLowConfidence, buildReviewQueue, ⇥ navigation, review progress, findOverlaps, locked ranges untouched, task checklist |
+| `viewer/review.test.ts` | 66 | LOW_CONFIDENCE, item introspection, provenance stamps, isLowConfidence, buildReviewQueue (incl. locked ranges), ⇥ navigation, review progress (locked items excluded), findOverlaps, locked ranges untouched, task checklist (N/A rows), stampExtentEdit, review origin, reviewedBaselineKeys (origin matching, split, merge, the inserted-human-item probe), queue key uniqueness, locateQueueItem |
 | `viewer/editing/time-validation.test.ts` | 40 | Overlap, bounds, min duration (50ms), locked regions, coverage |
 | `viewer/editing/drag-resize.test.ts` | 39 | Resize/move math, snapping, clamping |
-| `viewer/state/editor.test.ts` | 35 | EditorState enter/exit edit, dirty tracking, selection, undo/redo (incl. clearing a stale selection), confirm |
+| `viewer/state/editor.test.ts` | 46 | EditorState enter/exit edit, dirty tracking, selection, undo/redo (incl. clearing a stale selection), confirm, undo/redo persistence (dirty after undo, pending audit edits follow the undo stack, undo during an in-flight save with a deferred saveFn, queued saveNow, failed-save re-queue, with AutoSaveState), isReclassifiable |
 | `viewer/utils/binary-search.test.ts` | 32 | Viewport culling binary search: time_range + time-only items, edges, padding |
 | `viewer/editing/operations.test.ts` | 31 | create, delete, split, merge, classify (immutability, return shapes) |
 | `viewer/state/tracks.test.ts` | 30 | Track layout: per-mode defaults, clampHeight, applyPersisted, collapse, setHeight, move/reorder, visibleTracks, persistence (view and edit share a layout) |
@@ -70,9 +70,10 @@ describe('myFunction', () => {
 | `viewer/utils/format-time.test.ts` | 13 | formatTime + formatTimePrecise, edge cases |
 | `viewer/utils/group-words.test.ts` | 12 | Transcription LOD phrase grouping: segment merge/transition, undefined speech_segment, majority speaker, 80-char truncation, immutability |
 | `viewer/state/timeline.test.ts` | 9 | Viewport math, clamping, fitZoom, roundtrips |
-| `viewer/state/task-mode.test.ts` | 8 | reviewScopeFor, overlapTracksFor, TaskModeState review counters |
+| `viewer/state/task-mode.test.ts` | 16 | reviewScopeFor (empty scope for non-review tasks), overlapTracksFor, TaskModeState review counters (locked ranges, N/A), taskAccessFor and editable / read-only |
 | `viewer/utils/annotation-cache.test.ts` | 7 | IndexedDB annotation cache lifecycle |
 | `server/s3-cache.test.ts` | 7 | In-memory S3 getter cache, TTL, dedup |
+| `server/trpc/annotation-save-rules.test.ts` | 22 | `annotations.save` pure checks: task video/status/assignee/editableTypes, allowedOperations, canonical JSON, review stamp server rules (carry-over keeps by/at, restoring a supervisor stamp from history, origin) |
 | `viewer/tracks/draw-functions.test.ts` | 3 | `rulerSteps` (ruler tick spacing); the draw functions themselves are verified visually |
 
 ## Remaining Test Priorities

@@ -26,13 +26,21 @@ Reference plan (archived, phase complete): `plans/archive/phase-4-editing-task-m
 
 - `LOW_CONFIDENCE = 0.6` is the one shared constant (`viewer/review.ts`). An item is **reviewed** once it carries a human `review` stamp (`AnnotationReview` in `@annotation/shared`, persisted in the set's JSONB `data`).
 - **Confirm** (↵, the Inspector's Confirm button, EditToolbar, context menu): `editor.confirm(type, index, { by })` / `confirmSelected()` stamps `review: { source: 'human', confirmed: true, by }` without changing the item, pushes undo, records an `editType: 'confirm'` audit edit and marks the type dirty. It is a no-op on items a human already decided on and on user labels. After confirming, the viewer selects the next queue item (no wrap).
-- **Reclassify** (C) stamps `review: { confirmed: false }` along with the new category. **Create** stamps human provenance.
-- `annotations.save` rejects a `confirm` edit without a target index or a `review.confirmed === true` after-state, and rejects any edit whose type isn't in the task's `allowedOperations`.
-- **Review queue** (`buildReviewQueue`, see `viewer.md`): ⇥ / ⇧⇥ step through it, and in task mode it is narrowed to the task's `reviewScope`. A pointer click on a queue row refocuses the viewer root so ↵ confirms next.
+- **Reclassify** (C) stamps `review: { confirmed: false }` along with the new category. It applies to states, intents and user labels only (`RECLASSIFIABLE_TYPES` / `isReclassifiable` in `editor.svelte.ts`; the toolbar, context menu and `openReclassify` share it). **Create** stamps human provenance.
+- **Split, merge, resize and move** re-stamp the items they produce `review: { confirmed: false }` (`stampExtentEdit(item, by, from)`): a human changed the extent, so an old "accepted unchanged" stamp no longer holds, and a merge doesn't inherit only one side's stamp. User labels carry no stamp.
+- **Review origin**: every stamp carries `review.origin`, the key of the item's original AI form, taken from the pre-edit item (`withReview(..., { from })`). Reclassify, resize, move, confirm and both split halves keep it; a merge keeps the lower item's; a created item has none (`from: null`). The queue matches reviewed rows by it (`data-contracts.md`).
+- `annotations.save` rejects a `confirm` edit without a target index or a `review.confirmed === true` after-state, and, when the save carries `taskId`, any edit whose type isn't in the task's `allowedOperations`. It also server-stamps review provenance (see `data-contracts.md`). The pure checks live in `server/trpc/annotation-save-rules.ts` (unit-tested).
+- **Review queue** (`buildReviewQueue`, see `viewer.md`): ⇥ / ⇧⇥ step through it, **only while the viewer root has focus**. A pointer click on a queue row puts focus there, focus stays on the root after each step, and ↵ confirms the selected item. In task mode the queue only holds items the task may act on: its `reviewScope`, minus items overlapping a locked range. The progress counters and checklist leave locked items out too.
 
 ## Undo/Redo
 
 Snapshot-based via `structuredClone`. Push on `pointerup` (drag commit), create, delete, split, merge, classify, confirm, NOT during drag. Max 50 snapshots (~5MB). Generic `History<T>` class in `state/history.svelte.ts`, instantiated per editable type in EditorState (`stateHistory`, `intentHistory`, `transcriptionHistory`, `backchannelHistory`, `userLabelHistory`). ⌘Z / ⇧⌘Z act on `lastEditedType`; a successful undo or redo clears a selection on that type, because create/split/merge shift indices.
+
+A successful undo or redo also **marks the type dirty**, so autosave (and task submit's `saveNow`) persists the restored array. An undone confirm must reach the server too. **Pending audit edits follow the undo stack**: `pushUndo` opens a step, `recordEdit` adds to it, `undo()` withdraws that step's edits from the pending batch, and `redo()` re-queues them. So an edit undone before a save is never sent to `annotation_edits`. An edit that was already saved stays in the audit log, and its undo is saved as a new version with no compensating edit row (the version diff shows it).
+
+**Undo during an in-flight save**: autosave reads `editor.typeVersion(type)` before each type's request and clears that type's dirty flag afterwards only if the version hasn't moved (`clearDirtyIfUnchanged`). An undo (or any edit) made while the request is out keeps the type dirty, and the next save sends the array without the undone stamp. **Audit caveat**: the edits taken for the in-flight request (`getAndClearEdits`) can't be un-sent, so a confirm undone mid-save still lands in `annotation_edits`, like any undo of a saved edit. A failed request re-queues its edits (minus any undone since). A `saveNow` while a save is running waits for it, then saves what is still dirty.
+
+**Restoring a supervisor stamp**: an annotator's undo can bring back a `supervisor_override` item they had re-stamped human with a resize. The server accepts it only if that exact item is stored in an earlier version (see `data-contracts.md`).
 
 ## Drag-to-Resize + Drag-to-Move (60fps)
 
@@ -88,7 +96,7 @@ Ignored in inputs, textareas, selects and contenteditable, and while an overlay 
 | Group | Keys |
 |-------|------|
 | Playback | Space play/pause · ←/→ ±1s · ⇧←/→ ±5s · Home / End · P picture-in-picture |
-| Review | ⇥ / ⇧⇥ next / previous in review (from the body or viewer root; on blocks and controls Tab stays native) · ↵ confirm (body, root or a focused block) · C reclassify · 1–6 pick a category in the dialog |
+| Review | ⇥ / ⇧⇥ next / previous in review, **from the viewer root only** (focused by a pointer pick of a queue row; focus stays there after each step). On a block Tab and ⇧Tab are native: blocks use a roving tabindex per track, so ⇥ moves to the next or previous track's tabbable block or control and ←/→ move between blocks. No wrap: at either end of the queue, and from the body (page load), the header, panels or labels, Tab stays native, so focus is never trapped · ↵ confirm (body, root or a focused block) · C reclassify · 1–6 pick a category in the dialog |
 | Edit | ⌘E toggle edit · N / I / B / L add state / intent / backchannel / label (edit mode) · S split at playhead · M merge next · ⌫ delete · [ jump to the selection's start · ⌘Z undo · ⇧⌘Z redo · ⌘S save now · Esc deselect, then leave edit mode |
 | Task | ⌘↵ submit |
 | View | N normalize (view mode) · F face mesh · V hide video · ⌥↑/⌥↓ move the focused (or selected) track · ? shortcuts |
@@ -123,7 +131,11 @@ Human-only annotation type: no pipeline stage, no AI provenance. `UserLabel { ti
 
 ## Task Mode
 
-Activated via `?taskId=xxx`. TaskConstraints JSONB defines `editableTypes`, `allowedCategories`, `lockedTimeRanges`, `allowedOperations`. Enforced in the UI (TaskToolbar lists them; handles, buttons, menu items and dialog rows are disabled; non-editable tracks collapse or read "read-only" with a lock) and on the server (`annotations.save` checks membership, that the task is in progress and assigned to the caller, `editableTypes`, and `allowedOperations` before writing; `allowedCategories` and `lockedTimeRanges` are UI-only today). TaskPanel shows the brief (or a sentence built from the constraints), the "Before you submit" checklist, reviewer feedback and the open low-confidence items.
+Activated via `?taskId=xxx`. TaskConstraints JSONB defines `editableTypes`, `allowedCategories`, `lockedTimeRanges`, `allowedOperations`. Enforced in the UI (TaskToolbar lists them; handles, buttons, menu items and dialog rows are disabled; non-editable tracks collapse or read "read-only" with a lock) and on the server.
+
+**Editable vs read-only** (`taskAccessFor` in `task-mode.svelte.ts`): a task is editable only for its assignee (`tasks.get` returns `assignedTo` and `assigneeName`) while it is `assigned` (the viewer starts it → `in_progress`) or `in_progress` (a rejected task returns there). Anyone else, or any other status, opens it **read-only**: task mode with its panel and toolbar, but no edit mode (⌘E does nothing), no autosave and no timer; TaskPanel shows "Read-only: assigned to X" or "Task is <status>", and the header's Submit reads Read-only. A submitted task becomes read-only too (the viewer leaves edit mode). `/dev/viewer?mode=task&as=other` shows the read-only case.
+
+The viewer's autosave sends `taskId` only while `taskMode.editable`, and `annotations.save` then checks membership, that the task is for this video, is in progress and is assigned to the caller, `editableTypes`, and `allowedOperations` before writing. Without `taskId`, annotators are refused. `allowedCategories` and `lockedTimeRanges` are UI-only today. **Review scope** (`reviewScopeFor`): intents and/or words, whichever the task may edit. A task that edits neither (verify states, backchannels, session bounds) reviews nothing: the queue is empty, the two review checklist rows, the header progress and the submit dialog's reviewed row read N/A. Only a task with no constraints falls back to both. TaskPanel shows the brief (or a sentence built from the constraints), the "Before you submit" checklist, reviewer feedback and the open low-confidence items.
 
 ## Task Lifecycle
 

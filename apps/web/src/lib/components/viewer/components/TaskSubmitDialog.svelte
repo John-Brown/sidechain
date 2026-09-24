@@ -14,6 +14,8 @@
     totalReviewable?: number;
     /** Label for the review row (default "Intents reviewed") */
     reviewedLabel?: string;
+    /** False when the task reviews neither intents nor words: the review row reads N/A */
+    reviewApplicable?: boolean;
     /** Who reviews the submission ("M. Okafor will see this in their review queue.") */
     reviewerName?: string | null;
     /** Seek to a gap. The dialog closes (onCancel) right after calling it. */
@@ -30,6 +32,7 @@
     reviewedCount,
     totalReviewable,
     reviewedLabel = 'Intents reviewed',
+    reviewApplicable = true,
     reviewerName = null,
     onJumpToGap,
     onConfirm,
@@ -97,7 +100,10 @@
           </div>
 
           <dl class="ts-rows">
-            {#if totalReviewable != null}
+            {#if !reviewApplicable}
+              <dt>{reviewedLabel}</dt>
+              <dd class="font-mono">N/A</dd>
+            {:else if totalReviewable != null}
               <dt>{reviewedLabel}</dt>
               <dd class="font-mono">{reviewedCount ?? 0} / {totalReviewable}</dd>
             {/if}

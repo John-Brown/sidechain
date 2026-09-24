@@ -33,9 +33,10 @@
   const timeline = getTimelineState();
 
   const HINTS: Record<ViewerMode, string> = {
-    view: 'SPACE play · ←/→ 1 s · ⇥ next in review · ⌘E edit · ? shortcuts',
-    edit: 'drag edges to resize · ⇥ next block · ↵ confirm · ⌘Z undo · ESC deselect · ? shortcuts',
-    task: '⇥ next unreviewed · ↵ confirm · C reclassify · ⌘↵ submit · ? shortcuts',
+    // ⇥ steps the review queue once a queue row is picked (focus on the viewer); on a block it moves to the next track
+    view: 'SPACE play · ←/→ 1 s · ⇥ next in review (from queue) · ⌘E edit · ? shortcuts',
+    edit: 'drag edges to resize · ←/→ blocks · ⇥ next track · ↵ confirm · ⌘Z undo · ? shortcuts',
+    task: '⇥ next unreviewed (from queue) · ↵ confirm · C reclassify · ⌘↵ submit · ? shortcuts',
   };
 
   /** MM:SS.fff with a zero-padded minute, as in the design ("00:42.000") */

@@ -1,6 +1,7 @@
 /**
  * Dev-only fixture route for visually verifying the design pass without a
  * real video, DB or auth: `/dev/viewer?mode=view|edit|task&theme=day|night&t=53.6`.
+ * `&as=other` opens the task as someone other than its assignee (read-only).
  *
  * `ssr = false` so the (fairly large — ~250s of synthetic per-frame data)
  * fixture is built once in the browser and handed to the component directly,
@@ -39,11 +40,12 @@ export const load: PageLoad = async ({ url }) => {
   const mode = parseMode(url.searchParams.get('mode'));
   const theme = parseTheme(url.searchParams.get('theme'));
   const initialTime = parseInitialTime(url.searchParams.get('t'));
+  const taskViewer = url.searchParams.get('as') === 'other' ? 'other' : 'assignee';
 
   return {
     mode,
     theme,
     initialTime,
-    fixture: createViewerFixture({ mode }),
+    fixture: createViewerFixture({ mode, taskViewer }),
   };
 };

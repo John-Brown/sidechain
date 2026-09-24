@@ -6,7 +6,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { getTimelineState, getEditorState, getTaskModeState } from '../context.js';
-  import type { EditableType } from '../state/editor.svelte.js';
+  import { isReclassifiable, type EditableType } from '../state/editor.svelte.js';
   import type {
     AnnotationSetType,
     StateAnnotation,
@@ -130,7 +130,8 @@
   const canConfirm = $derived(
     opAllowed('confirm') && selected!.type !== 'userLabels' && !isHumanReviewed(selected!.item),
   );
-  const canReclassify = $derived(opAllowed('classify'));
+  // Same allow-list as openReclassify: words and backchannels have nothing to reclassify
+  const canReclassify = $derived(opAllowed('classify') && isReclassifiable(selected!.type));
   const canSplit = $derived(
     opAllowed('split') &&
       timeline.currentTime > selected!.range.start + SPLIT_MARGIN &&
@@ -173,7 +174,7 @@
       case 'state':
         return withReview<StateAnnotation>(
           { time_range: range, category: 'expression.state.speaking', note: '', parameters: {} },
-          { confirmed: false, by },
+          { confirmed: false, by, from: null }, // created: no AI form, no origin
         );
       case 'intent':
         return withReview<IntentAnnotation>(
@@ -187,12 +188,12 @@
               reasoning: MANUAL_INTENT_REASONING,
             },
           },
-          { confirmed: false, by },
+          { confirmed: false, by, from: null }, // created: no AI form, no origin
         );
       case 'backchannel':
         return withReview<BackchannelAnnotation>(
           { time_range: range, backchannel: { type: 'acknowledgment', speaker: 'SPEAKER_00', note: '' } },
-          { confirmed: false, by },
+          { confirmed: false, by, from: null }, // created: no AI form, no origin
         );
       case 'label':
         return { time_range: range, text: 'Label' };

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { EditorState } from './editor.svelte';
+import { describe, it, expect, vi } from 'vitest';
+import { EditorState, isReclassifiable, type EditRecord } from './editor.svelte';
 import { AnnotationDataState } from './annotation-data.svelte';
+import { AutoSaveState } from './autosave.svelte';
 import type { StateAnnotation, IntentAnnotation, SpeechWord } from '@annotation/shared';
 
 const mkMetadata = () => ({
@@ -495,6 +496,233 @@ describe('EditorState', () => {
 			const editor = setupLowConf();
 			editor.pushUndo('intents');
 			expect(editor.intentHistory.undoCount).toBe(1);
+		});
+	});
+
+	describe('undo/redo persistence (autosave + audit edits)', () => {
+		type Saved = { type: string; data: IntentAnnotation[]; edits: EditRecord[] };
+
+		function setup() {
+			const editor = new EditorState();
+			const data = setupAnnotationData();
+			data.intentClassification!.data = [mkIntent(2, 4), mkIntent(6, 8)];
+			data.intentClassification!.data[1].intent_classification.confidence = 0.4;
+			editor.enterEditMode(data);
+			const saves: Saved[] = [];
+			const autosave = new AutoSaveState(
+				editor,
+				'video-1',
+				async (_vid, type, d, edits) => {
+					saves.push({ type, data: JSON.parse(JSON.stringify(d)), edits });
+				},
+				{ persistDrafts: false },
+			);
+			return { editor, autosave, saves };
+		}
+
+		it('confirm → save → undo leaves the type dirty, and the next save drops the stamp', async () => {
+			const { editor, autosave, saves } = setup();
+			editor.confirm('intents', 1);
+			await autosave.saveNow();
+			expect(saves).toHaveLength(1);
+			expect(saves[0].edits.map((e) => e.editType)).toEqual(['confirm']);
+			expect(editor.hasChanges).toBe(false);
+
+			expect(editor.undo()).toBe(true);
+			expect(editor.hasChanges).toBe(true);
+			expect(editor.isDirty('intents')).toBe(true);
+			expect(editor.intents![1].review).toBeUndefined();
+
+			await autosave.saveNow();
+			expect(saves).toHaveLength(2);
+			expect(saves[1].data[1].review).toBeUndefined();
+			// The confirm was already audited; the undo sends no second confirm
+			expect(saves[1].edits).toHaveLength(0);
+			autosave.dispose();
+		});
+
+		it('confirm → undo before a save sends no confirm edit', async () => {
+			const { editor, autosave, saves } = setup();
+			editor.confirm('intents', 1);
+			expect(editor.pendingEdits('intents')).toHaveLength(1);
+
+			editor.undo();
+			expect(editor.pendingEdits('intents')).toHaveLength(0);
+			expect(editor.hasChanges).toBe(true);
+
+			await autosave.saveNow();
+			expect(saves).toHaveLength(1);
+			expect(saves[0].data[1].review).toBeUndefined();
+			expect(saves[0].edits.some((e) => e.editType === 'confirm')).toBe(false);
+			autosave.dispose();
+		});
+
+		it('redo re-queues the undone edit and marks dirty', async () => {
+			const { editor, autosave, saves } = setup();
+			editor.confirm('intents', 1);
+			editor.undo();
+			const v = editor.dirtyVersion;
+			expect(editor.redo()).toBe(true);
+			expect(editor.dirtyVersion).toBe(v + 1);
+			expect(editor.pendingEdits('intents').map((e) => e.editType)).toEqual(['confirm']);
+
+			await autosave.saveNow();
+			expect(saves[0].data[1].review?.confirmed).toBe(true);
+			expect(saves[0].edits.map((e) => e.editType)).toEqual(['confirm']);
+			autosave.dispose();
+		});
+
+		it('only withdraws the undone step, keeping earlier pending edits', () => {
+			const { editor } = setup();
+			editor.confirm('intents', 0);
+			editor.confirm('intents', 1);
+			editor.undo();
+			const pending = editor.pendingEdits('intents');
+			expect(pending).toHaveLength(1);
+			expect(pending[0].targetIndex).toBe(0);
+		});
+
+		it('a new edit after an undo clears the redo step', () => {
+			const { editor } = setup();
+			editor.confirm('intents', 1);
+			editor.undo();
+			editor.confirm('intents', 0);
+			expect(editor.redo()).toBe(false);
+			expect(editor.pendingEdits('intents').map((e) => e.targetIndex)).toEqual([0]);
+		});
+
+		it('undo during an in-flight save keeps the type dirty; the next save drops the stamp', async () => {
+			const editor = new EditorState();
+			const data = setupAnnotationData();
+			data.intentClassification!.data = [mkIntent(2, 4), mkIntent(6, 8)];
+			editor.enterEditMode(data);
+			const saves: Saved[] = [];
+			let release!: () => void;
+			let first = true;
+			const autosave = new AutoSaveState(
+				editor,
+				'video-1',
+				async (_vid, type, d, edits) => {
+					saves.push({ type, data: JSON.parse(JSON.stringify(d)), edits });
+					if (first) {
+						first = false;
+						await new Promise<void>((r) => (release = r));
+					}
+				},
+				{ persistDrafts: false },
+			);
+
+			editor.confirm('intents', 1);
+			const inflight = autosave.saveNow();
+			// The request is out: it carries the confirm stamp and its audit edit
+			expect(saves).toHaveLength(1);
+			expect(saves[0].data[1].review?.confirmed).toBe(true);
+			expect(saves[0].edits.map((e) => e.editType)).toEqual(['confirm']);
+
+			// ⌘Z while the save is in flight
+			expect(editor.undo()).toBe(true);
+			release();
+			await inflight;
+
+			// The undo's dirty mark survives the save that was already running
+			expect(editor.hasChanges).toBe(true);
+			expect(editor.isDirty('intents')).toBe(true);
+			expect(autosave.status).toBe('saved');
+
+			await autosave.saveNow();
+			expect(saves).toHaveLength(2);
+			expect(saves[1].data[1].review).toBeUndefined();
+			// Already sent with the first request (documented audit caveat); nothing re-sent
+			expect(saves[1].edits).toHaveLength(0);
+			expect(editor.hasChanges).toBe(false);
+			autosave.dispose();
+		});
+
+		it('a saveNow during an in-flight save waits, then saves what is still dirty', async () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+			const saves: string[] = [];
+			let release!: () => void;
+			let first = true;
+			const autosave = new AutoSaveState(
+				editor,
+				'video-1',
+				async (_vid, type) => {
+					saves.push(type);
+					if (first) {
+						first = false;
+						await new Promise<void>((r) => (release = r));
+					}
+				},
+				{ persistDrafts: false },
+			);
+			editor.confirm('intents', 0);
+			const a = autosave.saveNow();
+			editor.confirm('states', 0);
+			const b = autosave.saveNow();
+			release();
+			await Promise.all([a, b]);
+			expect(saves).toEqual(['intent', 'state']);
+			expect(editor.hasChanges).toBe(false);
+			autosave.dispose();
+		});
+
+		it('a failed save keeps the type dirty and re-queues its audit edits', async () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+			let fail = true;
+			const sent: EditRecord[][] = [];
+			const autosave = new AutoSaveState(
+				editor,
+				'video-1',
+				async (_vid, _type, _d, edits) => {
+					if (fail) throw new Error('offline');
+					sent.push(edits);
+				},
+				{ persistDrafts: false },
+			);
+			editor.confirm('intents', 0);
+			const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+			await autosave.saveNow();
+			quiet.mockRestore();
+			expect(autosave.status).toBe('error');
+			expect(editor.isDirty('intents')).toBe(true);
+			expect(editor.pendingEdits('intents').map((e) => e.editType)).toEqual(['confirm']);
+
+			fail = false;
+			await autosave.saveNow();
+			expect(sent[0].map((e) => e.editType)).toEqual(['confirm']);
+			expect(editor.hasChanges).toBe(false);
+			autosave.dispose();
+		});
+
+		it('clearDirtyIfUnchanged only clears when the type was not marked since', () => {
+			const editor = new EditorState();
+			editor.enterEditMode(setupAnnotationData());
+			editor.markDirty('intents');
+			const v = editor.typeVersion('intents');
+			editor.markDirty('intents');
+			expect(editor.clearDirtyIfUnchanged('intents', v)).toBe(false);
+			expect(editor.isDirty('intents')).toBe(true);
+			expect(editor.clearDirtyIfUnchanged('intents', editor.typeVersion('intents'))).toBe(true);
+			expect(editor.isDirty('intents')).toBe(false);
+		});
+
+		it('stamps confirms with reviewerId when no `by` is passed', () => {
+			const { editor } = setup();
+			editor.reviewerId = 'user-9';
+			editor.confirm('intents', 1);
+			expect(editor.intents![1].review?.by).toBe('user-9');
+		});
+	});
+
+	describe('isReclassifiable', () => {
+		it('allows states, intents and user labels only', () => {
+			expect(isReclassifiable('states')).toBe(true);
+			expect(isReclassifiable('intents')).toBe(true);
+			expect(isReclassifiable('userLabels')).toBe(true);
+			expect(isReclassifiable('transcription')).toBe(false);
+			expect(isReclassifiable('backchannels')).toBe(false);
 		});
 	});
 });

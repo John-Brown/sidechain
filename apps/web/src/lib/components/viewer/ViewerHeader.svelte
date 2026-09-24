@@ -184,10 +184,15 @@
       >
         <div class="hdr-progress-fill" style="width: {reviewedPct}%"></div>
       </div>
-      <span class="hdr-count">{reviewed} / {reviewable}</span>
-      <span class="hdr-lowconf">
-        {lowConfLeft === 0 ? 'No low-confidence left' : `${lowConfLeft} low-confidence left`}
-      </span>
+      {#if taskMode.hasReviewScope}
+        <span class="hdr-count">{reviewed} / {reviewable}</span>
+        <span class="hdr-lowconf">
+          {lowConfLeft === 0 ? 'No low-confidence left' : `${lowConfLeft} low-confidence left`}
+        </span>
+      {:else}
+        <!-- The task edits neither intents nor words: nothing to review -->
+        <span class="hdr-count">N/A</span>
+      {/if}
     </div>
 
     <div class="hdr-divider" aria-hidden="true"></div>
@@ -235,11 +240,13 @@
       type="button"
       class="hdr-submit"
       onclick={onTaskSubmit}
-      disabled={taskMode.submitted || !onTaskSubmit}
-      title="Submit for review ({mod}↵)"
+      disabled={!taskMode.editable || !onTaskSubmit}
+      title={taskMode.editable ? `Submit for review (${mod}↵)` : (taskMode.readOnlyReason ?? 'Read-only')}
     >
       {#if taskMode.submitted}
         Submitted
+      {:else if !taskMode.editable}
+        Read-only
       {:else}
         Submit for review <span class="hdr-submit-key" aria-hidden="true">{mod}↵</span>
       {/if}

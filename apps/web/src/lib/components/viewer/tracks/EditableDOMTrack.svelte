@@ -14,6 +14,7 @@
     getProvenance as defaultGetSource,
     isLowConfidence as defaultIsLowConfidence,
     getConfidence as defaultGetConfidence,
+    stampExtentEdit,
     type Provenance,
     type ReviewableAnnotation,
   } from '../review.js';
@@ -320,17 +321,23 @@
       // Snapshot before state for audit trail
       const beforeSnapshot = currentArray ? structuredClone($state.snapshot(currentArray)) : null;
 
-      // Commit: update the item's time_range in the editor's data
-      const item = data[drag.index];
-      item.time_range.start = newRange.start;
-      item.time_range.end = newRange.end;
+      // Commit: a new array with the item's new time_range. A human changed its
+      // extent, so it is re-stamped `confirmed: false` (user labels carry no stamp).
+      const newArray = $state.snapshot(data) as T[];
+      const moved = { ...newArray[drag.index], time_range: { start: newRange.start, end: newRange.end } };
+      newArray[drag.index] =
+        editableType === 'userLabels'
+          ? moved
+          : (stampExtentEdit(
+              moved as unknown as ReviewableAnnotation,
+              editor.reviewerId ?? undefined,
+              newArray[drag.index] as unknown as ReviewableAnnotation, // pre-drag item: keeps the review origin
+            ) as unknown as T);
 
       // Match the committed geometry now, so the re-render below is a no-op
       el.style.transform = `translateX(${timeline.timeToPx(newRange.start)}px)`;
       el.style.width = `${Math.max(timeline.timeToPx(newRange.end - newRange.start) - BLOCK_GAP, 2)}px`;
 
-      // Trigger reactivity by reassigning the array
-      const newArray = [...data];
       (editor as unknown as Record<string, unknown>)[editableType] = newArray;
 
       // Record edit for audit trail

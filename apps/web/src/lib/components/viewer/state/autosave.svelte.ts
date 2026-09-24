@@ -54,7 +54,8 @@ export class AutoSaveState {
   #debounceTimer: ReturnType<typeof setTimeout> | null = null;
   #savedStatusTimer: ReturnType<typeof setTimeout> | null = null;
   #disposed = false;
-  #saving = false;
+  /** The running save, if any (saveNow calls queue behind it) */
+  #inflight: Promise<void> | null = null;
   #persistDrafts: boolean;
 
   constructor(editor: EditorState, videoId: string, saveFn: SaveFn, opts: AutoSaveOptions = {}) {
@@ -100,9 +101,35 @@ export class AutoSaveState {
     }, 30_000);
   }
 
-  /** Force an immediate save of all dirty types */
+  /**
+   * Force an immediate save of all dirty types.
+   *
+   * Each type's `typeVersion` is read before its save, and its dirty flag is
+   * cleared afterwards only if the version hasn't moved. An edit or undo made
+   * while the request is in flight therefore stays dirty, and the next save
+   * sends the current array (e.g. without an undone confirm stamp). Caveat:
+   * the audit edits already taken for the in-flight request can't be
+   * un-sent, so a confirm undone mid-save still lands in annotation_edits
+   * (like any undo of a saved edit, the next version shows the reversal).
+   *
+   * A call while a save is running waits for it, then saves whatever is
+   * still dirty, so ⌘S and task submit never skip a change.
+   */
   async saveNow(): Promise<void> {
-    if (this.#saving) return;
+    if (this.#inflight) {
+      await this.#inflight.catch(() => {});
+      return this.saveNow();
+    }
+    const run = this.#save();
+    this.#inflight = run;
+    try {
+      await run;
+    } finally {
+      if (this.#inflight === run) this.#inflight = null;
+    }
+  }
+
+  async #save(): Promise<void> {
     if (this.#disposed) return;
     if (!this.#editor.editing || !this.#editor.hasChanges) return;
 
@@ -115,7 +142,6 @@ export class AutoSaveState {
     const dirtyTypes = this.#editor.getDirtyTypes() as EditableType[];
     if (dirtyTypes.length === 0) return;
 
-    this.#saving = true;
     this.status = 'saving';
     this.lastError = null;
 
@@ -124,18 +150,27 @@ export class AutoSaveState {
         const annotationType = EDITABLE_TO_ANNOTATION_TYPE[editorType];
         if (!annotationType) continue;
 
-        const data = this.#editor[editorType];
-        if (data === null) continue;
+        const current = this.#editor[editorType];
+        if (current === null) continue;
 
+        // Snapshot before the await: what this request carries
+        const version = this.#editor.typeVersion(editorType);
+        const data = $state.snapshot(current);
         const edits = this.#editor.getAndClearEdits(editorType);
-        await this.#saveFn(this.#videoId, annotationType, data, edits);
+        try {
+          await this.#saveFn(this.#videoId, annotationType, data, edits);
+        } catch (err) {
+          // Not sent: keep the audit edits for the retry
+          this.#editor.requeueEdits(editorType, edits);
+          throw err;
+        }
+
+        // Saved; stays dirty if it changed meanwhile
+        this.#editor.clearDirtyIfUnchanged(editorType, version);
       }
 
-      // Clear dirty flags for saved types
-      this.#editor.clearDirty();
-
-      // Remove localStorage draft
-      if (this.#persistDrafts) {
+      // Remove the localStorage draft once nothing is left unsaved
+      if (this.#persistDrafts && !this.#editor.hasChanges) {
         try {
           localStorage.removeItem(this.draftKey);
         } catch {
@@ -159,8 +194,6 @@ export class AutoSaveState {
       console.error('[autosave] Save failed:', err);
       this.status = 'error';
       this.lastError = err instanceof Error ? err.message : 'Save failed';
-    } finally {
-      this.#saving = false;
     }
   }
 

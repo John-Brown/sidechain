@@ -19,7 +19,7 @@
   import { TimelineState } from './state/timeline.svelte.js';
   import { AnnotationDataState } from './state/annotation-data.svelte.js';
   import { SessionState } from './state/session.svelte.js';
-  import { EditorState, type EditableType } from './state/editor.svelte.js';
+  import { EditorState, isReclassifiable, type EditableType } from './state/editor.svelte.js';
   import {
     setTimelineState,
     setAnnotationDataState,
@@ -61,12 +61,11 @@
   import { deleteAnnotation, splitAnnotation, mergeAnnotations } from './editing/operations.js';
   import { validateCoverage, checkContiguity } from './editing/time-validation.js';
   import { AutoSaveState, EDITABLE_TO_ANNOTATION_TYPE } from './state/autosave.svelte.js';
-  import { TaskModeState, type TaskInfo } from './state/task-mode.svelte.js';
+  import { TaskModeState, taskAccessFor, type TaskInfo } from './state/task-mode.svelte.js';
   import { createDataLoader, loadFixture } from './data-loader.js';
   import type { ViewerFixture } from './fixtures/generate.js';
   import {
     buildReviewQueue,
-    compareReviewItems,
     getConfidence,
     getItemLabel,
     getProvenance,
@@ -75,6 +74,10 @@
     nextReviewItem,
     prevReviewItem,
     queueKeyFor,
+    reviewedBaselineKeys,
+    mergeQueueRows,
+    locateQueueItem,
+    stampExtentEdit,
     withReview,
     type ReviewableAnnotation,
     type ReviewFilter,
@@ -155,6 +158,11 @@
         videoId: vid,
         type: type as AnnotationSetType,
         data,
+        // Task mode: the server checks the task (in progress, assigned to the
+        // caller, editableTypes, allowedOperations) and lets annotators save.
+        // Only while the task is editable: a read-only task never edits, and a
+        // ?taskId= link alone (someone else's task) must not tag saves.
+        ...(taskId && taskMode.editable ? { taskId } : {}),
         edits: edits.map((e) => ({
           editType: e.editType,
           targetIndex: e.targetIndex,
@@ -270,13 +278,26 @@
     drawRuler(ctx, w, h, vp, palette);
   }
 
+  /**
+   * Peak arrays as Float32Arrays, built once per load. `annotations.waveform`
+   * is `$state.raw`, so this derived depends on the object, not on ~50k
+   * elements, and a scroll redraw reads two typed arrays instead of copying
+   * the peaks every frame.
+   */
+  const waveformPeaks = $derived.by(() => {
+    const w = annotations.waveform;
+    if (!w) return null;
+    return {
+      l: new Float32Array(w.peaks_l),
+      r: w.peaks_r ? new Float32Array(w.peaks_r) : null,
+      sampleRate: w.sample_rate,
+    };
+  });
+
   function drawWaveformTrack(ctx: CanvasRenderingContext2D, w: number, h: number, vp: Viewport) {
-    if (annotations.waveform) {
-      drawWaveform(ctx, w, h, vp,
-        new Float32Array(annotations.waveform.peaks_l),
-        annotations.waveform.peaks_r ? new Float32Array(annotations.waveform.peaks_r) : null,
-        annotations.waveform.sample_rate,
-        palette,
+    const peaks = waveformPeaks;
+    if (peaks) {
+      drawWaveform(ctx, w, h, vp, peaks.l, peaks.r, peaks.sampleRate, palette,
         session.normalized ? annotations.waveformMax : undefined);
     }
   }
@@ -580,25 +601,42 @@
     editor.deselect();
   }
 
+  /**
+   * A split, merge or resize changes an item's extent, so the items it
+   * produces are re-stamped `confirmed: false` (human-decided) instead of
+   * keeping the old stamp. User labels carry no review stamp.
+   */
+  function restampExtent(type: EditableType, items: unknown[], indices: number[], from: unknown): unknown[] {
+    if (type === 'userLabels') return items;
+    const by = userId ?? undefined;
+    for (const i of indices) items[i] = stampExtentEdit(items[i] as ReviewableAnnotation, by, from as ReviewableAnnotation);
+    return items;
+  }
+
   function splitSelected() {
     const sel = selected;
     if (!canOperate('split', sel)) return;
     const playhead = timeline.currentTime;
     if (playhead <= sel.item.time_range.start + 0.05 || playhead >= sel.item.time_range.end - 0.05) return;
+    const plain = $state.snapshot(sel.array) as { time_range: TimeRange }[];
+    // Both halves keep the original's review origin
+    const next = restampExtent(sel.type, splitAnnotation(plain, sel.index, playhead), [sel.index, sel.index + 1], plain[sel.index]);
     editor.pushUndo(sel.type);
-    applyOperation(sel.type, splitAnnotation(sel.array, sel.index, playhead), 'split', sel.index);
+    applyOperation(sel.type, next, 'split', sel.index);
   }
 
   function mergeSelected() {
     const sel = selected;
     if (!canOperate('merge', sel)) return;
-    const { type, index, array } = sel;
-    if (index + 1 < array.length) {
+    const { type, index } = sel;
+    const plain = $state.snapshot(sel.array) as { time_range: TimeRange }[];
+    if (index + 1 < plain.length) {
       editor.pushUndo(type);
-      applyOperation(type, mergeAnnotations(array, index, index + 1), 'merge', index);
+      // The merged item keeps the lower item's origin (review.ts reviewedBaselineKeys)
+      applyOperation(type, restampExtent(type, mergeAnnotations(plain, index, index + 1), [index], plain[index]), 'merge', index);
     } else if (index > 0) {
       editor.pushUndo(type);
-      applyOperation(type, mergeAnnotations(array, index - 1, index), 'merge', index - 1);
+      applyOperation(type, restampExtent(type, mergeAnnotations(plain, index - 1, index), [index - 1], plain[index - 1]), 'merge', index - 1);
       editor.select(type, index - 1);
     }
   }
@@ -618,7 +656,7 @@
   /** C / Reclassify: ClassifyDialog for states and intents, the text dialog for labels */
   function openReclassify() {
     const sel = selected;
-    if (!canOperate('classify', sel)) return;
+    if (!canOperate('classify', sel) || !isReclassifiable(sel.type)) return;
     if (sel.type === 'userLabels') {
       labelTextDialogCurrent = (sel.item as UserLabel).text;
       showLabelTextDialog = true;
@@ -636,9 +674,10 @@
 
     const by = userId ?? undefined;
     const next = structuredClone($state.snapshot(sel.array)) as unknown[];
+    // `from`: the pre-edit item, so the stamp keeps (or starts) its review origin
     if (result.type === 'states') {
       const item = next[sel.index] as StateAnnotation;
-      next[sel.index] = withReview({ ...item, category: result.category }, { confirmed: false, by });
+      next[sel.index] = withReview({ ...item, category: result.category }, { confirmed: false, by, from: item });
     } else {
       const item = next[sel.index] as IntentAnnotation;
       next[sel.index] = withReview(
@@ -651,7 +690,7 @@
             valence: result.valence,
           },
         },
-        { confirmed: false, by },
+        { confirmed: false, by, from: item },
       );
     }
     editor.pushUndo(sel.type);
@@ -671,33 +710,34 @@
       : [],
   );
 
+  /**
+   * Baseline rows reviewed since load: a current human-reviewed item carries
+   * the row's key as `review.origin` (or has it exactly), so a reclassified or
+   * resized row keeps its ✓. Keys still open are left out.
+   */
   const reviewedQueueKeys = $derived.by(() => {
-    const keys = new Set<string>();
-    if (!editor.editing || baselineQueue.length === 0) return keys;
-    const baseline = new Set(baselineQueue.map((q) => q.key));
-    const collect = (type: 'intents' | 'transcription', items: readonly ReviewableAnnotation[] | null) => {
-      for (const item of items ?? []) {
-        if (!isHumanReviewed(item)) continue;
-        const key = queueKeyFor(type, item);
-        if (key && baseline.has(key)) keys.add(key);
-      }
-    };
-    collect('intents', editor.intents);
-    collect('transcription', editor.transcription);
-    return keys;
+    if (!editor.editing || baselineQueue.length === 0) return new Set<string>();
+    return reviewedBaselineKeys(baselineQueue, { intents: editor.intents, words: editor.transcription }, reviewQueue);
   });
 
+  /** Open rows plus reviewed baseline rows, each key once (ReviewQueue's keyed each) */
   const queueRows = $derived(
-    reviewedQueueKeys.size === 0
-      ? reviewQueue
-      : [...reviewQueue, ...baselineQueue.filter((q) => reviewedQueueKeys.has(q.key))].sort(compareReviewItems),
+    reviewedQueueKeys.size === 0 ? reviewQueue : mergeQueueRows(reviewQueue, baselineQueue, reviewedQueueKeys),
   );
 
-  /** What ⇥ / ↵ walk: the queue, narrowed to the task's scope in task mode */
+  /**
+   * What ⇥ / ↵ walk: the queue, or in task mode only the items the task may
+   * act on (its review scope, outside locked ranges). Empty for a task that
+   * reviews neither intents nor words.
+   */
   const activeQueue = $derived.by(() => {
     if (!taskMode.active) return reviewQueue;
     const scope = taskMode.reviewScope;
-    return reviewQueue.filter((q) => (q.kind === 'intent' ? scope.intents : scope.words));
+    return buildReviewQueue({
+      intents: scope.intents ? currentIntents : null,
+      words: scope.words ? currentWords : null,
+      lockedRanges: taskMode.lockedTimeRanges,
+    });
   });
 
   const selectedQueueKey = $derived.by(() => {
@@ -722,10 +762,8 @@
     if (editor.editing) {
       const arr = editor[q.editableType] as ReviewableAnnotation[] | null;
       if (!arr) return;
-      let idx = q.index;
-      if (!arr[idx] || queueKeyFor(q.editableType, arr[idx]) !== q.key) {
-        idx = arr.findIndex((x) => queueKeyFor(q.editableType, x) === q.key);
-      }
+      // Same key, else (a reviewed row whose item was reclassified or resized) the item with its origin
+      const idx = locateQueueItem(arr, q);
       if (idx < 0) return;
       editor.select(q.editableType, idx);
     } else {
@@ -738,10 +776,20 @@
     if (via === 'pointer') rootEl?.focus({ preventScroll: true });
   }
 
-  function stepReview(reverse: boolean) {
+  /**
+   * ⇥ / ⇧⇥ on the viewer root: select the next / previous queue item. Focus
+   * stays on the root, so the next ⇥ keeps stepping and ↵ confirms. No wrap:
+   * at either end of the queue this returns false and Tab keeps its native
+   * meaning (focus moves on), so the viewer never traps keyboard focus.
+   */
+  function stepReview(reverse: boolean): boolean {
     const anchor = { time: timeline.currentTime, key: selectedQueueKey };
-    const q = reverse ? prevReviewItem(activeQueue, anchor) : nextReviewItem(activeQueue, anchor);
-    if (q) selectReviewItem(q);
+    const q = reverse
+      ? prevReviewItem(activeQueue, anchor, { wrap: false })
+      : nextReviewItem(activeQueue, anchor, { wrap: false });
+    if (!q) return false;
+    selectReviewItem(q);
+    return true;
   }
 
   // --- Task mode ---
@@ -771,13 +819,24 @@
   });
 
   const reviewedLabel = $derived(
-    taskMode.reviewScope.words && !taskMode.reviewScope.intents ? 'Words reviewed' : 'Intents reviewed',
+    !taskMode.hasReviewScope
+      ? 'Items reviewed'
+      : taskMode.reviewScope.words && !taskMode.reviewScope.intents
+        ? 'Words reviewed'
+        : taskMode.reviewScope.intents && !taskMode.reviewScope.words
+          ? 'Intents reviewed'
+          : 'Items reviewed',
   );
 
-  function startTask(info: TaskInfo) {
-    taskMode.activate(info);
+  /**
+   * Enter task mode. An editable task opens in edit mode; a read-only one
+   * (`readOnlyReason`, see taskAccessFor) keeps the read-only tracks, so
+   * nothing is edited or autosaved, and TaskPanel shows the reason.
+   */
+  function startTask(info: TaskInfo, readOnlyReason: string | null = null) {
+    taskMode.activate(info, { readOnlyReason });
     trackLayout.setMode('task', { editableTypes: taskEditableTypes });
-    if (!editor.editing) {
+    if (taskMode.editable && !editor.editing) {
       session.selectedAnnotation = null;
       editor.enterEditMode(annotations);
     }
@@ -789,22 +848,39 @@
       const task = await trpc.tasks.get.query({ taskId });
       if (!task) return;
 
-      startTask({
-        id: task.id,
-        videoId: task.videoId,
-        taskType: task.taskType,
-        status: task.status,
-        constraints: task.constraints as TaskInfo['constraints'],
-        reviewNotes: task.reviewNotes,
-        reviewResult: task.reviewResult,
-      });
+      // Only the assignee works on an assigned or in-progress task; anyone else opens it read-only
+      const { data } = (await supabase?.auth.getSession()) ?? { data: null };
+      const me = data?.session?.user.id ?? userId;
+      const access = taskAccessFor(task, me);
+      let status = task.status;
+      let readOnlyReason = access.reason;
+      if (access.editable && status === 'assigned') {
+        try {
+          await trpc.tasks.start.mutate({ taskId });
+          status = 'in_progress';
+        } catch (e) {
+          console.error('[viewer] Failed to start task:', e);
+          readOnlyReason = 'Read-only: the task could not be started';
+        }
+      }
+
+      startTask(
+        {
+          id: task.id,
+          videoId: task.videoId,
+          taskType: task.taskType,
+          status,
+          constraints: task.constraints as TaskInfo['constraints'],
+          reviewNotes: task.reviewNotes,
+          reviewResult: task.reviewResult,
+          assignedTo: task.assignedTo,
+          assigneeName: task.assigneeName,
+        },
+        readOnlyReason,
+      );
       taskDetails = {
         feedbackAt: task.reviewNotes && task.reviewedAt ? new Date(task.reviewedAt).toISOString().slice(0, 10) : null,
       };
-
-      if (task.status === 'assigned') {
-        await trpc.tasks.start.mutate({ taskId });
-      }
     } catch (e) {
       console.error('[viewer] Failed to init task mode:', e);
     }
@@ -824,7 +900,7 @@
   }
 
   async function handleTaskSubmit() {
-    if (!taskMode.active || taskMode.submitted) return;
+    if (!taskMode.editable) return;
     await autosave.saveNow();
 
     coverageErrors = [];
@@ -843,21 +919,31 @@
     // States must partition the video: the dialog disables Submit, and this guards ⌘↵ too
     if (coverageErrors.length > 0 || coverageGaps.length > 0) return;
     if (fixture) {
-      taskMode.markSubmitted();
-      showSubmitDialog = false;
+      finishSubmit();
       return;
     }
     if (!taskId || !trpc) return;
     try {
+      // Anything edited while the dialog was open goes out with the task id first
+      if (editor.hasChanges) await autosave.saveNow();
       await trpc.tasks.submit.mutate({
         taskId,
         editCount: taskMode.editCount,
         timeSpentSecs: Math.round(taskMode.elapsedSecs),
       });
-      taskMode.markSubmitted();
-      showSubmitDialog = false;
+      finishSubmit();
     } catch (e) {
       console.error('[viewer] Submit failed:', e);
+    }
+  }
+
+  /** A submitted task is read-only (the server refuses its saves): leave edit mode, keeping the edits on screen */
+  function finishSubmit() {
+    taskMode.markSubmitted();
+    showSubmitDialog = false;
+    if (editor.editing) {
+      writeBackEdits();
+      editor.exitEditMode();
     }
   }
 
@@ -905,7 +991,7 @@
     const { start, end } = sel.item.time_range;
     const unavailable: BlockMenuAction[] = [];
     if (sel.type === 'userLabels' || isHumanReviewed(sel.item)) unavailable.push('confirm');
-    if (sel.type === 'transcription' || sel.type === 'backchannels') unavailable.push('reclassify');
+    if (!isReclassifiable(sel.type)) unavailable.push('reclassify');
     if (sel.index + 1 >= sel.array.length) unavailable.push('merge');
     if (timeline.currentTime <= start + 0.05 || timeline.currentTime >= end - 0.05) unavailable.push('split');
     return blockMenuItems({
@@ -960,10 +1046,20 @@
     return isRootTarget(target) || (target instanceof HTMLElement && target.hasAttribute('data-block-index'));
   }
 
-  /** Body or the viewer root itself: nothing focused that owns ⇥ (blocks rove between tracks with it) */
+  /** Body or the viewer root itself: nothing focused that owns Space / ↵ */
   function isRootTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return true;
     return target === document.body || target.closest('[data-viewer-root]') === target;
+  }
+
+  /**
+   * Where ⇥ steps the review queue: only the viewer root, which a pointer pick
+   * of a queue row focuses. On a block Tab stays native (blocks use a roving
+   * tabindex per track: ⇥ moves between tracks, ←/→ between blocks), and on
+   * the body it must follow native order into the header after load.
+   */
+  function isReviewTabTarget(target: EventTarget | null): boolean {
+    return target instanceof HTMLElement && target.hasAttribute('data-viewer-root');
   }
 
   function moveTrackForFocus(delta: -1 | 1): boolean {
@@ -1011,7 +1107,7 @@
     }
 
     if (mod && e.key === 'Enter') {
-      if (taskMode.active && !taskMode.submitted) {
+      if (taskMode.editable) {
         e.preventDefault();
         handleTaskSubmit();
       }
@@ -1143,12 +1239,12 @@
         }
         break;
       case 'Tab':
-        // ⇥ / ⇧⇥ walk the review queue from the body or the viewer root. On a
-        // focused block, the header, panels or labels Tab stays native (roving
-        // tabindex: ⇥ moves between tracks).
-        if (isRootTarget(target) && activeQueue.length > 0) {
+        // ⇥ / ⇧⇥ walk the review queue from the viewer root only. From a
+        // block (next / previous track), the body, the header, panels or
+        // labels Tab stays native, and so it does at either end of the queue
+        // (no preventDefault without a step).
+        if (isReviewTabTarget(target) && stepReview(e.shiftKey)) {
           e.preventDefault();
-          stepReview(e.shiftKey);
         }
         break;
       case 'Escape':
@@ -1209,6 +1305,8 @@
   // --- Draft recovery ---
   function restoreDraft() {
     if (!pendingDraft) return;
+    // A read-only task can't take edits
+    if (taskMode.active && !taskMode.editable) return;
     if (!editor.editing) editor.enterEditMode(annotations);
     if (pendingDraft.states) editor.states = pendingDraft.states as typeof editor.states;
     if (pendingDraft.intents) editor.intents = pendingDraft.intents as typeof editor.intents;
@@ -1227,7 +1325,8 @@
   function initFixture(f: ViewerFixture) {
     loadFixture({ fixture: f, annotations, timeline, session });
     if (f.task) {
-      startTask({
+      // The fixture's assignee is 'fixture-assignee'; `as=other` opens it as someone else
+      const info: TaskInfo = {
         id: f.task.id,
         videoId,
         taskType: f.task.type,
@@ -1235,7 +1334,11 @@
         constraints: f.task.constraints,
         reviewNotes: f.task.feedback ?? null,
         reviewResult: null,
-      });
+        assignedTo: 'fixture-assignee',
+        assigneeName: f.task.assignee,
+      };
+      const viewer = f.task.viewer === 'other' ? 'fixture-other' : 'fixture-assignee';
+      startTask(info, taskAccessFor(info, viewer).reason);
       taskTitle = f.task.title;
       taskDetails = {
         assignedBy: f.task.assignedBy,
@@ -1289,6 +1392,7 @@
       dataLoader = createDataLoader({ trpc, annotations, timeline, session, videoId });
       client.auth.getSession().then(({ data }) => {
         userId = data.session?.user.id ?? null;
+        editor.reviewerId = userId;
         trackLayout.setUser(userId);
       });
       loadViewerData();
@@ -1349,7 +1453,7 @@
     <span class="flex items-center gap-1"><span class="legend-swatch" style="background: {palette.headYaw}"></span>yaw</span>
     <span class="flex items-center gap-1"><span class="legend-swatch" style="background: {palette.headRoll}"></span>roll</span>
   </span>
-  <span class="font-mono text-viewer-xs text-viewer-text-subtle">{poseRangeLabel}</span>
+  <span class="font-mono text-viewer-xs text-viewer-text-dim">{poseRangeLabel}</span>
 {/snippet}
 
 {#snippet trackBody(t: TrackConfig, h: number)}
@@ -1597,7 +1701,7 @@
     </div>
   {/if}
 
-  {#if pendingDraft}
+  {#if pendingDraft && (!taskMode.active || taskMode.editable)}
     <DraftRecoveryBanner
       draft={pendingDraft}
       isStale={annotations.latestEditTimestamp !== null && pendingDraft.savedAt < annotations.latestEditTimestamp}
@@ -1634,7 +1738,7 @@
         <TaskPanel
           {taskMode}
           details={taskDetails}
-          queue={reviewQueue}
+          queue={activeQueue}
           selectedKey={selectedQueueKey}
           onSelect={selectReviewItem}
         />
@@ -1766,6 +1870,7 @@
     mode={viewerMode}
     taskType={taskMode.task?.taskType ?? null}
     selection={statusSelection}
+    hints={taskMode.active && !taskMode.editable ? 'READ-ONLY · SPACE play · ←/→ 1 s · ⇥ step review (from queue) · ? shortcuts' : undefined}
   />
 
   {#if showClassifyDialog && selected && (selected.type === 'intents' || selected.type === 'states')}
@@ -1811,6 +1916,7 @@
       {coverageGaps}
       reviewedCount={taskMode.reviewedCount}
       totalReviewable={taskMode.totalReviewable}
+      reviewApplicable={taskMode.hasReviewScope}
       {reviewedLabel}
       reviewerName={taskDetails?.assignedBy ?? null}
       onJumpToGap={(t) => {

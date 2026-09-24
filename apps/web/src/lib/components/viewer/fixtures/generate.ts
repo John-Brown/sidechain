@@ -696,6 +696,14 @@ export interface ViewerFixtureTask {
   feedback?: string;
   /** When the task was returned with that feedback */
   feedbackAt?: string;
+  /** Assignee display name */
+  assignee: string;
+  /**
+   * Who opens it: the assignee (editable, the default) or someone else, which
+   * opens it read-only like a supervisor following another annotator's link
+   * (`/dev/viewer?mode=task&as=other`).
+   */
+  viewer: 'assignee' | 'other';
 }
 
 export interface ViewerFixture {
@@ -716,7 +724,7 @@ const TASK_LOCKED_RANGES = [
   { start: 64.2, end: 66.0 },
 ];
 
-function buildTask(): ViewerFixtureTask {
+function buildTask(viewer: ViewerFixtureTask['viewer'] = 'assignee'): ViewerFixtureTask {
   const editableTypes: AnnotationSetType[] = ['intent'];
   // 'confirm' is a concurrent addition to packages/shared's EditType union (see integrationNotes);
   // the cast keeps this file buildable regardless of which lands first.
@@ -736,11 +744,15 @@ function buildTask(): ViewerFixtureTask {
     brief: "Confirm or correct every intent. Pay attention to inquire vs inform on rising-pitch statements. Don't touch locked ranges.",
     feedback: 'Several inquire labels between 00:50 and 01:05 are statements with rising intonation. Recheck those against the transcript.',
     feedbackAt: '2026-09-22',
+    assignee: 'J. Brown',
+    viewer,
   };
 }
 
 export interface CreateViewerFixtureOptions {
   mode?: 'view' | 'edit' | 'task';
+  /** Task mode: open the task as its assignee (default) or as someone else (read-only) */
+  taskViewer?: ViewerFixtureTask['viewer'];
 }
 
 /**
@@ -771,6 +783,6 @@ export function createViewerFixture(opts: CreateViewerFixtureOptions = {}): View
     filename: FILENAME,
     projectName: PROJECT_NAME,
     data,
-    task: opts.mode === 'task' ? buildTask() : undefined,
+    task: opts.mode === 'task' ? buildTask(opts.taskViewer) : undefined,
   };
 }

@@ -33,8 +33,8 @@ AnnotationViewer.svelte creates and provides five state objects via Symbol-keyed
 | `getTimelineState()` | `TimelineState` | currentTime, duration, playing, zoom (px/s), scrollLeft, containerWidth, scrubbing, viewStart/EndTime |
 | `getAnnotationDataState()` | `AnnotationDataState` | vad, transcription, diarization, facialTracking, mouthEnergy, stateAnnotation, intentClassification, backchannel, userLabels, waveform, loadStatus (+ `*Max`/`headPoseMin/Max`, latestEditTimestamp) |
 | `getSessionState()` | `SessionState` | videoId, videoSrc, filename, projectName, selectedAnnotation (view-mode Inspector selection), normalized, pip*, meshOverlay*, **`tracks: TrackLayoutState`** |
-| `getEditorState()` | `EditorState` | editing, states, intents, transcription, backchannels, userLabels, selectedType/Index, *History, confirm / confirmSelected |
-| `getTaskModeState()` | `TaskModeState` | active, task, constraints, elapsedSecs, editCount, submitted, reviewScope, reviewedCount/totalReviewable, lowConfRemaining, checklist |
+| `getEditorState()` | `EditorState` | editing, states, intents, transcription, backchannels, userLabels, selectedType/Index, reviewerId, *History, confirm / confirmSelected, pendingEdits, typeVersion / clearDirtyIfUnchanged |
+| `getTaskModeState()` | `TaskModeState` | active, task, constraints, elapsedSecs, editCount, submitted, readOnlyReason, editable, reviewScope, hasReviewScope, reviewedCount/totalReviewable, lowConfRemaining, checklist |
 
 The track layout lives on `session.tracks`, not in a sixth context. To add viewer-wide state: a class in `state/`, a Symbol + getter/setter in `context.ts`, instantiated in AnnotationViewer.
 
@@ -55,7 +55,7 @@ All time conversions go through `TimelineState`: `timeToPx(s) = s * zoom`, `pxTo
 
 ## Track Types
 
-**CanvasTrack**: continuous data (ruler, waveform, VAD, diarization, mouth energy, head pose). Draw functions in `tracks/draw-functions.ts` (`drawRuler`, `drawWaveform`, `drawVad`, `drawDiarization`, `drawMouthEnergy`, `drawHeadPose`) get `(ctx, width, height, viewport, …, palette)`. The canvas is viewport-sized at `translateX(scrollLeft)` with the context translated by −scrollLeft, so draw code uses absolute px. Redraws come from an `$effect` over what `draw` reads; there is no per-frame loop. Diarization is a read-only canvas lane (tint, 2px left bar, mono `S0` tag): clicks scrub, and turns can't be selected. Head pose spans ±30° (`DEFAULT_POSE_RANGE`) unless normalized.
+**CanvasTrack**: continuous data (ruler, waveform, VAD, diarization, mouth energy, head pose). `annotations.waveform` is `$state.raw`, and AnnotationViewer builds its peak `Float32Array`s once per load (`waveformPeaks`), so a scroll redraw never walks the peaks through a proxy. Draw functions in `tracks/draw-functions.ts` (`drawRuler`, `drawWaveform`, `drawVad`, `drawDiarization`, `drawMouthEnergy`, `drawHeadPose`) get `(ctx, width, height, viewport, …, palette)`. The canvas is viewport-sized at `translateX(scrollLeft)` with the context translated by −scrollLeft, so draw code uses absolute px. Redraws come from an `$effect` over what `draw` reads; there is no per-frame loop. Diarization is a read-only canvas lane (tint, 2px left bar, mono `S0` tag): clicks scrub, and turns can't be selected. Head pose spans ±30° (`DEFAULT_POSE_RANGE`) unless normalized.
 
 **DOMTrack**: read-only blocks (view mode; transcription phrases at low zoom in every mode). Generic `<T>` with `getStart`/`getEnd`/`blockClass`/`blockLabel` plus optional `getSource`, `isLowConfidence`, `getConfidence`, `isSelected`, `isLocked`. A `role="listbox"` of `role="option"` blocks.
 
@@ -63,11 +63,11 @@ All time conversions go through `TimelineState`: `timeToPx(s) = s * zoom`, `pxTo
 
 **Block recipe** (both DOM tracks): `class="blk hue-*"` plus attributes, never per-block classes or effects: `data-source="ai|human|supervisor_override"`, `data-lowconf` (conf < `LOW_CONFIDENCE` = 0.6: dashed 90% border + hatch), `aria-selected` (2px teal outline), `data-locked`. No transitions and no shadows, except the static human ink cap. Exact values: `style-guide.md` → Block recipe.
 
-**Roving tabindex**: one block per track has `tabindex=0`. ←/→ move between blocks (revealing culled ones via `onReveal`), and ⇥ moves between tracks natively.
+**Roving tabindex**: one block per track has `tabindex=0`. ←/→ move between blocks (revealing culled ones via `onReveal`). Tab and ⇧Tab on a block are native: they move to the next or previous track's tabbable block or control. Review-queue stepping never runs from a block (see Review Queue).
 
 **Transcription LOD**: when the average word is under 8px wide, `utils/group-words.ts` `groupWordsBySegment()` renders phrase blocks instead of words.
 
-**TrackGroup** (22px header: chevron, count or "N hidden"), **TrackLabel** (184px: grip, name, pen or lock icon, legend, meta like `thr 0.50` / `coverage 100%` / `read-only`, the low-confidence count `3 < .60`, resize edge), **TrackContent** (fixed-height clipped cell, `data-track-content`).
+**TrackGroup** (22px header: chevron, count or "N hidden"), **TrackLabel** (184px: grip, name, pen or lock icon, legend, meta like `thr 0.50` / `coverage 100%` / `read-only` in `text-viewer-text-dim` since it must be read, the low-confidence count `3 < .60`, resize edge), **TrackContent** (fixed-height clipped cell, `data-track-content`).
 
 ## Viewport Culling
 
@@ -79,7 +79,7 @@ Only items in `[viewStartTime, viewEndTime]` are rendered or drawn (drawVad, dra
 
 ## Review Queue (`review.ts`, `components/ReviewQueue.svelte`)
 
-`buildReviewQueue({ intents, words })` lists AI items below `LOW_CONFIDENCE` that no human has decided on, sorted by time. ReviewQueue shows it with All / Intents / Words filters; rows reviewed this session stay listed, dimmed with a ✓. ⇥ / ⇧⇥ (`nextReviewItem` / `prevReviewItem`) step from the playhead or the selection; in task mode the queue is narrowed to `taskMode.reviewScope`. Selecting a row selects the item (editor selection in edit/task, Inspector selection in view), seeks and reveals it. After a **pointer** click on a queue or mini-queue row, focus moves to the viewer root (`tabindex=-1`) so ↵ and ⇥ keep driving review. Keyboard activation (↑/↓ + ↵ inside the listbox) keeps focus in the list.
+`buildReviewQueue({ intents, words, lockedRanges? })` lists AI items below `LOW_CONFIDENCE` that no human has decided on, sorted by time, leaving out items that overlap `lockedRanges`. ReviewQueue shows it with All / Intents / Words filters. Rows reviewed this session stay listed, dimmed with a ✓. `reviewedBaselineKeys` ties them to the loaded queue through `review.origin` (the key of the item's original AI form, carried by every edit), or an exact key match, so a reclassified, resized or split row keeps its ✓ even though its `reviewKey` changed, and an unrelated human item never marks a row. A key still open is never ✓. Keys are unique by construction: `buildReviewQueue` lists an exact duplicate once and `mergeQueueRows` adds a baseline row only when its key isn't taken. `locateQueueItem` finds a row's item (same key, preferring an unreviewed one, else by origin). ⇥ / ⇧⇥ (`nextReviewItem` / `prevReviewItem`, `wrap: false`) step from the playhead or the selection. They only act while the viewer root has focus, never from a block or the body, focus stays on the root after a step, and at either end of the queue Tab falls through to native focus order. In task mode the queue (`activeQueue`, also fed to TaskPanel's mini-queue) holds only `taskMode.reviewScope` items outside locked ranges, and it's empty for a task that reviews neither intents nor words. Selecting a row selects the item (editor selection in edit/task, Inspector selection in view), seeks and reveals it. After a **pointer** click on a queue or mini-queue row, focus moves to the viewer root (`tabindex=-1`) so ↵ and ⇥ keep driving review. Keyboard activation (↑/↓ + ↵ inside the listbox) keeps focus in the list.
 
 ## Overview (`components/TimelineOverview.svelte`)
 
@@ -95,7 +95,7 @@ Canvas code takes every color from `ViewerPalette` (`viewer-palette.ts`, `PALETT
 
 ## Dev Fixture Route (`/dev/viewer`)
 
-`routes/dev/viewer/+page.ts` 404s unless `dev`, then lazy-imports `fixtures/generate.ts` and builds `createViewerFixture({ mode })`: deterministic, seeded from the design's `timeline-data.js`, typed to `@annotation/shared`. `ssr = false`. Query params: `?mode=view|edit|task`, `?theme=day|night` (toggles `.dark` for this page only; never saved, restored on unmount), `?t=53.6` (initial playhead). The root layout renders it full-screen with no app shell.
+`routes/dev/viewer/+page.ts` 404s unless `dev`, then lazy-imports `fixtures/generate.ts` and builds `createViewerFixture({ mode })`: deterministic, seeded from the design's `timeline-data.js`, typed to `@annotation/shared`. `ssr = false`. Query params: `?mode=view|edit|task`, `?as=other` (task opened by someone other than the assignee: read-only), `?theme=day|night` (toggles `.dark` for this page only; never saved, restored on unmount), `?t=53.6` (initial playhead). The root layout renders it full-screen with no app shell.
 
 AnnotationViewer's optional `fixture` prop skips Supabase, tRPC and the data loader. `loadFixture()` fills the state classes, the duration comes from the fixture, `mode=task` activates task mode from `fixture.task`, autosave stays in memory (no drafts), and the zoom starts at the design's 72 px/s window.
 

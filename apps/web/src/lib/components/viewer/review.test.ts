@@ -29,6 +29,12 @@ import {
 	findOverlaps,
 	lockedRangesUntouched,
 	buildTaskChecklist,
+	reviewedBaselineKeys,
+	mergeQueueRows,
+	locateQueueItem,
+	originFor,
+	stampExtentEdit,
+	hasReviewScope,
 	type ReviewItem,
 } from './review';
 
@@ -205,6 +211,16 @@ describe('buildReviewQueue', () => {
 		expect(buildReviewQueue({ intents, words }, 'words')).toHaveLength(2);
 	});
 
+	it('leaves out items inside locked ranges', () => {
+		const q = buildReviewQueue({ intents, words, lockedRanges: [{ start: 19, end: 26 }] });
+		expect(q.map((x) => [x.kind, x.start])).toEqual([
+			['word', 4],
+			['intent', 5],
+		]);
+		// Half-open: a range ending where an item starts doesn't lock it
+		expect(buildReviewQueue({ intents, words, lockedRanges: [{ start: 3, end: 4 }] })).toHaveLength(4);
+	});
+
 	it('handles missing sources', () => {
 		expect(buildReviewQueue({})).toEqual([]);
 		expect(buildReviewQueue({ intents: null, words })).toHaveLength(2);
@@ -325,6 +341,27 @@ describe('computeReviewProgress', () => {
 	it('lowConfRemaining matches the queue length', () => {
 		expect(computeReviewProgress({ intents, words }).lowConfRemaining).toBe(buildReviewQueue({ intents, words }).length);
 	});
+
+	it('skips items overlapping locked ranges', () => {
+		const lockedRanges = [{ start: 1, end: 2 }];
+		// Intent 1–2 (0.4) and word 1–1.5 (0.2) are locked
+		expect(computeReviewProgress({ intents, words, lockedRanges })).toEqual({
+			reviewedCount: 3,
+			totalReviewable: 4,
+			lowConfRemaining: 0,
+			intentsReviewed: 2,
+			intentsTotal: 3,
+		});
+		expect(computeReviewProgress({ intents, words, lockedRanges }).lowConfRemaining).toBe(
+			buildReviewQueue({ intents, words, lockedRanges }).length,
+		);
+	});
+
+	it('hasReviewScope is false only for an empty scope', () => {
+		expect(hasReviewScope({ intents: false, words: false })).toBe(false);
+		expect(hasReviewScope({ intents: true, words: false })).toBe(true);
+		expect(hasReviewScope({ intents: false, words: true })).toBe(true);
+	});
 });
 
 describe('findOverlaps', () => {
@@ -388,10 +425,36 @@ describe('buildTaskChecklist', () => {
 			lockedRanges: locked,
 		});
 		expect(list.map((r) => r.id)).toEqual(['all-reviewed', 'low-confidence', 'no-overlaps', 'locked-untouched']);
-		expect(list[0]).toEqual({ id: 'all-reviewed', text: 'Every intent reviewed', meta: '1 / 3', done: false });
-		expect(list[1]).toEqual({ id: 'low-confidence', text: 'Low-confidence resolved', meta: '1 left', done: false });
-		expect(list[2]).toEqual({ id: 'no-overlaps', text: 'No overlaps', meta: '', done: true });
-		expect(list[3]).toEqual({ id: 'locked-untouched', text: 'Locked ranges untouched', meta: '2', done: true });
+		expect(list[0]).toEqual({ id: 'all-reviewed', text: 'Every intent reviewed', meta: '1 / 3', done: false, applicable: true });
+		expect(list[1]).toEqual({ id: 'low-confidence', text: 'Low-confidence resolved', meta: '1 left', done: false, applicable: true });
+		expect(list[2]).toEqual({ id: 'no-overlaps', text: 'No overlaps', meta: '', done: true, applicable: true });
+		expect(list[3]).toEqual({ id: 'locked-untouched', text: 'Locked ranges untouched', meta: '2', done: true, applicable: true });
+	});
+
+	it('leaves items inside locked ranges out of the review rows', () => {
+		// 43–44 sits in the locked 42–44.8 range: it can't be confirmed, so it doesn't count
+		const withLocked = [...intents, mkIntent(43, 44, 0.3)];
+		const list = buildTaskChecklist({
+			current: { intents: withLocked },
+			baseline: { intents: withLocked },
+			scope: { intents: true, words: false },
+			overlapTracks: ['intents'],
+			lockedRanges: locked,
+		});
+		expect(list[0].meta).toBe('1 / 3');
+		expect(list[1].meta).toBe('1 left');
+	});
+
+	it('marks the review rows N/A with no review scope', () => {
+		const list = buildTaskChecklist({
+			current: { intents },
+			scope: { intents: false, words: false },
+			overlapTracks: ['states'],
+			lockedRanges: [],
+		});
+		expect(list[0]).toMatchObject({ meta: 'N/A', done: true, applicable: false });
+		expect(list[1]).toMatchObject({ meta: 'N/A', done: true, applicable: false });
+		expect(list.every((r) => r.done)).toBe(true);
 	});
 
 	it('marks rows done when everything is resolved', () => {
@@ -435,5 +498,165 @@ describe('buildTaskChecklist', () => {
 	it('treats an empty scope as done', () => {
 		const list = buildTaskChecklist({ current: {}, scope: { intents: true, words: false }, overlapTracks: ['intents'], lockedRanges: [] });
 		expect(list[0]).toMatchObject({ meta: '0 / 0', done: true });
+	});
+});
+
+describe('stampExtentEdit', () => {
+	it('re-stamps a confirmed item as human-decided, not confirmed', () => {
+		const item = confirmed(mkIntent(0, 2, 0.4));
+		const out = stampExtentEdit({ ...item, time_range: { start: 0, end: 1 } }, 'u1', item);
+		expect(out.review).toMatchObject({ source: 'human', confirmed: false, by: 'u1', origin: '0|2|inform' });
+		expect(isConfirmed(out)).toBe(false);
+		expect(isHumanReviewed(out)).toBe(true);
+		expect(item.review?.confirmed).toBe(true);
+	});
+
+	it('stamps an AI item, taking it out of the low-confidence set', () => {
+		const word = mkWord(0, 1, 'um', 0.2);
+		const out = stampExtentEdit({ ...word, time_range: { start: 0, end: 1.2 } }, undefined, word);
+		expect(isLowConfidence(out)).toBe(false);
+		expect(out.review?.confirmed).toBe(false);
+		expect(out.review?.origin).toBe('0|1|um');
+	});
+});
+
+describe('review origin', () => {
+	const ai = mkIntent(10, 12, 0.4, 'inquire');
+
+	it('is the AI form key on the first stamp (confirm)', () => {
+		expect(withReview(ai, { confirmed: true }).review?.origin).toBe('10|12|inquire');
+		expect(originFor(ai)).toBe('10|12|inquire');
+	});
+
+	it('comes from the pre-edit item on a reclassify, and is carried by later edits', () => {
+		const reclassified = withReview(
+			{ ...ai, intent_classification: { ...ai.intent_classification, intent: 'comfort' as const } },
+			{ confirmed: false, from: ai },
+		);
+		expect(reclassified.review?.origin).toBe('10|12|inquire');
+		const resized = stampExtentEdit({ ...reclassified, time_range: { start: 9, end: 12 } }, 'u1', reclassified);
+		expect(resized.review?.origin).toBe('10|12|inquire');
+	});
+
+	it('is absent on a created item and stays absent on later edits', () => {
+		const created = withReview(mkIntent(9.5, 11, 1), { confirmed: false, from: null });
+		expect(created.review?.origin).toBeUndefined();
+		const moved = stampExtentEdit({ ...created, time_range: { start: 9, end: 10.5 } }, 'u1', created);
+		expect(moved.review?.origin).toBeUndefined();
+	});
+});
+
+describe('reviewedBaselineKeys', () => {
+	const baselineIntents = [mkIntent(10, 12, 0.9), mkIntent(20, 22, 0.4, 'inquire'), mkIntent(30, 31, 0.5, 'engage')];
+	const baselineWords = [mkWord(4, 4.5, 'um', 0.3)];
+	const baseline = buildReviewQueue({ intents: baselineIntents, words: baselineWords });
+	const keysFor = (intents: IntentAnnotation[], words: SpeechWord[] = baselineWords) =>
+		reviewedBaselineKeys(baseline, { intents, words }, buildReviewQueue({ intents, words }));
+
+	it('is empty when nothing was reviewed', () => {
+		expect(keysFor(baselineIntents).size).toBe(0);
+	});
+
+	it('keeps a confirmed row', () => {
+		const intents = baselineIntents.map((it, i) => (i === 1 ? confirmed(it) : it));
+		expect([...keysFor(intents)]).toEqual(['intent|20|22|inquire']);
+	});
+
+	it('keeps a reclassified row through its origin', () => {
+		const reclassified = withReview(
+			{ ...baselineIntents[1], intent_classification: { ...baselineIntents[1].intent_classification, intent: 'comfort' as const } },
+			{ confirmed: false, from: baselineIntents[1] },
+		);
+		expect(keysFor([baselineIntents[0], reclassified, baselineIntents[2]]).has('intent|20|22|inquire')).toBe(true);
+	});
+
+	it('keeps a resized row through its origin', () => {
+		const resized = stampExtentEdit({ ...baselineWords[0], time_range: { start: 4, end: 4.8 } }, undefined, baselineWords[0]);
+		expect(keysFor(baselineIntents, [resized]).has('word|4|4.5|um')).toBe(true);
+	});
+
+	it('keeps the row of a split item (either half)', () => {
+		const orig = baselineIntents[1];
+		const a = stampExtentEdit({ ...orig, time_range: { start: 20, end: 21 } }, undefined, orig);
+		const b = stampExtentEdit({ ...orig, time_range: { start: 21, end: 22 } }, undefined, orig);
+		expect(keysFor([baselineIntents[0], a, b, baselineIntents[2]]).has('intent|20|22|inquire')).toBe(true);
+	});
+
+	it('merge: the lower row stays reviewed, the upper row drops out (neither open nor reviewed)', () => {
+		const lower = baselineIntents[1];
+		const merged = stampExtentEdit({ ...lower, time_range: { start: 20, end: 31 } }, undefined, lower);
+		const intents = [baselineIntents[0], merged];
+		const keys = keysFor(intents);
+		expect(keys.has('intent|20|22|inquire')).toBe(true);
+		expect(keys.has('intent|30|31|engage')).toBe(false);
+		expect(buildReviewQueue({ intents }).some((q) => q.key === 'intent|30|31|engage')).toBe(false);
+	});
+
+	it('finds the row after an insert shifted indices', () => {
+		const intents = [mkIntent(0, 1), baselineIntents[0], confirmed(baselineIntents[1]), baselineIntents[2]];
+		expect([...keysFor(intents)]).toEqual(['intent|20|22|inquire']);
+	});
+
+	it('drops the row of a deleted item, and reopens a row whose stamp was undone', () => {
+		expect(keysFor([baselineIntents[0], baselineIntents[2]]).size).toBe(0);
+		expect(keysFor(baselineIntents).size).toBe(0);
+	});
+
+	it('does not mark an unreviewed item reviewed when a human item lands on its index and time (skeptic probe)', () => {
+		// intents [A, X(0.4) 10–12, C], then a human item at 9.5–11 inserted before X
+		const A = mkIntent(2, 4);
+		const X = mkIntent(10, 12, 0.4, 'inquire');
+		const C = mkIntent(14, 16);
+		const base = buildReviewQueue({ intents: [A, X, C] });
+		const inserted = withReview(mkIntent(9.5, 11, 1, 'engage'), { confirmed: false, from: null });
+		const intents = [A, inserted, X, C];
+		const open = buildReviewQueue({ intents });
+		const keys = reviewedBaselineKeys(base, { intents }, open);
+		expect(keys.has('intent|10|12|inquire')).toBe(false);
+		expect(open.map((q) => q.key)).toEqual(['intent|10|12|inquire']);
+		const rows = mergeQueueRows(open, base, keys);
+		expect(rows.map((q) => q.key)).toEqual(['intent|10|12|inquire']);
+	});
+
+	it('never reports a key that is still open', () => {
+		// A human item created with an open item's exact range and label
+		const X = mkIntent(10, 12, 0.4, 'inquire');
+		const base = buildReviewQueue({ intents: [X] });
+		const twin = withReview(mkIntent(10, 12, 1, 'inquire'), { confirmed: false, from: null });
+		const intents = [X, twin];
+		const open = buildReviewQueue({ intents });
+		expect(reviewedBaselineKeys(base, { intents }, open).size).toBe(0);
+	});
+});
+
+describe('queue key uniqueness', () => {
+	it('buildReviewQueue lists an exact duplicate once', () => {
+		const q = buildReviewQueue({ intents: [mkIntent(10, 12, 0.4), mkIntent(10, 12, 0.4)] });
+		expect(q.map((x) => x.key)).toEqual(['intent|10|12|inform']);
+	});
+
+	it('mergeQueueRows adds each key once, open rows first', () => {
+		const open = buildReviewQueue({ intents: [mkIntent(10, 12, 0.4)] });
+		const base = buildReviewQueue({ intents: [mkIntent(5, 6, 0.3), mkIntent(10, 12, 0.4)] });
+		const rows = mergeQueueRows(open, base, new Set(['intent|5|6|inform', 'intent|10|12|inform']));
+		expect(rows.map((x) => x.key)).toEqual(['intent|5|6|inform', 'intent|10|12|inform']);
+		expect(rows[1]).toBe(open[0]);
+	});
+});
+
+describe('locateQueueItem', () => {
+	const X = mkIntent(10, 12, 0.4, 'inquire');
+	const row = buildReviewQueue({ intents: [mkIntent(2, 4), X] })[0];
+
+	it('finds the item by key, preferring an unreviewed one', () => {
+		expect(locateQueueItem([mkIntent(2, 4), X], row)).toBe(1);
+		expect(locateQueueItem([X], row)).toBe(0);
+		expect(locateQueueItem([confirmed(X), X], row)).toBe(1);
+	});
+
+	it('falls back to the item carrying the row as its origin', () => {
+		const moved = stampExtentEdit({ ...X, time_range: { start: 9, end: 12 } }, undefined, X);
+		expect(locateQueueItem([mkIntent(2, 4), moved], row)).toBe(1);
+		expect(locateQueueItem([mkIntent(2, 4)], row)).toBe(-1);
 	});
 });

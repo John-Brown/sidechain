@@ -151,6 +151,12 @@
   <div class="flex-1 min-h-0 grid grid-cols-2">
     <!-- Brief + checklist -->
     <div class="min-h-0 overflow-y-auto px-4 py-3.5 flex flex-col gap-3 border-r border-viewer-border">
+      {#if taskMode.readOnlyReason}
+        <!-- Not the assignee, or a status nobody can work in: no editing, no autosave -->
+        <p class="infobox px-3 py-2 bg-viewer-surface-2 text-viewer-base text-viewer-text" role="status" data-task-readonly>
+          {taskMode.readOnlyReason}
+        </p>
+      {/if}
       {#if brief}
         <p class="text-viewer-md text-viewer-text">{brief}</p>
       {/if}
@@ -160,9 +166,14 @@
         <ul class="flex flex-col gap-2" aria-label="Before you submit">
           {#each checklist as row (row.id)}
             <li class="flex items-center gap-2.5 text-viewer-base whitespace-nowrap {row.done ? 'text-viewer-text-dim' : 'text-viewer-text'}">
-              <span class="check" data-done={row.done ? '' : undefined} aria-hidden="true">{row.done ? '✓' : ''}</span>
+              {#if row.applicable}
+                <span class="check" data-done={row.done ? '' : undefined} aria-hidden="true">{row.done ? '✓' : ''}</span>
+              {:else}
+                <!-- Not part of this task (e.g. review rows on a verify-states task) -->
+                <span class="check" aria-hidden="true">–</span>
+              {/if}
               <span class="truncate">{row.text}</span>
-              <span class="sr-only">{row.done ? '(done)' : '(to do)'}</span>
+              <span class="sr-only">{!row.applicable ? '(not applicable)' : row.done ? '(done)' : '(to do)'}</span>
               <span class="ml-auto font-mono text-viewer-sm text-viewer-text-dim">{row.meta}</span>
             </li>
           {/each}
