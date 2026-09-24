@@ -58,18 +58,33 @@ def _classify_segment(
         context=context,
     )
 
+    # Sonnet 5 runs adaptive thinking when `thinking` is omitted; this is a
+    # short JSON classification, so keep it off to stay within max_tokens.
     response = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=256,
+        thinking={"type": "disabled"},
         messages=[{"role": "user", "content": prompt}],
     )
 
-    response_text = response.content[0].text.strip()
+    # Join text blocks rather than indexing content[0], which may be a
+    # non-text block (e.g. thinking) or absent on refusal/truncation.
+    response_text = "".join(
+        block.text for block in response.content if block.type == "text"
+    ).strip()
 
     try:
+        if response.stop_reason in ("max_tokens", "refusal"):
+            raise ValueError(f"stop_reason={response.stop_reason}")
         result = json.loads(response_text)
-    except json.JSONDecodeError:
-        logger.warning("Failed to parse Claude response: %s", response_text)
+        if not isinstance(result, dict):
+            raise ValueError("response is not a JSON object")
+    except ValueError:  # includes json.JSONDecodeError
+        logger.warning(
+            "Failed to parse Claude response (stop_reason=%s): %s",
+            response.stop_reason,
+            response_text,
+        )
         return {
             "intent": "inform",
             "intensity": "moderate",
