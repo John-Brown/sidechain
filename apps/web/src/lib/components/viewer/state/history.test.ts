@@ -65,6 +65,13 @@ describe('History', () => {
 		expect(history.redo([mkItem(0, 5)])).toBeUndefined();
 	});
 
+	it('redo with nothing undone returns undefined and keeps undo available', () => {
+		const history = new History<TestItem[]>();
+		history.push([mkItem(0, 5)]);
+		expect(history.redo([mkItem(0, 10)])).toBeUndefined();
+		expect(history.canUndo).toBe(true);
+	});
+
 	it('push clears redo stack', () => {
 		const history = new History<TestItem[]>();
 		history.push([mkItem(0, 5)]);
@@ -75,13 +82,74 @@ describe('History', () => {
 		expect(history.canRedo).toBe(false);
 	});
 
+	it('push after multiple undos truncates the whole redo branch', () => {
+		const history = new History<TestItem[]>();
+		history.push([mkItem(0, 1)]);
+		history.push([mkItem(0, 2)]);
+		history.push([mkItem(0, 3)]);
+
+		history.undo([mkItem(0, 4)]);
+		history.undo([mkItem(0, 3)]);
+		expect(history.redoCount).toBe(2);
+
+		history.push([mkItem(0, 9)]);
+		expect(history.canRedo).toBe(false);
+		expect(history.redoCount).toBe(0);
+		expect(history.canUndo).toBe(true);
+	});
+
 	it('respects maxSnapshots limit', () => {
 		const history = new History<TestItem[]>(3);
 		history.push([mkItem(0, 1)]);
 		history.push([mkItem(0, 2)]);
 		history.push([mkItem(0, 3)]);
-		history.push([mkItem(0, 4)]);
+		history.push([mkItem(0, 4)]); // oldest (end=1) should be dropped
 		expect(history.undoCount).toBe(3);
+
+		// Undo all three — should get 4, 3, 2 (not 1)
+		const a = history.undo([mkItem(0, 99)]);
+		const b = history.undo(a!);
+		const c = history.undo(b!);
+		expect(a![0].time_range.end).toBe(4);
+		expect(b![0].time_range.end).toBe(3);
+		expect(c![0].time_range.end).toBe(2);
+		expect(history.undo(c!)).toBeUndefined();
+	});
+
+	it('uses default max of 50 snapshots', () => {
+		const history = new History<TestItem[]>();
+		for (let i = 0; i < 60; i++) {
+			history.push([mkItem(0, i + 1)]);
+		}
+		expect(history.undoCount).toBe(50);
+	});
+
+	it('multiple undo/redo roundtrips return correct states', () => {
+		const history = new History<TestItem[]>();
+		history.push([mkItem(0, 1)]);
+		history.push([mkItem(0, 2)]);
+		history.push([mkItem(0, 3)]);
+
+		const end = (s: TestItem[] | undefined) => s![0].time_range.end;
+
+		// Undo all
+		let current: TestItem[] = [mkItem(0, 100)];
+		current = history.undo(current)!;
+		expect(end(current)).toBe(3);
+		current = history.undo(current)!;
+		expect(end(current)).toBe(2);
+		current = history.undo(current)!;
+		expect(end(current)).toBe(1);
+		expect(history.undo(current)).toBeUndefined();
+
+		// Redo all
+		current = history.redo(current)!;
+		expect(end(current)).toBe(2);
+		current = history.redo(current)!;
+		expect(end(current)).toBe(3);
+		current = history.redo(current)!;
+		expect(end(current)).toBe(100);
+		expect(history.redo(current)).toBeUndefined();
 	});
 
 	it('clear empties both stacks', () => {
@@ -89,10 +157,14 @@ describe('History', () => {
 		history.push([mkItem(0, 5)]);
 		history.push([mkItem(0, 10)]);
 		history.undo([mkItem(0, 3)]);
+		expect(history.canUndo).toBe(true);
+		expect(history.canRedo).toBe(true);
 
 		history.clear();
 		expect(history.canUndo).toBe(false);
 		expect(history.canRedo).toBe(false);
+		expect(history.undoCount).toBe(0);
+		expect(history.redoCount).toBe(0);
 	});
 
 	it('deep clones snapshots so mutations do not affect history', () => {

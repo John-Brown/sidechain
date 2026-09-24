@@ -62,3 +62,6 @@ data/
 # Local config
 .mcp.json
 generated_imgs/
+
+# macOS metadata — must come after the force-include negations above to win
+**/.DS_Store
