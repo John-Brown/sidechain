@@ -5,7 +5,7 @@ paths:
 
 # Phase 4: Editing + Task Mode Conventions
 
-Reference plan: `plans/phase-4-editing-task-mode.md`
+Reference plan (archived, phase complete): `plans/archive/phase-4-editing-task-mode.md`
 
 ## Editor State Architecture
 
@@ -23,7 +23,7 @@ Reference plan: `plans/phase-4-editing-task-mode.md`
 
 ## Undo/Redo
 
-Snapshot-based via `structuredClone`. Push on `pointerup` (drag commit), create, delete, split, merge, classify — NOT during drag. Max 50 snapshots (~5MB). Generic `createHistory<T>()` in `state/history.svelte.ts`.
+Snapshot-based via `structuredClone`. Push on `pointerup` (drag commit), create, delete, split, merge, classify — NOT during drag. Max 50 snapshots (~5MB). Generic `History<T>` class in `state/history.svelte.ts`, instantiated per editable type in EditorState (`stateHistory`, `intentHistory`, `transcriptionHistory`, `backchannelHistory`, `userLabelHistory`).
 
 ## Drag-to-Resize + Drag-to-Move (60fps)
 
@@ -54,7 +54,7 @@ Cursor: `grab` on blocks, `grabbing` while dragging, `col-resize` on handles.
 
 All in `editing/operations.ts`. Signature: `(items: T[], index: number, ...args) → T[]`.
 
-**IMPORTANT**: Operations are called via the **command executor**, not directly from UI handlers. See `ai-first.md` for the command layer architecture. UI handlers produce `AnnotationCommand` objects; the executor resolves targets, calls operations, pushes undo, and sets dirty flags.
+**Current state**: UI handlers call these operations directly, e.g. `AnnotationViewer.svelte` for delete/split/merge and `CreateAnnotationBar.svelte` for create. The command-executor layer described in `ai-first.md` is **not built yet**. Only the `AnnotationCommand` types exist, in `packages/shared/src/command-types.ts`. New editing features should move toward that layer rather than adding more direct handler→operation calls.
 
 ## Auto-Save
 

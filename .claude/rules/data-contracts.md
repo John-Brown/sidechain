@@ -12,19 +12,22 @@
 **Pipeline result types** (S3 JSON → annotationDataState):
 - `VadResult` → `segments: VadSegment[]` (speech regions with `confidence`) + `frames: VadFrame[]` (per-frame `speech_probability`). **NOTE: uses `segments`/`frames`, NOT `data`**
 - `TranscriptionResult` → `data: SpeechWord[]` with `word`, `speaker`, `confidence`, `speech_segment`
-- `FacialTrackingResult` → `data: FacialTrackingFrame[]` with `time` (single float, not time_range), `facial_tracking.tracking.*`
+- `FacialTrackingResult` → `data: FacialTrackingFrame[]` with `time` (single float, not time_range), `facial_tracking.tracking.*`. Also optional `mesh_keyframes: MeshKeyframe[]` (per-keyframe `depth`) plus `metadata.mesh_topology` / `metadata.depth_estimation` (mesh overlay + Depth Anything V2)
 - `DiarizationResult` → `data: DiarizationSegment[]` with `speaker`
 - `MouthEnergyResult` → `data: MouthEnergySegment[]` with `mouth_energy`, `blend_shape_energy`
 - `StateAnnotationResult` → `data: StateAnnotation[]` with `category` ("expression.state.speaking" | "expression.state.listening")
 - `IntentClassificationResult` → `data: IntentAnnotation[]` with `intent` (6 types), `intensity` (3 levels), `valence` (3 levels)
+- `WaveformPeaksResult` → **flat shape, NOT `data`**: `peaks_l: number[]`, `peaks_r: number[] | null`, `sample_rate`, `max_peak`, `duration`
+
+**Human-only types** (no pipeline stage): `BackchannelResult` → `data: BackchannelAnnotation[]` with `backchannel { type (5 types), speaker, note }`; `UserLabelResult` → `data: UserLabel[]` with `text`
 
 **All result types** include `AnnotationMetadata`: `source_file`, `format_version`, `created_timestamp`, `total_secs`, `algorithm { name, model, version, processing_time }`.
 
-**IMPORTANT**: Always validate TypeScript types against actual Python pipeline output (check `workers/ml-pipeline/stages/`). VAD was the only stage where the Python output diverged from original TS spec.
+**IMPORTANT**: Always validate TypeScript types against actual Python pipeline output (check `workers/ml-pipeline/stages/`). VAD and waveform are the stages whose output does not use the `data[]` shape.
 
 ## Pipeline Enums (`@annotation/shared`)
 
-- **Stages**: vad, transcription, facial_tracking, mouth_energy, diarization, state_annotation, intent_classification
+- **Stages**: vad, transcription, facial_tracking, waveform, mouth_energy, diarization, state_annotation, intent_classification
 - **Job status**: pending, running, completed, failed, cancelled
 - **Annotation set types**: state, intent, backchannel, session_bounds, transcription, user_labels
 - **Edit types**: create, resize, delete, split, merge, classify, bulk
