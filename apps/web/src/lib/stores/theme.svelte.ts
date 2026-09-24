@@ -2,7 +2,8 @@ import { browser } from "$app/environment";
 
 export type Theme = "light" | "dark" | "system";
 
-let current = $state<Theme>("system");
+// Day (light) is the default; Night is the `.dark` class on <html>.
+let current = $state<Theme>("light");
 
 function applyTheme(theme: Theme) {
   if (!browser) return;
@@ -16,6 +17,9 @@ if (browser) {
   if (stored === "light" || stored === "dark" || stored === "system") {
     current = stored;
   }
+  // Sync <html> with the stored theme (app.html does this before paint; this
+  // covers a stored "system" whose OS preference changed since).
+  applyTheme(current);
 
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (current === "system") {

@@ -83,7 +83,7 @@
       <div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
     {/if}
     {#if success}
-      <div class="rounded-md bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">{success}</div>
+      <div class="rounded-md bg-primary/10 p-3 text-sm text-primary">{success}</div>
     {/if}
 
     <div class="space-y-4">
@@ -93,7 +93,7 @@
           id="project-name"
           type="text"
           bind:value={name}
-          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         />
       </div>
 
@@ -104,7 +104,7 @@
           type="text"
           bind:value={description}
           placeholder="Brief description"
-          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         />
       </div>
 
@@ -113,7 +113,7 @@
         <select
           id="project-status"
           bind:value={status}
-          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         >
           <option value="active">Active</option>
           <option value="paused">Paused</option>
@@ -125,7 +125,7 @@
       <button
         onclick={save}
         disabled={saving || !name.trim()}
-        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
       >
         {saving ? "Saving..." : "Save changes"}
       </button>

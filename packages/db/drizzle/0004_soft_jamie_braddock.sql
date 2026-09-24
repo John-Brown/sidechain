@@ -1,0 +1,1 @@
+ALTER TYPE "public"."edit_type" ADD VALUE 'confirm';

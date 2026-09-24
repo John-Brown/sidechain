@@ -115,7 +115,7 @@
             <p class="text-sm text-muted-foreground">{project.description}</p>
           {/if}
         </div>
-        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {project.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : project.status === 'paused' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : project.status === 'archived' ? 'bg-muted text-muted-foreground' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'}">
+        <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium {project.status === 'active' ? 'bg-primary/10 text-primary' : project.status === 'paused' ? 'bg-muted text-muted-foreground' : project.status === 'archived' ? 'bg-muted text-muted-foreground' : 'bg-secondary text-secondary-foreground'}">
           {project.status}
         </span>
       </div>

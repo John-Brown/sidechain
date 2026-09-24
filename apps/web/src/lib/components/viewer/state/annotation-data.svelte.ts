@@ -23,7 +23,12 @@ export class AnnotationDataState {
   intentClassification = $state<IntentClassificationResult | null>(null);
   backchannel = $state<BackchannelResult | null>(null);
   userLabels = $state<UserLabelResult | null>(null);
-  waveform = $state<WaveformPeaksResult | null>(null);
+  /**
+   * Raw, not a deep proxy: ~50k peaks per channel, read-only, always replaced
+   * whole (never mutated in place). A deep proxy would make every redraw that
+   * touches the peaks walk them through the proxy.
+   */
+  waveform = $state.raw<WaveformPeaksResult | null>(null);
 
   // Timestamp of the latest human edit from the DB (for draft freshness check)
   latestEditTimestamp: number | null = $state(null);

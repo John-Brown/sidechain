@@ -203,9 +203,9 @@
           <span class="text-muted-foreground">Uploading...</span>
           <span class="font-medium">{Math.round(progress * 100)}%</span>
         </div>
-        <div class="h-2 rounded-full bg-muted overflow-hidden">
+        <div class="h-2 rounded-sm bg-muted overflow-hidden">
           <div
-            class="h-full bg-primary transition-all duration-300"
+            class="h-full bg-primary transition-[width] duration-150"
             style="width: {progress * 100}%"
           ></div>
         </div>
@@ -213,7 +213,7 @@
     {:else}
       <button
         onclick={handleUpload}
-        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
       >
         Upload
       </button>

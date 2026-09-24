@@ -122,7 +122,7 @@
           bind:value={draft}
           placeholder="Write annotation guidelines in Markdown...&#10;&#10;## Overview&#10;Describe what annotators should look for...&#10;&#10;## Categories&#10;Define each annotation category..."
           rows={16}
-          class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
+          class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring font-mono"
         ></textarea>
       {/if}
 
@@ -130,7 +130,7 @@
         <button
           onclick={save}
           disabled={saving}
-          class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+          class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
         >
           {saving ? "Saving..." : "Save guidelines"}
         </button>

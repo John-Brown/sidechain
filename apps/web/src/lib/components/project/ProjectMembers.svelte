@@ -108,7 +108,7 @@
             type="email"
             bind:value={addEmail}
             placeholder="user@example.com"
-            class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           />
         </div>
         <div class="w-36 space-y-1">
@@ -116,7 +116,7 @@
           <select
             id="member-role"
             bind:value={addRole}
-            class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           >
             <option value="annotator">Annotator</option>
             <option value="supervisor">Supervisor</option>
@@ -126,7 +126,7 @@
         <button
           onclick={addMember}
           disabled={adding || !addEmail.trim()}
-          class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+          class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
         >
           {adding ? "Adding..." : "Add"}
         </button>
@@ -166,14 +166,14 @@
                   <select
                     value={member.role}
                     onchange={(e) => changeRole(member.userId, e.currentTarget.value)}
-                    class="h-8 rounded-md border border-input bg-transparent px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    class="h-8 rounded-md border border-input bg-transparent px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
                   >
                     <option value="annotator">Annotator</option>
                     <option value="supervisor">Supervisor</option>
                     <option value="admin">Admin</option>
                   </select>
                 {:else}
-                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                  <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
                     {member.role}
                   </span>
                 {/if}
