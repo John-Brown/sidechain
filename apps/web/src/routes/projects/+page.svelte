@@ -29,9 +29,9 @@
   let error = $state<string | null>(null);
 
   const statusColors: Record<string, string> = {
-    active: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-    paused: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    completed: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    active: "bg-primary/10 text-primary",
+    paused: "bg-muted text-muted-foreground",
+    completed: "bg-secondary text-secondary-foreground",
     archived: "bg-muted text-muted-foreground",
   };
 
@@ -97,7 +97,7 @@
     </div>
     <button
       onclick={() => (creating = !creating)}
-      class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+      class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
     >
       {creating ? "Cancel" : "New project"}
     </button>
@@ -118,7 +118,7 @@
           type="text"
           bind:value={newName}
           placeholder="Project name"
-          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         />
       </div>
       <div class="space-y-2">
@@ -128,13 +128,13 @@
           type="text"
           bind:value={newDescription}
           placeholder="Brief description"
-          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         />
       </div>
       <button
         onclick={createProject}
         disabled={!newName.trim()}
-        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
       >
         Create project
       </button>
@@ -159,7 +159,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <p class="font-medium truncate">{project.name}</p>
-              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {statusColors[project.status] ?? 'bg-muted text-muted-foreground'}">
+              <span class="inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium {statusColors[project.status] ?? 'bg-muted text-muted-foreground'}">
                 {project.status}
               </span>
             </div>
@@ -169,13 +169,13 @@
             <p class="text-xs text-muted-foreground mt-1">Updated {formatDate(project.updatedAt)}</p>
           </div>
           <div class="flex items-center gap-3 ml-4">
-            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+            <span class="inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
               {project.role}
             </span>
             <button
               onclick={(e) => quickOpen(e, project.id, project.name, project.role)}
               title="Open videos"
-              class="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-all"
+              class="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground transition-[color,background-color,opacity] duration-150"
             >
               <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </button>

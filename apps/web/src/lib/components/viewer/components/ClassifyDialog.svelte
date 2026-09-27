@@ -1,17 +1,20 @@
-<script lang="ts">
-  import { onMount } from 'svelte';
+<script module lang="ts">
   import type {
     StateCategory,
     IntentType,
     IntentIntensity,
     IntentValence,
   } from '@annotation/shared';
-  import type { EditableType } from '../state/editor.svelte.js';
-  import { createDialogA11y } from '../utils/focus-trap';
 
-  type ClassifyResult =
+  export type ClassifyResult =
     | { type: 'states'; category: StateCategory }
     | { type: 'intents'; intent: IntentType; intensity: IntentIntensity; valence: IntentValence };
+</script>
+
+<script lang="ts">
+  import { Dialog } from 'bits-ui';
+  import type { TimeRange } from '@annotation/shared';
+  import type { EditableType } from '../state/editor.svelte.js';
 
   interface Props {
     editableType: EditableType;
@@ -20,6 +23,18 @@
     currentIntent?: IntentType;
     currentIntensity?: IntentIntensity;
     currentValence?: IntentValence;
+    /** 1-based number shown in the title ("Reclassify intent #12") */
+    ordinal?: number;
+    /** Time range of the item, shown in the meta line */
+    timeRange?: TimeRange;
+    /** What the model predicted, when the item is still AI-sourced ("AI said inquire, 0.48") */
+    aiLabel?: string;
+    aiConfidence?: number | null;
+    /**
+     * Task mode: the categories the task allows (state categories or intent
+     * types). Others stay listed but disabled. Undefined allows everything.
+     */
+    allowedCategories?: readonly string[] | null;
     onConfirm: (result: ClassifyResult) => void;
     onClose: () => void;
   }
@@ -30,352 +45,460 @@
     currentIntent,
     currentIntensity,
     currentValence,
+    ordinal,
+    timeRange,
+    aiLabel,
+    aiConfidence = null,
+    allowedCategories = null,
     onConfirm,
     onClose,
   }: Props = $props();
 
-  // State form
-  let selectedCategory = $state<StateCategory>('expression.state.speaking');
+  interface Choice {
+    value: string;
+    name: string;
+    hue: string;
+  }
 
-  // Intent form
-  let selectedIntent = $state<IntentType>('engage');
+  const STATE_CHOICES: Choice[] = [
+    { value: 'expression.state.speaking', name: 'speaking', hue: 'hue-speaking' },
+    { value: 'expression.state.listening', name: 'listening', hue: 'hue-listening' },
+  ];
+
+  const INTENT_CHOICES: Choice[] = (
+    ['engage', 'inform', 'inquire', 'challenge', 'comfort', 'celebrate'] as const
+  ).map((v) => ({ value: v, name: v, hue: `hue-intent-${v}` }));
+
+  const INTENSITIES: IntentIntensity[] = ['low', 'moderate', 'high'];
+  const VALENCES: IntentValence[] = ['positive', 'neutral', 'negative'];
+
+  const isStates = $derived(editableType === 'states');
+  const choices = $derived(isStates ? STATE_CHOICES : INTENT_CHOICES);
+  const currentValue = $derived<string | undefined>(isStates ? currentCategory : currentIntent);
+  const noun = $derived(isStates ? 'state' : 'intent');
+
+  function isAllowed(i: number): boolean {
+    const c = choices[i];
+    return !!c && (!allowedCategories || allowedCategories.includes(c.value));
+  }
+
+  // Form state, seeded from the current values
+  let selectedIndex = $state(0);
   let selectedIntensity = $state<IntentIntensity>('moderate');
   let selectedValence = $state<IntentValence>('neutral');
 
-  // Sync initial values from props
   $effect(() => {
-    if (currentCategory) selectedCategory = currentCategory;
-    if (currentIntent) selectedIntent = currentIntent;
+    const i = choices.findIndex((c) => c.value === currentValue);
+    const first = choices.findIndex((_, j) => isAllowed(j));
+    selectedIndex = i >= 0 && isAllowed(i) ? i : Math.max(0, first);
     if (currentIntensity) selectedIntensity = currentIntensity;
     if (currentValence) selectedValence = currentValence;
   });
 
-  const stateCategories: { value: StateCategory; label: string }[] = [
-    { value: 'expression.state.speaking', label: 'Speaking' },
-    { value: 'expression.state.listening', label: 'Listening' },
-  ];
+  const selected = $derived(choices[selectedIndex] ?? choices[0]);
+  const canApply = $derived(isAllowed(selectedIndex));
 
-  const intentTypes: { value: IntentType; label: string }[] = [
-    { value: 'engage', label: 'Engage' },
-    { value: 'inform', label: 'Inform' },
-    { value: 'inquire', label: 'Inquire' },
-    { value: 'challenge', label: 'Challenge' },
-    { value: 'comfort', label: 'Comfort' },
-    { value: 'celebrate', label: 'Celebrate' },
-  ];
+  const rowEls: HTMLButtonElement[] = $state([]);
 
-  const intensityLevels: { value: IntentIntensity; label: string }[] = [
-    { value: 'low', label: 'Low' },
-    { value: 'moderate', label: 'Moderate' },
-    { value: 'high', label: 'High' },
-  ];
-
-  const valenceLevels: { value: IntentValence; label: string }[] = [
-    { value: 'positive', label: 'Positive' },
-    { value: 'neutral', label: 'Neutral' },
-    { value: 'negative', label: 'Negative' },
-  ];
-
-  let dialogEl: HTMLDivElement;
-
-  onMount(() => {
-    return createDialogA11y(dialogEl, onClose);
-  });
-
-  function handleBackdropClick(e: MouseEvent) {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
+  function pad2(n: number): string {
+    return n.toString().padStart(2, '0');
   }
 
-  function handleConfirm() {
-    if (editableType === 'states') {
-      onConfirm({ type: 'states', category: selectedCategory });
+  /** 00:59.603 */
+  function fmtClock(secs: number): string {
+    const m = Math.floor(secs / 60);
+    const s = secs - m * 60;
+    return `${pad2(m)}:${s.toFixed(3).padStart(6, '0')}`;
+  }
+
+  function shortLabel(label: string): string {
+    return label.startsWith('expression.state.') ? label.slice('expression.state.'.length) : label;
+  }
+
+  const meta = $derived.by(() => {
+    const parts: string[] = [];
+    if (timeRange) parts.push(`${fmtClock(timeRange.start)} → ${fmtClock(timeRange.end)}`);
+    if (aiLabel) {
+      const conf = aiConfidence != null ? `, ${aiConfidence.toFixed(2)}` : '';
+      parts.push(`AI said ${shortLabel(aiLabel)}${conf}`);
+    }
+    return parts.join(' · ');
+  });
+
+  function pick(i: number, focus = true) {
+    if (i < 0 || i >= choices.length || !isAllowed(i)) return;
+    selectedIndex = i;
+    if (focus) rowEls[i]?.focus();
+  }
+
+  /** Next allowed row from `from` in `delta` direction (wraps), or `from` when none. */
+  function step(from: number, delta: number): number {
+    const n = choices.length;
+    for (let k = 1; k <= n; k++) {
+      const i = (((from + delta * k) % n) + n) % n;
+      if (isAllowed(i)) return i;
+    }
+    return from;
+  }
+
+  function apply() {
+    if (!canApply) return;
+    if (isStates) {
+      onConfirm({ type: 'states', category: selected.value as StateCategory });
     } else if (editableType === 'intents') {
       onConfirm({
         type: 'intents',
-        intent: selectedIntent,
+        intent: selected.value as IntentType,
         intensity: selectedIntensity,
         valence: selectedValence,
       });
     }
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    // Escape belongs to bits-ui's escape layer on document; everything else
+    // stays inside the dialog so the viewer's window shortcuts don't fire.
+    if (e.key === 'Escape') return;
+    e.stopPropagation();
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const target = e.target as HTMLElement | null;
+    const n = Number.parseInt(e.key, 10);
+    if (!Number.isNaN(n) && n >= 1 && n <= choices.length) {
+      e.preventDefault();
+      pick(n - 1);
+      return;
+    }
+    const inList = !!target?.closest('[data-classify-list]');
+    if (inList && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      pick(step(selectedIndex, e.key === 'ArrowDown' ? 1 : -1));
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (target?.closest('[data-classify-cancel]')) return;
+      e.preventDefault();
+      apply();
+    }
+  }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="classify-backdrop" onclick={handleBackdropClick} role="presentation">
-  <div bind:this={dialogEl} class="classify-dialog" role="dialog" aria-label="Classify annotation" aria-modal="true">
-    <div class="classify-header">
-      <h3 class="classify-title">
-        {editableType === 'states' ? 'Classify State' : 'Classify Intent'}
-      </h3>
-      <button class="classify-close" onclick={onClose} aria-label="Close">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </button>
-    </div>
+<Dialog.Root open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+  <Dialog.Portal>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="viewer-theme ov-overlay"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content
+      onkeydown={handleKeydown}
+      onEscapeKeydown={(e) => e.stopPropagation()}
+      onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        rowEls[selectedIndex]?.focus();
+      }}
+    >
+      {#snippet child({ props })}
+        <div {...props} class="viewer-theme ov-dialog">
+          <div class="ov-head">
+            <Dialog.Title level={2} class="font-serif ov-title">
+              Reclassify {noun}{ordinal != null ? ` #${ordinal}` : ''}
+            </Dialog.Title>
+            {#if meta}
+              <Dialog.Description class="font-mono ov-meta">{meta}</Dialog.Description>
+            {/if}
+          </div>
 
-    <div class="classify-body">
-      {#if editableType === 'states'}
-        <fieldset class="classify-field">
-          <legend class="classify-label">Category</legend>
-          <div class="classify-options">
-            {#each stateCategories as cat}
-              <label class="classify-option" class:classify-option-selected={selectedCategory === cat.value}>
-                <input
-                  type="radio"
-                  name="category"
-                  value={cat.value}
-                  checked={selectedCategory === cat.value}
-                  onchange={() => selectedCategory = cat.value}
-                  class="sr-only"
-                />
-                <span class="block-{cat.value === 'expression.state.speaking' ? 'speaking' : 'listening'} classify-chip">
-                  {cat.label}
-                </span>
-              </label>
+          <div class="cd-list" role="radiogroup" aria-label="Category" data-classify-list>
+            {#each choices as choice, i (choice.value)}
+              <button
+                bind:this={rowEls[i]}
+                type="button"
+                role="radio"
+                aria-checked={i === selectedIndex}
+                aria-disabled={isAllowed(i) ? undefined : 'true'}
+                tabindex={i === selectedIndex ? 0 : -1}
+                class="cd-row"
+                onclick={() => pick(i)}
+              >
+                <span class="font-mono cd-key">{i + 1}</span>
+                <span class="cd-swatch {choice.hue}"></span>
+                <span>{choice.name}</span>
+                {#if choice.value === currentValue}
+                  <span class="font-mono cd-note">current</span>
+                {:else if !isAllowed(i)}
+                  <span class="font-mono cd-note">not in task</span>
+                {/if}
+              </button>
             {/each}
           </div>
-        </fieldset>
-      {:else if editableType === 'intents'}
-        <fieldset class="classify-field">
-          <legend class="classify-label">Intent Type</legend>
-          <div class="classify-options classify-options-grid">
-            {#each intentTypes as intent}
-              <label class="classify-option" class:classify-option-selected={selectedIntent === intent.value}>
-                <input
-                  type="radio"
-                  name="intent"
-                  value={intent.value}
-                  checked={selectedIntent === intent.value}
-                  onchange={() => selectedIntent = intent.value}
-                  class="sr-only"
-                />
-                <span class="block-intent-{intent.value} classify-chip">
-                  {intent.label}
-                </span>
-              </label>
-            {/each}
-          </div>
-        </fieldset>
 
-        <fieldset class="classify-field">
-          <legend class="classify-label">Intensity</legend>
-          <div class="classify-options">
-            {#each intensityLevels as level}
-              <label class="classify-option" class:classify-option-selected={selectedIntensity === level.value}>
-                <input
-                  type="radio"
-                  name="intensity"
-                  value={level.value}
-                  checked={selectedIntensity === level.value}
-                  onchange={() => selectedIntensity = level.value}
-                  class="sr-only"
-                />
-                <span class="classify-chip-plain">{level.label}</span>
-              </label>
-            {/each}
-          </div>
-        </fieldset>
+          {#if !isStates}
+            <div class="cd-attrs">
+              {#snippet segmented(label: string, options: string[], value: string, set: (v: string) => void)}
+                <div class="cd-attr">
+                  <span class="font-mono cd-attr-label">{label}</span>
+                  <div class="cd-seg" role="radiogroup" aria-label={label}>
+                    {#each options as opt (opt)}
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={opt === value}
+                        class="font-mono cd-seg-btn"
+                        onclick={() => set(opt)}
+                      >{opt}</button>
+                    {/each}
+                  </div>
+                </div>
+              {/snippet}
+              {@render segmented('Intensity', INTENSITIES, selectedIntensity, (v) => (selectedIntensity = v as IntentIntensity))}
+              {@render segmented('Valence', VALENCES, selectedValence, (v) => (selectedValence = v as IntentValence))}
+            </div>
+          {/if}
 
-        <fieldset class="classify-field">
-          <legend class="classify-label">Valence</legend>
-          <div class="classify-options">
-            {#each valenceLevels as level}
-              <label class="classify-option" class:classify-option-selected={selectedValence === level.value}>
-                <input
-                  type="radio"
-                  name="valence"
-                  value={level.value}
-                  checked={selectedValence === level.value}
-                  onchange={() => selectedValence = level.value}
-                  class="sr-only"
-                />
-                <span class="classify-chip-plain">{level.label}</span>
-              </label>
-            {/each}
+          <div class="ov-foot">
+            <button type="button" class="font-mono ov-btn ov-btn-secondary" data-classify-cancel onclick={onClose}>
+              Cancel <span class="ov-kbd">esc</span>
+            </button>
+            <button type="button" class="font-mono ov-btn ov-btn-primary" disabled={!canApply} onclick={apply}>
+              Apply {selected.name} <span class="ov-kbd">↵</span>
+            </button>
           </div>
-        </fieldset>
-      {/if}
-    </div>
-
-    <div class="classify-footer">
-      <button class="classify-btn classify-btn-cancel" onclick={onClose}>Cancel</button>
-      <button class="classify-btn classify-btn-confirm" onclick={handleConfirm}>Apply</button>
-    </div>
-  </div>
-</div>
+        </div>
+      {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
-  .classify-backdrop {
+  /* Shared overlay recipe: surface, 1px border, 2px amber top stripe, 2px radius, no shadow */
+  .ov-overlay {
     position: fixed;
     inset: 0;
     z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.4);
+    background-color: color-mix(in srgb, var(--viewer-bg) 70%, transparent);
   }
 
-  .classify-dialog {
-    width: 340px;
-    max-height: 80vh;
+  .ov-dialog {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 101;
+    width: min(360px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
     overflow-y: auto;
-    border-radius: 8px;
+    background-color: var(--viewer-surface);
+    color: var(--viewer-text);
     border: 1px solid var(--viewer-border);
-    background: var(--viewer-surface);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-top: 2px solid var(--viewer-ornament);
+    border-radius: 2px;
+    outline: none;
   }
 
-  .classify-header {
+  .ov-head {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px 10px;
     border-bottom: 1px solid var(--viewer-border);
   }
 
-  .classify-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--viewer-text);
+  .ov-dialog :global(.ov-title) {
     margin: 0;
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1.2;
   }
 
-  .classify-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--viewer-text-dim);
-    cursor: pointer;
-  }
-
-  .classify-close:hover {
-    background: var(--viewer-surface-2);
-    color: var(--viewer-text);
-  }
-
-  .classify-body {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .classify-field {
-    border: none;
+  .ov-dialog :global(.ov-meta) {
     margin: 0;
-    padding: 0;
-  }
-
-  .classify-label {
     font-size: 11px;
-    font-weight: 500;
     color: var(--viewer-text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-    display: block;
   }
 
-  .classify-options {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .classify-options-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .classify-option {
-    cursor: pointer;
-  }
-
-  .classify-option-selected .classify-chip,
-  .classify-option-selected .classify-chip-plain {
-    outline: 2px solid var(--viewer-accent);
-    outline-offset: 1px;
-  }
-
-  .classify-chip {
-    display: block;
-    padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid;
-    font-size: 12px;
-    text-align: center;
-    user-select: none;
-  }
-
-  .classify-chip-plain {
-    display: block;
-    padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid var(--viewer-border);
-    background: var(--viewer-bg);
-    color: var(--viewer-text);
-    font-size: 12px;
-    text-align: center;
-    user-select: none;
-  }
-
-  .classify-chip-plain:hover {
-    background: var(--viewer-surface-2);
-  }
-
-  .classify-footer {
+  .ov-foot {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding: 12px 16px;
+    padding: 10px 16px;
     border-top: 1px solid var(--viewer-border);
   }
 
-  .classify-btn {
-    padding: 6px 16px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
+  .ov-btn {
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    border-radius: 2px;
     border: 1px solid transparent;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms, color 150ms;
   }
 
-  .classify-btn-cancel {
+  .ov-btn-secondary {
+    background: transparent;
+    border-color: var(--viewer-border);
+    color: var(--viewer-text-dim);
+  }
+  .ov-btn-secondary:hover {
+    color: var(--viewer-text);
+    border-color: var(--viewer-text-subtle);
+  }
+  .ov-btn-secondary .ov-kbd {
+    color: var(--viewer-text-subtle);
+  }
+
+  .ov-btn-primary {
+    background-color: var(--viewer-accent);
+    color: var(--viewer-accent-fg);
+  }
+  .ov-btn-primary:hover:not(:disabled) {
+    background-color: var(--viewer-accent-hover);
+  }
+  .ov-btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .ov-btn-primary .ov-kbd {
+    opacity: 0.75;
+  }
+
+  .ov-btn:focus-visible {
+    outline: 2px solid var(--viewer-accent);
+    outline-offset: 2px;
+  }
+
+  /* Category list */
+  .cd-list {
+    padding: 6px 0;
+  }
+
+  .cd-row {
+    width: 100%;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    border: none;
+    background: transparent;
+    color: var(--viewer-text);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms;
+  }
+  .cd-row:hover:not([aria-disabled='true']) {
+    background-color: var(--viewer-surface-2);
+  }
+  .cd-row[aria-disabled='true'] {
+    color: var(--viewer-text-subtle);
+    cursor: not-allowed;
+  }
+  .cd-row[aria-disabled='true'] .cd-swatch {
+    opacity: 0.45;
+  }
+  .cd-row[aria-checked='true'] {
+    background-color: var(--viewer-accent-bg);
+    outline: 2px solid var(--viewer-accent);
+    outline-offset: -2px;
+  }
+  .cd-row:focus-visible {
+    outline: 2px solid var(--viewer-accent);
+    outline-offset: -2px;
+  }
+
+  .cd-key {
+    width: 10px;
+    font-size: 11px;
+    color: var(--viewer-text-dim);
+  }
+
+  .cd-swatch {
+    width: 10px;
+    height: 10px;
+    flex: none;
+    background-color: color-mix(in srgb, var(--h) var(--blk-human-bg), transparent);
+    border: 1px solid var(--h);
+  }
+
+  .cd-note {
+    margin-left: auto;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--viewer-text-dim);
+  }
+
+  /* Intensity / valence */
+  .cd-attrs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--viewer-border);
+  }
+
+  .cd-attr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cd-attr-label {
+    width: 72px;
+    flex: none;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--viewer-text-dim);
+  }
+
+  .cd-seg {
+    display: flex;
+    flex: 1;
+  }
+
+  .cd-seg-btn {
+    flex: 1;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--viewer-border);
     background: transparent;
     color: var(--viewer-text-dim);
-    border-color: var(--viewer-border);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms, color 150ms;
   }
-
-  .classify-btn-cancel:hover {
-    background: var(--viewer-surface-2);
+  .cd-seg-btn + .cd-seg-btn {
+    margin-left: -1px;
+  }
+  .cd-seg-btn:first-child {
+    border-radius: 2px 0 0 2px;
+  }
+  .cd-seg-btn:last-child {
+    border-radius: 0 2px 2px 0;
+  }
+  .cd-seg-btn:hover {
     color: var(--viewer-text);
   }
-
-  .classify-btn-confirm {
-    background: var(--viewer-accent);
-    color: white;
+  .cd-seg-btn[aria-checked='true'] {
+    position: relative;
+    background-color: var(--viewer-accent-bg);
     border-color: var(--viewer-accent);
+    color: var(--viewer-text);
   }
-
-  .classify-btn-confirm:hover {
-    opacity: 0.9;
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
+  .cd-seg-btn:focus-visible {
+    position: relative;
+    outline: 2px solid var(--viewer-accent);
+    outline-offset: 1px;
   }
 </style>

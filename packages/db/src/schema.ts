@@ -79,6 +79,7 @@ export const editTypeEnum = pgEnum("edit_type", [
   "merge",
   "classify",
   "bulk",
+  "confirm",
 ]);
 
 export const taskTypeEnum = pgEnum("task_type", [

@@ -11,12 +11,13 @@ Video annotation pipeline: upload → ML processing → AI annotation → human 
 | 2 | All 7 pipeline stages + DAG orchestration + frontend | Complete (waveform added later → now 8 stages: 5 working, 3 gated as in-dev) |
 | 3 | Read-only timeline viewer (multi-track timeline, Canvas + DOM tracks, viewport culling) | Complete |
 | 3.5 | Project management (detail page, members, guidelines, dashboard) | Complete |
-| 4 | Annotation editing + task mode (human-in-the-loop) | Infra complete → `plans/archive/phase-4-editing-task-mode.md`. Editor state, undo, autosave, task mode and submit/coverage are done, but **only user labels are editable in the viewer**: the state/intent/backchannel tracks aren't rendered yet (TODOs in `AnnotationViewer.svelte`, blocked on the in-dev stages). Deferred: command-executor layer, router tests |
+| 4 | Annotation editing + task mode (human-in-the-loop) | Infra complete → `plans/archive/phase-4-editing-task-mode.md`. Editor state, undo, autosave, task mode and submit/coverage are done. The design pass (below) rendered and wired the state/intent/backchannel tracks; real data for them still waits on the in-dev stages, so `/dev/viewer` is how to see them. Deferred: command-executor layer, router tests |
 | 4.1 | User labels track (freeform text annotations, drag-move, view persistence) | Complete |
 | 4.2 | Viewer code review fixes (20 issues: data integrity, proxy safety, a11y, perf) | Complete → `plans/archive/viewer-code-review.md` |
 | — | Post-4.2 viewer work: waveform + head-pose tracks, mesh overlay + depth, transcription LOD | Complete (see `plans/DEVLOG.md`) |
+| 4.3 | Design pass: Deco Parchment timeline viewer (tokens + fonts app-wide; viewer: grouped track layout, review queue + ↵ confirm, Inspector, edit/task toolbars, bits-ui overlays, overview, status bar, `/dev/viewer` fixture) | Complete on `feat/design-pass` (see `plans/DEVLOG.md` 2026-09-24) |
 
-Last active: 2026-02-13. Health check 2026-09-24: `test` (270 passing), `check` (0 errors), `build` all green.
+Last active: 2026-09-24. Health check 2026-09-24 (after the design pass): `test` (382 passing, 18 files), `check` (0 errors, 0 warnings), `build` all green.
 
 ## Architecture
 
@@ -31,7 +32,7 @@ Last active: 2026-02-13. Health check 2026-09-24: `test` (270 passing), `check` 
 
 ## Tech Stack
 
-- **Frontend**: SvelteKit, Svelte 5 (runes), Tailwind CSS 4, lucide-svelte icons, Inter Variable typeface. No component library in use: `components/ui/` is empty.
+- **Frontend**: SvelteKit, Svelte 5 (runes), Tailwind CSS 4, lucide-svelte icons. Deco Parchment design system (`.claude/rules/style-guide.md`): DM Sans Variable (UI), IBM Plex Mono 400/500 (numbers, labels, kbd) and DM Serif Display (panel and dialog titles), all self-hosted via @fontsource. **bits-ui 2.x** for overlays only (Dialog, DropdownMenu for the block context menu, Slider; Select and Tooltip when needed); the timeline, tracks and blocks are hand-rolled. `components/ui/` is empty.
 - **API**: tRPC v11 (server + client, superjson transformer)
 - **Auth**: Supabase SSR (@supabase/ssr)
 - **Database**: PostgreSQL via Supabase, Drizzle ORM
@@ -77,19 +78,25 @@ apps/web/src/lib/components/project/  # Project detail components
   ProjectMembers.svelte               #   Member table, add-by-email, role management
   ProjectGuidelines.svelte            #   Markdown editor with preview, sanitized rendering
 
-# Timeline viewer (Phase 3+) — route: /videos/[id]/timeline
+# Timeline viewer (Phase 3+) — route: /videos/[id]/timeline (dev fixture: /dev/viewer)
 apps/web/src/lib/components/viewer/   # Timeline viewer components
-  AnnotationViewer.svelte             #   Root: state init, track layout, keyboard/wheel handlers
-  data-loader.ts                      #   Extracted data loading (S3 results, annotation sets, polling)
+  AnnotationViewer.svelte             #   Root: state init, layout (header, toolbar, 400px top band, ruler, grouped tracks, overview, status bar), keyboard/wheel, review + edit handlers; optional `fixture` prop
+  ViewerHeader.svelte                 #   48px header: identity, transport, View|Edit or task progress, Normalize, zoom Slider, utilities
+  InspectorPanel.svelte               #   Selected item: serif category, confidence bar, time/meta rows, reasoning, Confirm/Reclassify
+  VideoPlayer.svelte, Playhead.svelte #   Video + mesh bar (opacity Slider); brick playhead (`cap` only on the ruler copy)
+  data-loader.ts                      #   Data loading (S3 results, annotation sets, polling) + loadFixture()
+  review.ts                           #   LOW_CONFIDENCE (0.6), provenance, review queue, ⇥ navigation, task progress/checklist (pure)
   context.ts                          #   Five Symbol-keyed contexts (timeline, annotation-data, session, editor, task-mode)
-  state/                              #   Svelte 5 rune state classes (timeline, annotation-data, session, editor, history, autosave, task-mode)
+  state/                              #   Rune state classes: timeline, annotation-data, session (owns `tracks`), tracks (TrackLayoutState), editor (+confirm), history, autosave, task-mode
   editing/                            #   Pure functions: drag-resize (incl. move), operations, time-validation
-  tracks/                             #   CanvasTrack + draw-functions.ts, DOMTrack, EditableDOMTrack, TrackLabel, TrackContent
-  utils/                              #   Binary search (accessor overloads), group-words (transcription LOD), caches, focus-trap, push-undo
-  components/                         #   Editing UI (CreateAnnotationBar, dialogs, ContextMenu (unwired), SaveIndicator, DraftRecoveryBanner), TaskPanel, MeshOverlay
+  tracks/                             #   CanvasTrack + draw-functions.ts, DOMTrack, EditableDOMTrack, TrackGroup, TrackLabel, TrackContent
+  utils/                              #   Binary search (accessor overloads), group-words (transcription LOD), annotation-cache, format-time
+  components/                         #   EditToolbar, TaskToolbar, TaskPanel, ReviewQueue, TimelineOverview, ViewerStatusBar, ClassifyDialog, LabelTextDialog, TaskSubmitDialog, KeyboardShortcutsHelp, ContextMenu, SaveIndicator, DraftRecoveryBanner, MeshOverlay
+  fixtures/generate.ts                #   Deterministic synthetic ViewerFixture for /dev/viewer (seeded from the design's timeline-data.js)
   mesh-overlay.ts                     #   Face-mesh overlay geometry helpers
-  viewer-palette.ts                   #   Theme-aware ViewerPalette for canvas draw functions
-  viewer.css                          #   Dark/light theme variables + block color schemes + focus-visible
+  viewer-palette.ts                   #   Theme-aware ViewerPalette (Day/Night) for canvas code
+  viewer.css                          #   .viewer-theme tokens, data hues (--hue-*), .blk block recipe, locked-range hatch, focus-visible
+apps/web/src/routes/dev/viewer/       # Dev-only fixture route (404 outside `vite dev`): ?mode=view|edit|task&theme=day|night&t=53.6
 
 # Shared packages
 packages/db/src/schema.ts             # Full Drizzle schema (all tables)
@@ -127,7 +134,7 @@ All tables defined in `packages/db/src/schema.ts`:
 - S3 keys: `videos/{project_id}/{video_id}/{filename}` (uploads), `results/{video_id}/{stage}.json` (outputs)
 - All times in seconds (float), time ranges half-open `[start, end)`
 
-- Typography: Inter Variable (`@fontsource-variable/inter`) self-hosted. See `.claude/rules/style-guide.md` for type scale and usage rules.
+- Design system: Deco Parchment. Day theme is the default, Night is `.dark` on `<html>`. Fonts DM Sans / IBM Plex Mono / DM Serif Display, self-hosted via @fontsource (no Google Fonts or CDN). Teal is for interactive elements only, amber for ornament only, 2px radius, no shadows. See `.claude/rules/style-guide.md`.
 
 Detailed conventions by domain in `.claude/rules/` — automatically loaded when working on matching paths.
 
@@ -201,7 +208,7 @@ Path-scoped rules auto-load when working on matching files:
 | `testing.md` | `*.test.ts` | Vitest setup, coverage table, remaining test priorities |
 | `performance.md` | `viewer/**` | 60fps drag budget, viewport culling mandate, no-DnD-library rule |
 | `ai-first.md` | `viewer/**`, `trpc/**`, `shared/**` | Target command-layer design (types only today), semantic targeting, agent API checklist |
-| `style-guide.md` | `*.svelte`, `*.css`, `viewer/**` | Typography (Inter), type scale, color system, viewer density tokens |
+| `style-guide.md` | `*.svelte`, `*.css`, `viewer/**` | Deco Parchment: fonts, type scale, color tokens (Day/Night), data hues, block recipe, conventions |
 | `docs.md` | `plans/**`, `reference/**` | Doc lifecycle, naming, INDEX.md maintenance, size limits, archive/split rules |
 
 ## Reference Docs

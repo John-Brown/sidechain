@@ -38,10 +38,10 @@
   });
 
   const statusColors: Record<string, string> = {
-    uploading: "text-amber-600 dark:text-amber-400",
-    uploaded: "text-blue-600 dark:text-blue-400",
-    processing: "text-indigo-600 dark:text-indigo-400",
-    ready: "text-emerald-600 dark:text-emerald-400",
+    uploading: "text-muted-foreground",
+    uploaded: "text-muted-foreground",
+    processing: "text-foreground",
+    ready: "text-primary",
     error: "text-destructive",
   };
 </script>
@@ -79,8 +79,8 @@
       <h2 class="text-lg font-semibold mb-3">Pipeline</h2>
       <div class="flex flex-wrap gap-3">
         {#each Object.entries(dashboard.jobsByStatus) as [status, n] (status)}
-          <div class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium">
-            <span class="h-2 w-2 rounded-full {status === 'completed' ? 'bg-emerald-500' : status === 'running' ? 'bg-indigo-500' : status === 'failed' ? 'bg-red-500' : 'bg-muted-foreground'}"></span>
+          <div class="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1 text-xs font-medium">
+            <span class="h-2 w-2 rounded-full {status === 'completed' ? 'bg-primary' : status === 'running' ? 'bg-foreground' : status === 'failed' ? 'bg-destructive' : 'bg-muted-foreground'}"></span>
             {status}: {n}
           </div>
         {/each}

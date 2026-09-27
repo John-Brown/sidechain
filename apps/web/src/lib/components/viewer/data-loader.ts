@@ -31,6 +31,7 @@ import type { TimelineState } from './state/timeline.svelte.js';
 import type { SessionState } from './state/session.svelte.js';
 import type { LoadStatus } from './types.js';
 import { getCachedAnnotation, setCachedAnnotation } from './utils/annotation-cache.js';
+import type { ViewerFixture } from './fixtures/generate.js';
 
 interface TRPCClient {
   videos: {
@@ -55,50 +56,101 @@ export interface DataLoaderDeps {
   videoId: string;
 }
 
+/** Precompute the normalization maxima (VAD, mouth energy, waveform) from loaded data. */
+export function computeDataRangesFor(annotations: AnnotationDataState): void {
+  if (annotations.vad?.frames) {
+    let max = 0;
+    for (const frame of annotations.vad.frames) {
+      if (frame.speech_probability > max) max = frame.speech_probability;
+    }
+    annotations.vadMax = max || 1;
+  }
+
+  if (annotations.mouthEnergy?.data) {
+    let max = 0;
+    for (const seg of annotations.mouthEnergy.data) {
+      if (seg.mouth_energy.mouth_energy > max) max = seg.mouth_energy.mouth_energy;
+    }
+    annotations.mouthEnergyMax = max || 1;
+  }
+
+  if (annotations.waveform) {
+    annotations.waveformMax = annotations.waveform.max_peak || 1;
+  }
+}
+
+/** Precompute the head-pose normalization range (10% padding) from facial tracking. */
+export function computeHeadPoseRangeFor(annotations: AnnotationDataState): void {
+  if (!annotations.facialTracking?.data) return;
+  let min = Infinity, max = -Infinity;
+  for (const frame of annotations.facialTracking.data) {
+    if (!frame.facial_tracking.tracking.face_detected) continue;
+    for (const angle of frame.facial_tracking.tracking.head_pose.rotation) {
+      if (angle < min) min = angle;
+      if (angle > max) max = angle;
+    }
+  }
+  if (min !== Infinity) {
+    const padding = (max - min) * 0.1 || 1;
+    annotations.headPoseMin = min - padding;
+    annotations.headPoseMax = max + padding;
+  }
+}
+
+export interface FixtureLoadDeps {
+  fixture: ViewerFixture;
+  annotations: AnnotationDataState;
+  timeline: TimelineState;
+  session: SessionState;
+}
+
+/**
+ * Fill the viewer state straight from a synthetic fixture (/dev/viewer):
+ * no tRPC, no S3, no DB. Every stage present in the fixture is marked loaded.
+ */
+export function loadFixture({ fixture, annotations, timeline, session }: FixtureLoadDeps): void {
+  const d = fixture.data;
+  annotations.vad = d.vad;
+  annotations.transcription = d.transcription;
+  annotations.diarization = d.diarization;
+  annotations.facialTracking = d.facialTracking;
+  annotations.mouthEnergy = d.mouthEnergy;
+  annotations.stateAnnotation = d.stateAnnotation;
+  annotations.intentClassification = d.intentClassification;
+  annotations.backchannel = d.backchannel;
+  annotations.userLabels = d.userLabels;
+  annotations.waveform = d.waveform;
+  annotations.latestEditTimestamp = null;
+
+  const loaded = (present: unknown): LoadStatus => (present ? 'loaded' : 'idle');
+  annotations.loadStatus = {
+    vad: loaded(d.vad),
+    transcription: loaded(d.transcription),
+    facial_tracking: loaded(d.facialTracking),
+    mouth_energy: loaded(d.mouthEnergy),
+    diarization: loaded(d.diarization),
+    state_annotation: loaded(d.stateAnnotation),
+    intent_classification: loaded(d.intentClassification),
+    waveform: loaded(d.waveform),
+  };
+
+  computeDataRangesFor(annotations);
+  computeHeadPoseRangeFor(annotations);
+
+  session.filename = fixture.filename;
+  session.projectName = fixture.projectName;
+  session.videoSrc = fixture.videoSrc ?? '';
+  timeline.duration = fixture.duration;
+}
+
 export function createDataLoader(deps: DataLoaderDeps) {
   const { trpc, annotations, timeline, session, videoId } = deps;
 
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let completedAtMap: Record<string, string> = {};
 
-  function computeDataRanges() {
-    if (annotations.vad?.frames) {
-      let max = 0;
-      for (const frame of annotations.vad.frames) {
-        if (frame.speech_probability > max) max = frame.speech_probability;
-      }
-      annotations.vadMax = max || 1;
-    }
-
-    if (annotations.mouthEnergy?.data) {
-      let max = 0;
-      for (const seg of annotations.mouthEnergy.data) {
-        if (seg.mouth_energy.mouth_energy > max) max = seg.mouth_energy.mouth_energy;
-      }
-      annotations.mouthEnergyMax = max || 1;
-    }
-
-    if (annotations.waveform) {
-      annotations.waveformMax = annotations.waveform.max_peak || 1;
-    }
-  }
-
-  function computeHeadPoseRange() {
-    if (!annotations.facialTracking?.data) return;
-    let min = Infinity, max = -Infinity;
-    for (const frame of annotations.facialTracking.data) {
-      if (!frame.facial_tracking.tracking.face_detected) continue;
-      for (const angle of frame.facial_tracking.tracking.head_pose.rotation) {
-        if (angle < min) min = angle;
-        if (angle > max) max = angle;
-      }
-    }
-    if (min !== Infinity) {
-      const padding = (max - min) * 0.1 || 1;
-      annotations.headPoseMin = min - padding;
-      annotations.headPoseMax = max + padding;
-    }
-  }
+  const computeDataRanges = () => computeDataRangesFor(annotations);
+  const computeHeadPoseRange = () => computeHeadPoseRangeFor(annotations);
 
   function assignResults(results: Record<string, unknown>) {
     if (results.vad) annotations.vad = results.vad as VadResult;

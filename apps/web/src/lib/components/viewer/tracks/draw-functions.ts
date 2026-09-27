@@ -3,6 +3,13 @@ import type { Viewport } from '../types.js';
 import type { VadFrame, DiarizationSegment, MouthEnergySegment, FacialTrackingFrame } from '@annotation/shared';
 import type { ViewerPalette } from '../viewer-palette.js';
 
+/** Canvas font for ruler timecodes (numbers are mono, per the style guide). */
+export const RULER_FONT = '10px "IBM Plex Mono", monospace';
+/** Canvas font for in-canvas text labels. */
+export const CANVAS_LABEL_FONT = '10px "DM Sans Variable", sans-serif';
+/** Canvas font for short mono tags drawn on data (e.g. diarization "S0"). */
+export const CANVAS_TAG_FONT = '10px "IBM Plex Mono", monospace';
+
 function timeToPx(time: number, zoom: number): number {
 	return time * zoom;
 }
@@ -20,6 +27,33 @@ function viewBounds(viewport: Viewport): { viewStart: number; viewEnd: number } 
 	};
 }
 
+/** Candidate ruler steps in seconds (fine to coarse). */
+const RULER_STEPS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+
+function isMultiple(a: number, b: number): boolean {
+	const r = a / b;
+	return Math.abs(r - Math.round(r)) < 1e-6;
+}
+
+/**
+ * Pick ruler tick spacing for a zoom (px/s). At the design's 72 px/s this is
+ * 0.5 s minor ticks, 1 s ticks, 5 s majors and a label every 2 s.
+ */
+export function rulerSteps(zoom: number): { minor: number; mid: number; major: number; label: number } {
+	const pick = (minPx: number, multipleOf: number, after = 0) =>
+		RULER_STEPS.find((s) => s > after && s * zoom >= minPx && isMultiple(s, multipleOf)) ??
+		RULER_STEPS[RULER_STEPS.length - 1];
+	const minor = pick(24, RULER_STEPS[0]);
+	const mid = pick(0, minor, minor);
+	const major = RULER_STEPS.find((s) => s >= mid * 5 && isMultiple(s, mid)) ?? mid * 5;
+	const label = pick(100, mid);
+	return { minor, mid, major, label };
+}
+
+/**
+ * Time ruler (timeline-screen.html): minor ticks 4px, whole ticks 7px and
+ * major ticks 12px from the bottom edge, MM:SS labels in mono at the top.
+ */
 export function drawRuler(
 	ctx: CanvasRenderingContext2D,
 	width: number,
@@ -27,46 +61,37 @@ export function drawRuler(
 	viewport: Viewport,
 	palette: ViewerPalette
 ): void {
-	const { scrollLeft, zoom, duration, containerWidth } = viewport;
-
-	let tickInterval: number;
-	if (zoom < 2) tickInterval = 10;
-	else if (zoom < 5) tickInterval = 5;
-	else if (zoom < 15) tickInterval = 2;
-	else tickInterval = 1;
-
-	const majorEvery = 5;
+	const { zoom, duration } = viewport;
+	const { viewStart, viewEnd } = viewBounds(viewport);
+	const { minor, mid, major, label } = rulerSteps(zoom);
 
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'top';
-	ctx.font = '10px "Inter Variable", sans-serif';
+	ctx.font = RULER_FONT;
+	ctx.lineWidth = 1;
 
-	for (let t = 0; t <= duration; t += tickInterval) {
-		const x = timeToPx(t, zoom);
-		// Cull: only draw ticks visible in viewport
-		if (x < scrollLeft - 10 || x > scrollLeft + containerWidth + 10) continue;
+	const first = Math.max(0, Math.floor((viewStart - 1) / minor) * minor);
+	const last = Math.min(duration, viewEnd + 1);
+	for (let i = Math.round(first / minor); i * minor <= last; i++) {
+		const t = i * minor;
+		// Half-pixel offset keeps 1px ticks crisp
+		const x = Math.round(timeToPx(t, zoom)) + 0.5;
+		const isMajor = isMultiple(t, major);
+		const isMid = isMultiple(t, mid);
+		const tickH = isMajor ? 12 : isMid ? 7 : 4;
 
-		const tickIndex = Math.round(t / tickInterval);
-		const isMajor = tickIndex % majorEvery === 0;
+		ctx.strokeStyle = isMajor ? palette.gridMajor : palette.gridMinor;
+		ctx.beginPath();
+		ctx.moveTo(x, height);
+		ctx.lineTo(x, height - tickH);
+		ctx.stroke();
 
-		if (isMajor) {
-			ctx.strokeStyle = palette.gridMajor;
-			ctx.beginPath();
-			ctx.moveTo(x, height);
-			ctx.lineTo(x, height - 16);
-			ctx.stroke();
-
+		if (isMultiple(t, label)) {
 			const minutes = Math.floor(t / 60);
 			const seconds = Math.floor(t % 60);
-			const label = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+			const text = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 			ctx.fillStyle = palette.rulerLabel;
-			ctx.fillText(label, x, 2);
-		} else {
-			ctx.strokeStyle = palette.gridMinor;
-			ctx.beginPath();
-			ctx.moveTo(x, height);
-			ctx.lineTo(x, height - 8);
-			ctx.stroke();
+			ctx.fillText(text, x, 3);
 		}
 	}
 }
@@ -122,34 +147,45 @@ export function drawDiarization(
 ): void {
 	if (!data || data.length === 0) return;
 
-	const { scrollLeft, zoom, containerWidth } = viewport;
+	const { zoom } = viewport;
+	const { viewStart, viewEnd } = viewBounds(viewport);
 
 	const speakerColors: Record<string, { bg: string; border: string }> = {
 		SPEAKER_00: palette.speaker0,
 		SPEAKER_01: palette.speaker1,
 	};
 
-	ctx.font = '10px "Inter Variable", sans-serif';
+	// Turn block: speaker tint, 2px solid left bar, mono "S0" tag (see timeline-screen)
+	const inset = 5;
+	const barW = 2;
+	const blockH = Math.max(height - inset * 2, 1);
+
+	ctx.font = CANVAS_TAG_FONT;
+	ctx.textAlign = 'left';
 	ctx.textBaseline = 'middle';
 
-	for (const seg of data) {
+	// Viewport cull: only the turns overlapping the window
+	const startIdx = binarySearchStart(data, viewStart);
+	const endIdx = binarySearchEnd(data, viewEnd);
+
+	for (let i = startIdx; i <= endIdx && i < data.length; i++) {
+		const seg = data[i];
 		const x = timeToPx(seg.time_range.start, zoom);
 		const w = timeToPx(seg.time_range.end - seg.time_range.start, zoom);
 
-		if (x + w < scrollLeft || x > scrollLeft + containerWidth) continue;
-
 		const speaker = seg.diarization.speaker;
 		const colors = speakerColors[speaker] ?? palette.speakerDefault;
+		const drawW = Math.max(w - 1.5, 2);
 
 		ctx.fillStyle = colors.bg;
-		ctx.fillRect(x, 4, w, height - 8);
-		ctx.strokeStyle = colors.border;
-		ctx.strokeRect(x, 4, w, height - 8);
+		ctx.fillRect(x, inset, drawW, blockH);
+		ctx.fillStyle = colors.border;
+		ctx.fillRect(x, inset, Math.min(barW, drawW), blockH);
 
-		if (w > 40) {
-			const label = speaker.replace('SPEAKER_0', 'S');
-			ctx.fillStyle = colors.border;
-			ctx.fillText(label, x + 6, height / 2);
+		if (w > 30) {
+			const match = /(\d+)$/.exec(speaker);
+			const label = match ? `S${Number(match[1])}` : speaker;
+			ctx.fillText(label, x + barW + 5, height / 2);
 		}
 	}
 }
@@ -287,8 +323,8 @@ export function drawMouthEnergy(
 
 // --- Head Pose (from facial tracking) ---
 
-// Default head pose range: +/-60 degrees
-const DEFAULT_POSE_RANGE = 60;
+/** Head pose y-range (± degrees) when not normalized (timeline-screen: ±30°) */
+export const DEFAULT_POSE_RANGE = 30;
 
 export function drawHeadPose(
 	ctx: CanvasRenderingContext2D,

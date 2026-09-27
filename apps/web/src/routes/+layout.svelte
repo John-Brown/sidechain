@@ -65,7 +65,10 @@
   }
 
   const isAuthRoute = $derived(page.url.pathname.startsWith("/auth"));
-  const isTimelineRoute = $derived(page.url.pathname.includes("/timeline"));
+  /** Full-screen viewer routes: no app shell, no floating theme toggle (the viewer header has one) */
+  const isTimelineRoute = $derived(
+    page.url.pathname.includes("/timeline") || page.url.pathname.startsWith("/dev/viewer"),
+  );
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -73,17 +76,17 @@
   }
 </script>
 
-{#if isAuthRoute || !data.session}
+{#if isTimelineRoute}
+  <div class="h-screen w-screen overflow-hidden">
+    {@render children()}
+  </div>
+{:else if isAuthRoute || !data.session}
   <main class="min-h-screen flex items-center justify-center bg-muted/40">
     <div class="fixed top-4 right-4">
       <ThemeToggle />
     </div>
     {@render children()}
   </main>
-{:else if isTimelineRoute}
-  <div class="h-screen w-screen overflow-hidden">
-    {@render children()}
-  </div>
 {:else}
   <div class="flex min-h-screen">
     <aside class="w-64 border-r bg-sidebar text-sidebar-foreground flex flex-col">
@@ -102,7 +105,7 @@
             <svg class="h-4 w-4 shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           {#if projectsOpen}
-            <div class="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+            <div class="absolute z-50 mt-1 w-full rounded-md border bg-popover">
               {#each projectList as p (p.id)}
                 <button
                   onclick={() => selectProject(p)}

@@ -28,6 +28,7 @@ export type AnnotationCommand =
   | { action: 'split'; target: AnnotationTarget; splitTime: number }
   | { action: 'merge'; targets: [AnnotationTarget, AnnotationTarget] }
   | { action: 'classify'; target: AnnotationTarget; fields: Record<string, unknown> }
+  | { action: 'confirm'; target: AnnotationTarget }
   | { action: 'bulk'; commands: AnnotationCommand[] };
 
 // --- Results ---

@@ -1,11 +1,22 @@
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/dm-serif-display";
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Deco Parchment tokens. @theme holds the Day values (default theme),
+ * .dark holds the Night overrides. Teal (primary) is for interactive
+ * elements only; amber (ornament) is decorative only. See
+ * .claude/rules/style-guide.md.
+ */
 @theme {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-serif: "DM Serif Display", Georgia, serif;
+  --tracking-label: 0.1em; /* mono uppercase labels */
 
   --text-viewer-xs: 0.625rem;
   --text-viewer-xs--line-height: 1;
@@ -13,66 +24,84 @@
   --text-viewer-sm--line-height: 1.2;
   --text-viewer-base: 0.75rem;
   --text-viewer-base--line-height: 1.2;
+  --text-viewer-md: 0.8125rem;
+  --text-viewer-md--line-height: 1.45;
 
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222.2 84% 4.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(222.2 84% 4.9%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(222.2 84% 4.9%);
-  --color-primary: hsl(222.2 47.4% 11.2%);
-  --color-primary-foreground: hsl(210 40% 98%);
-  --color-secondary: hsl(210 40% 96.1%);
-  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
-  --color-muted: hsl(210 40% 96.1%);
-  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
-  --color-accent: hsl(210 40% 96.1%);
-  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(210 40% 98%);
-  --color-border: hsl(214.3 31.8% 91.4%);
-  --color-input: hsl(214.3 31.8% 91.4%);
-  --color-ring: hsl(222.2 84% 4.9%);
-  --radius: 0.5rem;
+  --color-background: #f5f0e8;
+  --color-foreground: #2a2520;
+  --color-card: #faf7f2;
+  --color-card-foreground: #2a2520;
+  --color-popover: #faf7f2;
+  --color-popover-foreground: #2a2520;
+  --color-primary: #1a6b5a;
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover: #134d41;
+  --color-secondary: #ede7db;
+  --color-secondary-foreground: #2a2520;
+  --color-muted: #ede7db;
+  --color-muted-foreground: #6b5f54;
+  --color-subtle-foreground: #9a8e82; /* hints only: fails 4.5:1 at small sizes */
+  --color-accent: rgb(26 107 90 / 0.05);
+  --color-accent-foreground: #2a2520;
+  --color-destructive: #a3322a;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #c9bfb0;
+  --color-input: #c9bfb0;
+  --color-ring: #1a6b5a;
+  --color-ornament: #b8860b; /* amber, decorative only */
 
-  --color-sidebar: hsl(0 0% 98%);
-  --color-sidebar-foreground: hsl(240 5.3% 26.1%);
-  --color-sidebar-primary: hsl(240 5.9% 10%);
-  --color-sidebar-primary-foreground: hsl(0 0% 98%);
-  --color-sidebar-accent: hsl(240 4.8% 95.9%);
-  --color-sidebar-accent-foreground: hsl(240 5.9% 10%);
-  --color-sidebar-border: hsl(220 13% 91%);
-  --color-sidebar-ring: hsl(217.2 91.2% 59.8%);
+  /* 2px everywhere: --radius plus every Tailwind rounded-* step except full */
+  --radius: 2px;
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+
+  --color-sidebar: #f5f0e8;
+  --color-sidebar-foreground: #2a2520;
+  --color-sidebar-primary: #1a6b5a;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #ede7db;
+  --color-sidebar-accent-foreground: #2a2520;
+  --color-sidebar-border: #c9bfb0;
+  --color-sidebar-ring: #1a6b5a;
 }
 
 .dark {
-  --color-background: hsl(224 71% 4%);
-  --color-foreground: hsl(210 40% 98%);
-  --color-card: hsl(224 71% 4%);
-  --color-card-foreground: hsl(210 40% 98%);
-  --color-popover: hsl(224 71% 4%);
-  --color-popover-foreground: hsl(210 40% 98%);
-  --color-primary: hsl(210 40% 98%);
-  --color-primary-foreground: hsl(222.2 47.4% 11.2%);
-  --color-secondary: hsl(217.2 32.6% 17.5%);
-  --color-secondary-foreground: hsl(210 40% 98%);
-  --color-muted: hsl(217.2 32.6% 17.5%);
-  --color-muted-foreground: hsl(215 20.2% 65.1%);
-  --color-accent: hsl(217.2 32.6% 17.5%);
-  --color-accent-foreground: hsl(210 40% 98%);
-  --color-destructive: hsl(0 62.8% 30.6%);
-  --color-destructive-foreground: hsl(210 40% 98%);
-  --color-border: hsl(217.2 32.6% 17.5%);
-  --color-input: hsl(217.2 32.6% 17.5%);
-  --color-ring: hsl(212.7 26.8% 83.9%);
-  --color-sidebar: hsl(224 71% 4%);
-  --color-sidebar-foreground: hsl(210 40% 98%);
-  --color-sidebar-primary: hsl(210 40% 98%);
-  --color-sidebar-primary-foreground: hsl(222.2 47.4% 11.2%);
-  --color-sidebar-accent: hsl(217.2 32.6% 17.5%);
-  --color-sidebar-accent-foreground: hsl(210 40% 98%);
-  --color-sidebar-border: hsl(217.2 32.6% 17.5%);
-  --color-sidebar-ring: hsl(212.7 26.8% 83.9%);
+  --color-background: #1c1814;
+  --color-foreground: #f0e9dd;
+  --color-card: #242019;
+  --color-card-foreground: #f0e9dd;
+  --color-popover: #242019;
+  --color-popover-foreground: #f0e9dd;
+  --color-primary: #3fa78d;
+  --color-primary-foreground: #1c1814;
+  --color-primary-hover: #6cc9ad; /* lighter on night */
+  --color-secondary: #2e2821;
+  --color-secondary-foreground: #f0e9dd;
+  --color-muted: #2e2821;
+  --color-muted-foreground: #b5a795;
+  --color-subtle-foreground: #7f7264;
+  --color-accent: rgb(63 167 141 / 0.1);
+  --color-accent-foreground: #f0e9dd;
+  --color-destructive: #ec8373;
+  --color-destructive-foreground: #1c1814;
+  --color-border: #4a4034;
+  --color-input: #4a4034;
+  --color-ring: #3fa78d;
+  --color-ornament: #d4a02a;
+
+  --color-sidebar: #1c1814;
+  --color-sidebar-foreground: #f0e9dd;
+  --color-sidebar-primary: #3fa78d;
+  --color-sidebar-primary-foreground: #1c1814;
+  --color-sidebar-accent: #2e2821;
+  --color-sidebar-accent-foreground: #f0e9dd;
+  --color-sidebar-border: #4a4034;
+  --color-sidebar-ring: #3fa78d;
 }
 
 @layer base {
@@ -81,5 +110,10 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+  }
+  /* 2px teal focus outline, keyboard focus only. Components may tighten the offset. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
   }
 }

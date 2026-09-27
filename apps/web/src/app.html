@@ -8,8 +8,10 @@
     <title>Sidechain</title>
     <script>
       (function() {
-        var t = localStorage.getItem('theme');
-        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        // Day is the default. Night only when chosen, or "system" on a dark OS.
+        var t = null;
+        try { t = localStorage.getItem('theme'); } catch (e) {}
+        if (t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
           document.documentElement.classList.add('dark');
         }
       })();

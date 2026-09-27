@@ -5,6 +5,39 @@ export interface TimeRange {
   end: number;
 }
 
+// --- Per-item provenance (human review) ---
+
+/**
+ * Human provenance stamped on an individual annotation item.
+ *
+ * Absent on raw pipeline output (the item is an AI prediction). Set by the
+ * viewer when a human confirms a prediction unchanged (`confirmed: true`,
+ * EditType "confirm") or otherwise decides on the item (reclassify, create).
+ * Persisted inside the annotation_sets JSONB `data`, so it survives saves,
+ * undo/redo, draft backups and reindexing. `annotation_sets.source` is only
+ * set-level ("human" as soon as anyone saves), so it cannot say which items
+ * a person actually looked at; this field can.
+ */
+export interface AnnotationReview {
+  source: "human" | "supervisor_override";
+  /** true when the AI prediction was accepted without changing it */
+  confirmed: boolean;
+  /** profiles.id of the reviewer, when known */
+  by?: string;
+  /** ISO timestamp of the review */
+  at?: string;
+  /**
+   * Review identity: the `reviewKey` (`start|end|label`, viewer/review.ts) of
+   * the item's ORIGINAL AI form. Set from the pre-edit item the first time the
+   * item is stamped and carried unchanged by later reclassify, resize, move,
+   * confirm and split (both halves); a merge keeps the lower item's origin.
+   * Absent on items a human created (they have no AI form) and on stamps
+   * written before it existed. The review queue uses it to tie an edited item
+   * back to its loaded queue row.
+   */
+  origin?: string;
+}
+
 // --- VAD ---
 
 /** Per-frame speech probability (used for timeline visualization). */
@@ -44,6 +77,7 @@ export interface SpeechWord {
     confidence: number;
     speech_segment: number;
   };
+  review?: AnnotationReview;
 }
 
 export interface TranscriptionResult {
@@ -161,6 +195,7 @@ export interface StateAnnotation {
   category: StateCategory;
   note: string;
   parameters: Record<string, unknown>;
+  review?: AnnotationReview;
 }
 
 export interface StateAnnotationResult {
@@ -191,6 +226,7 @@ export interface IntentAnnotation {
     confidence: number;
     reasoning: string;
   };
+  review?: AnnotationReview;
 }
 
 export interface IntentClassificationResult {
@@ -214,6 +250,7 @@ export interface BackchannelAnnotation {
     speaker: string;
     note: string;
   };
+  review?: AnnotationReview;
 }
 
 export interface BackchannelResult {

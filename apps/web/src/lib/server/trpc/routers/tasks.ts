@@ -85,7 +85,7 @@ export const tasksRouter = router({
     }),
 
   /**
-   * Get a specific task by ID.
+   * Get a specific task by ID, with the assignee's display name.
    */
   get: protectedProcedure
     .input(z.object({ taskId: z.string().uuid() }))
@@ -126,7 +126,18 @@ export const tasksRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this project" });
       }
 
-      return task;
+      // The viewer opens someone else's task read-only and names the assignee
+      let assigneeName: string | null = null;
+      if (task.assignedTo) {
+        const [assignee] = await ctx.db
+          .select({ displayName: profiles.displayName })
+          .from(profiles)
+          .where(eq(profiles.id, task.assignedTo))
+          .limit(1);
+        assigneeName = assignee?.displayName ?? null;
+      }
+
+      return { ...task, assigneeName };
     }),
 
   /**
