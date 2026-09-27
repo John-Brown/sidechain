@@ -11,6 +11,11 @@ export class SessionState {
   pipActive = $state(false);
   pipSupported = $state(false);
 
+  // Mesh overlay
+  meshOverlayVisible = $state(false);
+  meshOverlayOpacity = $state(0.7);
+  meshVideoHidden = $state(false);
+
   constructor(videoId: string) {
     this.videoId = videoId;
     if (typeof document !== 'undefined') {

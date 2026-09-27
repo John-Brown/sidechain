@@ -221,3 +221,21 @@ These are the ground truth — TypeScript types must match these, not the other 
 
 **TS type**: `IntentClassificationResult` with `data: IntentAnnotation[]`
 **Status**: IN_DEVELOPMENT (depends on state_annotation)
+
+## Waveform Peaks (`waveform_peaks.json`)
+
+```json
+{
+  "metadata": { "...standard..." },
+  "peaks_l": [0.01, 0.12, 0.34],
+  "peaks_r": [0.02, 0.10, 0.31],
+  "sample_rate": 200,
+  "max_peak": 0.87,
+  "duration": 42.5
+}
+```
+
+200 peaks/sec, per-channel absolute max. `peaks_r` is `null` for mono audio. **`sample_rate` is the peak rate** (`PEAKS_PER_SECOND` = 200), not the audio rate. The audio rate (16 kHz) is in `metadata.algorithm.parameters.audio_sample_rate`. **Flat shape, no `data[]` array.**
+
+**TS type**: `WaveformPeaksResult`
+**Status**: WORKING (root stage, CPU)

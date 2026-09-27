@@ -95,19 +95,41 @@ export interface FacialTrackingFrame {
         translation: [number, number, number];
       };
       gaze_direction: [number, number, number];
-      landmarks: [number, number][];
+      landmarks: [number, number, number][];
       confidence: number;
       face_detected: boolean;
     };
   };
 }
 
+export interface MeshKeyframe {
+  time: number;
+  vertices: [number, number, number][];
+  depth: number[];
+  face_detected: boolean;
+}
+
+export interface MeshTopology {
+  tessellation: [number, number][];
+  contours: [number, number][];
+  irises: [number, number][];
+}
+
+export interface DepthEstimationInfo {
+  model: string;
+  encoder: string;
+  sample_rate_hz: number;
+}
+
 export interface FacialTrackingResult {
   metadata: AnnotationMetadata & {
     video_width: number;
     video_height: number;
+    mesh_topology?: MeshTopology;
+    depth_estimation?: DepthEstimationInfo;
   };
   data: FacialTrackingFrame[];
+  mesh_keyframes?: MeshKeyframe[];
 }
 
 // --- Mouth Energy ---

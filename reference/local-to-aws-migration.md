@@ -27,7 +27,7 @@ Changes made for local dev that need reverting/updating for production AWS deplo
 | `S3_REGION` | `us-east-1` | Your AWS region |
 | `PUBLIC_SUPABASE_URL` | `http://127.0.0.1:54321` | `https://YOUR_PROJECT.supabase.co` |
 | `DATABASE_URL` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` | Supabase pooler URL |
-| `MODAL_BASE_URL` | _(empty for local)_ | `https://your-workspace--annotation-pipeline.modal.run` |
+| `MODAL_BASE_URL` | _(empty for local)_ | `https://your-workspace--annotation-pipeline` (no `.modal.run`; the trigger appends `-<function>.modal.run`) |
 | `PUBLIC_APP_URL` | `http://localhost:5173` | Your deployed app URL |
 
 ## Modal Pipeline

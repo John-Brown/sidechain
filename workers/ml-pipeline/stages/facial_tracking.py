@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import tempfile
 import time
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -47,6 +48,60 @@ def _download_model(dest: Path) -> Path:
     return model_path
 
 
+def _get_mesh_topology() -> dict:
+    """Return static mesh connectivity (vendored from MediaPipe)."""
+    from .face_mesh_topology import get_mesh_topology
+    return get_mesh_topology()
+
+
+def _run_depth_on_keyframes(
+    keyframe_buffer: list[tuple[float, np.ndarray, list[tuple[float, float]]]],
+    width: int,
+    height: int,
+) -> list[dict]:
+    """Run Depth Anything V2 on buffered keyframes, sample depth at landmark positions."""
+    if not keyframe_buffer:
+        return []
+
+    from PIL import Image as PILImage
+    from transformers import pipeline as hf_pipeline
+
+    depth_pipe = hf_pipeline(task="depth-estimation", model="depth-anything/Depth-Anything-V2-Base-hf", device="cuda")
+
+    mesh_keyframes = []
+    # Process in batches of 3000 to stay within memory budget
+    BATCH_SIZE = 3000
+    for batch_start in range(0, len(keyframe_buffer), BATCH_SIZE):
+        batch = keyframe_buffer[batch_start:batch_start + BATCH_SIZE]
+        pil_images = [PILImage.fromarray(rgb) for _, rgb, _ in batch]
+        depth_results = depth_pipe(pil_images, batch_size=8)
+
+        for (frame_time, _rgb, landmarks_norm), depth_result in zip(batch, depth_results):
+            depth_map = np.array(depth_result["depth"])
+            dh, dw = depth_map.shape[:2]
+
+            depths = []
+            vertices = []
+            for lm_x, lm_y in landmarks_norm:
+                px = min(int(lm_x * dw), dw - 1)
+                py = min(int(lm_y * dh), dh - 1)
+                depths.append(round(float(depth_map[py, px]), 3))
+                vertices.append([
+                    round(lm_x * width, 1),
+                    round(lm_y * height, 1),
+                    0.0,  # mp_z placeholder — filled from landmarks in main loop
+                ])
+
+            mesh_keyframes.append({
+                "time": frame_time,
+                "vertices": vertices,
+                "depth": depths,
+                "face_detected": True,
+            })
+
+    return mesh_keyframes
+
+
 def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
     """Download video from S3, run MediaPipe FaceLandmarker per-frame, upload results.
 
@@ -77,6 +132,9 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         total_duration = total_frames / fps if fps > 0 else 0
+
+        keyframe_interval = max(1, round(fps / 10))
+        keyframe_buffer: list[tuple[float, np.ndarray, list[tuple[float, float]]]] = []
 
         logger.info(
             "Video: %dx%d, %.1f fps, %d frames (%.1fs)",
@@ -117,10 +175,10 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
             if results.face_landmarks and len(results.face_landmarks) > 0:
                 face_landmarks = results.face_landmarks[0]
 
-                # Extract 2D landmarks (normalized to pixel coords)
+                # Extract 3D landmarks (x, y in pixels; z in MediaPipe depth units)
                 landmarks = []
                 for lm in face_landmarks:
-                    landmarks.append([round(lm.x * width, 1), round(lm.y * height, 1)])
+                    landmarks.append([round(lm.x * width, 1), round(lm.y * height, 1), round(lm.z * width, 3)])
 
                 # Extract blend shapes
                 blendshapes = [0.0] * 52
@@ -173,6 +231,12 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
                 else:
                     gaze_direction = [0.0, 0.0, -1.0]
 
+                # Buffer keyframe for depth estimation (~10Hz)
+                if frame_idx % keyframe_interval == 0:
+                    resized = cv2.resize(rgb_frame, (518, 518))
+                    landmarks_norm = [(lm.x, lm.y) for lm in face_landmarks]
+                    keyframe_buffer.append((frame_time, resized, landmarks_norm))
+
                 frames_data.append({
                     "time": frame_time,
                     "facial_tracking": {
@@ -212,12 +276,31 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
         cap.release()
         landmarker.close()
 
+        # Depth estimation pass on buffered keyframes
+        mesh_keyframes: list[dict] = []
+        try:
+            mesh_keyframes = _run_depth_on_keyframes(keyframe_buffer, width, height)
+            # Backfill mp_z from per-frame landmark data
+            kf_times = {kf["time"] for kf in mesh_keyframes}
+            frame_lookup = {f["time"]: f for f in frames_data}
+            for kf in mesh_keyframes:
+                frame = frame_lookup.get(kf["time"])
+                if frame and frame["facial_tracking"]["tracking"]["face_detected"]:
+                    frame_lms = frame["facial_tracking"]["tracking"]["landmarks"]
+                    for i, v in enumerate(kf["vertices"]):
+                        if i < len(frame_lms):
+                            v[2] = frame_lms[i][2]  # mp_z from 3D landmarks
+            logger.info("Depth estimation complete: %d keyframes", len(mesh_keyframes))
+        except Exception as e:
+            logger.error("Depth estimation failed (non-fatal): %s\n%s", e, traceback.format_exc())
+            mesh_keyframes = []
+
         processing_time = time.monotonic() - t0
 
         result = {
             "metadata": {
                 "source_file": s3_key,
-                "format_version": "1.0",
+                "format_version": "2.0",
                 "created_timestamp": datetime.now(timezone.utc).isoformat(),
                 "total_secs": round(total_duration, 3),
                 "algorithm": {
@@ -234,8 +317,15 @@ def run_facial_tracking(s3_key: str, result_s3_key: str) -> dict:
                 },
                 "video_width": width,
                 "video_height": height,
+                "mesh_topology": _get_mesh_topology(),
+                "depth_estimation": {
+                    "model": "depth-anything-v2",
+                    "encoder": "vitb",
+                    "sample_rate_hz": 10,
+                },
             },
             "data": frames_data,
+            "mesh_keyframes": mesh_keyframes,
         }
 
         try:

@@ -49,7 +49,8 @@ S3_SECRET_ACCESS_KEY=your-secret
 # S3_ENDPOINT=http://localhost:9000  # Uncomment for local S3 (MinIO)
 
 # Modal ML pipeline (optional — only needed to trigger processing)
-MODAL_BASE_URL=https://your-modal-workspace--annotation-ml-pipeline
+# Stage URLs are built as ${MODAL_BASE_URL}-<function>.modal.run
+MODAL_BASE_URL=https://your-modal-workspace--annotation-pipeline
 
 # Pipeline callback (optional — for async job completion)
 PUBLIC_APP_URL=http://localhost:5173
@@ -128,16 +129,15 @@ modal serve modal_app.py
 modal deploy modal_app.py
 ```
 
-Pipeline stages (VAD, transcription, facial tracking, etc.) are triggered from the web app when a video is uploaded. See [03-data-flow.md](03-data-flow.md) for the full pipeline architecture.
+Pipeline stages (VAD, transcription, facial tracking, etc.) are triggered from the web app when a video is uploaded. See [PIPELINE.md](../workers/ml-pipeline/PIPELINE.md) for per-stage details and [system-flow.md](system-flow.md) for the end-to-end flow.
 
 ### Modal Environment
 
-Modal functions need their own secrets configured in the Modal dashboard:
+Modal functions read named secrets configured in the Modal dashboard (see `modal_app.py`):
 
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` — S3 access
-- `S3_BUCKET` — same bucket as the web app
-- `HF_TOKEN` — HuggingFace (for pyannote diarization)
-- `ANTHROPIC_API_KEY` — Claude API (for intent classification)
+- `aws-credentials`: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `S3_BUCKET` (same bucket as the web app)
+- `huggingface`: `HF_TOKEN` (pyannote diarization; also attached to transcription)
+- `anthropic`: `ANTHROPIC_API_KEY` (intent classification)
 
 ## Project Structure
 
@@ -152,7 +152,7 @@ annotation/
 └── spike/               Phase 0 prototype (archived)
 ```
 
-See [01-system-overview.md](01-system-overview.md) for full architecture details.
+See the Architecture section of [CLAUDE.md](../CLAUDE.md) and [system-flow.md](system-flow.md) for full architecture details.
 
 ## Common Tasks
 
@@ -180,6 +180,7 @@ See [01-system-overview.md](01-system-overview.md) for full architecture details
 
 ## Next Steps
 
-- [01-system-overview.md](01-system-overview.md) — Architecture and design decisions
-- [02-algorithm-reference.md](02-algorithm-reference.md) — ML algorithm specs per pipeline stage
-- [03-data-flow.md](03-data-flow.md) — Data flow through upload, processing, and annotation
+- [system-flow.md](system-flow.md) — Roles, stage DAG, human gates, data streams
+- [PIPELINE.md](../workers/ml-pipeline/PIPELINE.md) — Per-stage Modal pipeline reference
+- [02a-algorithm-reference-vad-transcription-face.md](02a-algorithm-reference-vad-transcription-face.md) — ML algorithm specs per stage (4 parts; Phase 0 implementation details)
+- [cloud-infrastructure.md](cloud-infrastructure.md) — Supabase, S3, Modal, and cost notes

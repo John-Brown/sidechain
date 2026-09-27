@@ -7,6 +7,8 @@ paths:
 
 # AI-First Architecture
 
+> **Status (verified 2026-09-24): target design, mostly unbuilt.** Only the types exist: `AnnotationTarget`, `AnnotationCommand`, and `CommandResult` in `packages/shared/src/command-types.ts`, and nothing imports them yet. `resolveTarget()`, `executeCommand()`, `CommandExecutor`, and `annotations.execute` do **not** exist. Today, UI handlers call `editing/operations.ts` directly, and persistence goes through `annotations.save` / `get` / `listVersions` / `revert`. Treat this doc as the direction to build toward, and don't assume these APIs exist.
+
 This platform is designed for LLM agents as first-class users alongside humans. Every feature that mutates state must be accessible through a structured command interface — not just through UI event handlers.
 
 ## Core Principle: Command Layer

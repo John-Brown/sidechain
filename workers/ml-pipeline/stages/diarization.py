@@ -1,4 +1,4 @@
-"""Speaker diarization stage using pyannote.audio 3.1."""
+"""Speaker diarization stage using pyannote.audio (pyannote/speaker-diarization-3.1 pipeline)."""
 
 from __future__ import annotations
 

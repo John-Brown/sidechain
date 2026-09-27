@@ -1,5 +1,7 @@
 # TypeScript Cloud Port: Viability & Cost Analysis
 
+> **Archived 2026-09-24: describes the Phase 0 spike** and a pre-migration proposal for porting it to the cloud; its recommendations (TypeScript web app + Python ML on Modal, MediaPipe in place of FaceKitRunner) have since shipped. For the current system see [cloud-infrastructure.md](../../../reference/cloud-infrastructure.md).
+
 > **Date:** February 2026
 > **Status:** Research / Proposal
 > **Constraint:** All dependencies must be publicly available open-source or commercial services.

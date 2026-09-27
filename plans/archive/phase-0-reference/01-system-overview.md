@@ -1,5 +1,7 @@
 # Sidechain System Overview
 
+> **Archived 2026-09-24: describes the Phase 0 spike** (`src/processing/`, Swift app, FaceKitRunner). For the current system see [getting-started.md](../../../reference/getting-started.md), [system-flow.md](../../../reference/system-flow.md) and [PIPELINE.md](../../../workers/ml-pipeline/PIPELINE.md).
+
 ## What is Sidechain?
 
 Sidechain is a social interaction annotation system that automatically analyzes video recordings to classify human behavior, communication patterns, and expressive intents. The system combines computer vision, audio processing, and AI-powered natural language understanding to generate detailed annotations of conversations.
@@ -268,15 +270,14 @@ Sidechain/
 
 ## Getting Started
 
-See the main [README.md](../../README.md) for installation and setup instructions.
+See [getting-started.md](../../../reference/getting-started.md) for installation and setup instructions.
 
 For detailed algorithm information, see:
-- [Algorithm Reference](02-algorithm-reference.md)
+- [Algorithm Reference](../../../reference/02a-algorithm-reference-vad-transcription-face.md)
 - [Data Flow and Integration](03-data-flow.md)
 - [Quick Start Guide](04-quick-start.md)
 
 For project philosophy and design decisions:
-- [Project Insights](../PROJECT_INSIGHTS.md)
 
 ## License and Models
 

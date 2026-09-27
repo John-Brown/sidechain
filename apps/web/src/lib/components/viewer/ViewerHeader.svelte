@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getTimelineState, getSessionState, getEditorState } from './context.js';
+  import { getTimelineState, getSessionState, getEditorState, getAnnotationDataState } from './context.js';
   import { formatTimePrecise } from './utils/format-time.js';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import SaveIndicator from './components/SaveIndicator.svelte';
@@ -24,6 +24,9 @@
   const timeline = getTimelineState();
   const session = getSessionState();
   const editor = getEditorState();
+  const annotations = getAnnotationDataState();
+
+  const hasMeshTopology = $derived(!!annotations.facialTracking?.metadata?.mesh_topology);
 
   const taskTypeLabels: Record<string, string> = {
     tag_session_bounds: 'Session Bounds',
@@ -153,6 +156,45 @@
   >
     Normalize
   </button>
+
+  {#if hasMeshTopology}
+    <button
+      onclick={() => session.meshOverlayVisible = !session.meshOverlayVisible}
+      class="px-2 py-1 rounded text-viewer-sm transition-colors {session.meshOverlayVisible ? 'bg-purple-500/20 text-purple-400' : 'text-viewer-text-dim hover:text-viewer-text'}"
+      title="Face mesh overlay (F)"
+    >
+      <svg class="w-3.5 h-3.5 mr-1 inline-block align-[-2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="10" r="7" />
+        <path d="M5 10 Q12 16 19 10" />
+        <path d="M5 10 Q12 4 19 10" />
+        <line x1="12" y1="3" x2="12" y2="17" />
+      </svg>
+      Mesh
+    </button>
+    {#if session.meshOverlayVisible}
+      <input
+        type="range"
+        min="0.1"
+        max="1"
+        step="0.05"
+        value={session.meshOverlayOpacity}
+        oninput={(e) => session.meshOverlayOpacity = parseFloat((e.target as HTMLInputElement).value)}
+        class="w-16 h-1 accent-purple-500"
+        title="Mesh opacity ({Math.round(session.meshOverlayOpacity * 100)}%)"
+      />
+      <button
+        onclick={() => session.meshVideoHidden = !session.meshVideoHidden}
+        class="px-1.5 py-1 rounded text-viewer-sm transition-colors {session.meshVideoHidden ? 'bg-purple-500/20 text-purple-400' : 'text-viewer-text-dim hover:text-viewer-text'}"
+        title="Hide video (V)"
+      >
+        {#if session.meshVideoHidden}
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        {:else}
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        {/if}
+      </button>
+    {/if}
+  {/if}
 
   <div class="w-px h-6 bg-viewer-border"></div>
 

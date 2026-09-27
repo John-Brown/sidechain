@@ -1,5 +1,7 @@
 # Quick Start Guide
 
+> **Archived 2026-09-24: describes the Phase 0 spike** (`src/processing/`, Swift app, FaceKitRunner). For the current system see [getting-started.md](../../../reference/getting-started.md), [system-flow.md](../../../reference/system-flow.md) and [PIPELINE.md](../../../workers/ml-pipeline/PIPELINE.md).
+
 This guide helps you get started with the Sidechain processing pipeline and visualization app.
 
 ## Table of Contents
@@ -496,11 +498,10 @@ python3 src/analyst_report/cli.py \
 ### Learn More
 
 - [System Overview](01-system-overview.md) - Understand the architecture
-- [Algorithm Reference](02-algorithm-reference.md) - Deep dive into each algorithm
+- [Algorithm Reference](../../../reference/02a-algorithm-reference-vad-transcription-face.md) - Deep dive into each algorithm
 - [Data Flow and Integration](03-data-flow.md) - Learn about data formats and integration
-- [Project Insights](../PROJECT_INSIGHTS.md) - Design philosophy and collaboration model
 
 ### Get Help
 
-- Check the main [README.md](../../README.md) for additional documentation
+- See [getting-started.md](../../../reference/getting-started.md) for current monorepo setup
 - Check tests for usage patterns: `tests/`
